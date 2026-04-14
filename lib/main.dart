@@ -1,109 +1,78 @@
-import 'package:cosmodrome/helpers/subsonic-api-helper/api/basic.dart';
-import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/pages/login_page.dart';
+import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:forui/forui.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
-void main() {
+final subsonicProvider = SubsonicProvider();
+
+void main() async {
+  usePathUrlStrategy();
+  GoRouter.optionURLReflectsImperativeAPIs = true;
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await subsonicProvider.tryRestoreSession();
+
+  router = _buildRouter(
+    subsonicProvider.isAuthenticated ? '/home' : '/',
+  );
+
   runApp(const Application());
 }
+late final GoRouter router;
+
+// go router
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+GoRouter _buildRouter(String initialLocation) => GoRouter(
+  navigatorKey: _rootNavigatorKey,
+  initialLocation: initialLocation,
+  routes: [
+    GoRoute(
+      path: '/',
+      pageBuilder: (context, state) =>
+          const NoTransitionPage(child: LoginPage()),
+    ),
+  ],
+);
+
 
 class Application extends StatelessWidget {
   const Application({super.key});
 
   @override
   Widget build(BuildContext context) {
-    /// Try changing this and hot reloading the application.
-    ///
-    /// To create a custom theme:
-    /// ```shell
-    /// dart forui theme create [theme template].
-    /// ```
     final theme =
         const <TargetPlatform>{
-          .android,
-          .iOS,
-          .fuchsia,
+          TargetPlatform.android,
+          TargetPlatform.iOS,
+          TargetPlatform.fuchsia,
         }.contains(defaultTargetPlatform)
         ? FThemes.neutral.dark.touch
         : FThemes.neutral.dark.desktop;
 
-    return MaterialApp(
-      supportedLocales: FLocalizations.supportedLocales,
-      localizationsDelegates: const [...FLocalizations.localizationsDelegates],
-      debugShowCheckedModeBanner: false,
-
-      theme: theme.toApproximateMaterialTheme(),
-      builder: (_, child) => FTheme(
-        data: theme,
-        child: FToaster(child: FTooltipGroup(child: child!)),
-      ),
-      home: const FScaffold(
-        // TODO: replace with your widget.
-        child: Example(),
+    return ChangeNotifierProvider.value(
+      value: subsonicProvider,
+      child: MaterialApp.router(
+        supportedLocales: FLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          ...FLocalizations.localizationsDelegates,
+        ],
+        debugShowCheckedModeBanner: false,
+        theme: theme.toApproximateMaterialTheme(),
+        routerConfig: router,
+        builder: (_, child) => FTheme(
+          data: theme,
+          child: Material(
+            child: FToaster(
+              child: FTooltipGroup(child: child ?? const SizedBox.shrink()),
+            ),
+          ),
+        ),
       ),
     );
   }
-}
-
-class Example extends StatefulWidget {
-  const Example({super.key});
-
-  @override
-  State<Example> createState() => _ExampleState();
-}
-
-class _ExampleState extends State<Example> {
-  String error = '';
-
-  TextEditingController usernameController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: .min,
-      spacing: 10,
-      children: [
-        if (error.isNotEmpty)
-          Text(error, style: TextStyle(color: context.theme.colors.error)),
-        Text('test login'),
-        FTextField(
-          label: Text('username'),
-          obscuringCharacter: '*',
-          control: .managed(controller: usernameController),
-        ),
-        FTextField(
-          label: Text('password'),
-          obscuringCharacter: '*',
-          control: .managed(controller: passwordController),
-        ),
-
-        FButton(onPress: () => login(), child: Text('login')),
-      ],
-    ),
-  );
-
-  void login() async {
-    setState(() => error = '');
-
-    // use subsonic to login
-
-    Subsonic sub = Subsonic(
-      baseUrl: "http://localhost:4533",
-      username: usernameController.value.text,
-      password: passwordController.value.text,
-    );
-
-    final success = await sub.ping();
-
-    if (success.success) {
-      setState(() => error = 'login successful');
-    } else {
-      loggerPrint('login failed');
-      setState(() => error = success.errorMessage ?? 'unknown error');
-    }
-  }
-
 }

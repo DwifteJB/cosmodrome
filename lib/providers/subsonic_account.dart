@@ -1,0 +1,41 @@
+import 'package:cosmodrome/helpers/subsonic-api-helper/api/user.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
+
+class SubsonicAccount {
+  // id is username@baseUrl
+  final String id;
+  final String baseUrl;
+  final String username;
+
+  // Kept in memory and storage to allow recreating the Subsonic instance.
+  final String _password;
+
+  final SubsonicUser user;
+  late final Subsonic subsonic;
+
+  SubsonicAccount({
+    required this.baseUrl,
+    required this.username,
+    required String password,
+    required this.user,
+  })  : id = '$username@$baseUrl',
+        _password = password {
+    subsonic = Subsonic(baseUrl: baseUrl, username: username, password: password);
+  }
+
+  Map<String, dynamic> toJson() => {
+        'baseUrl': baseUrl,
+        'username': username,
+        'password': _password,
+        'user': user.toJson(),
+      };
+
+  factory SubsonicAccount.fromJson(Map<String, dynamic> json) {
+    return SubsonicAccount(
+      baseUrl: json['baseUrl'] as String,
+      username: json['username'] as String,
+      password: json['password'] as String,
+      user: SubsonicUser.fromJson(json['user'] as Map<String, dynamic>),
+    );
+  }
+}
