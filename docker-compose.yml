@@ -1,0 +1,10 @@
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    user: 1000:1000 # should be owner of volumes
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+    volumes:
+      - "./docker-data/data:/data"
+      - "./docker-data/music:/music:ro"
