@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  forui: ^0.21.1
+  crypto: ^3.0.7
+  http: ^1.2.0
+
 
 dev_dependencies:
   flutter_test:
