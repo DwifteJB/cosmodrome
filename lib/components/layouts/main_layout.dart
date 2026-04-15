@@ -2,8 +2,11 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:cosmodrome/components/desktop_profile_popover.dart';
 import 'package:cosmodrome/components/desktop_titlebar.dart';
+import 'package:cosmodrome/components/profile_sheet.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/theme/sidebar_item_style.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/foundation.dart';
@@ -68,6 +71,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   Widget _buildDesktopLayout(BuildContext context) {
     final colors = context.theme.colors;
 
+    print("using desktop layout");
+
     return Scaffold(
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -76,7 +81,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             width: AppLayout.sidebarWidth,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: AppColors.sidebar,
+                color: Color(0xFF151517),
                 border: Border(
                   right: BorderSide(color: colors.border, width: 1),
                 ),
@@ -84,8 +89,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               child: FSidebar(
                 style: .delta(
                   contentPadding: .add(
-                    const EdgeInsets.symmetric(horizontal: 8),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   ),
+                  footerPadding: .add(
+                    const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  decoration: .boxDelta(color: AppColors.sidebar)
                 ),
                 header: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,13 +133,24 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                     const Divider(),
                   ],
                 ),
+                footer: const DesktopProfilePopover(),
                 children: _navItems
                     .map(
-                      (item) => FSidebarItem(
+                      (item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 1),
+                        child: FSidebarItem(
                         label: Text(item.label),
                         icon: Icon(item.icon, size: 20),
                         selected: _isSelected(item),
                         onPress: () => _navigateTo(item.route),
+                        style: desktopSidebarItem(
+                          colors: colors,
+                          typography: context.theme.typography,
+                          style: context.theme.style,
+                          touch: false,
+                        ),
+                        
+                        ),
                       ),
                     )
                     .toList(),
@@ -297,6 +317,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     final colors = context.theme.colors;
     final topPadding = MediaQuery.of(context).padding.top;
 
+    final subsonic = context.read<SubsonicProvider>();
+
+    String username = subsonic.activeAccount?.username[0] ?? 'meowmeowmeow';
+
+    String TestColor = username.toUpperCase();
+    // hex it to a color
+    final color = Color(
+      (TestColor.codeUnitAt(0) * 0xFFFFFF ~/ 26) | 0xFF000000,
+    );
+
     return Container(
       height: 56 + topPadding,
       padding: EdgeInsets.only(top: topPadding, left: 20, right: 16),
@@ -319,12 +349,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             ),
             const Spacer(),
             GestureDetector(
-              onTap: () {
-                /* TODO: account switcher */
-              },
+              onTap: () => showFSheet(
+                context: context,
+                side: FLayout.btt,
+                mainAxisMaxRatio: null,
+                useSafeArea: true,
+                builder: (_) => const ProfileSheet(),
+              ),
               child: CircleAvatar(
                 radius: 20,
-                backgroundColor: colors.primary,
+                backgroundColor: color,
                 child: Text(
                   (() {
                     final username =

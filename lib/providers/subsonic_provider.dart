@@ -99,13 +99,13 @@ class SubsonicProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> addKnownServer(String baseUrl) async {
+  Future<bool> addKnownServer(String baseUrl, {String? name}) async {
     if (knownServers.any((s) => s.baseUrl == baseUrl)) {
       loggerPrint('SubsonicProvider: server $baseUrl already known');
       return true; // already known, consider it a success
     }
 
-    final server = SubsonicServer(baseUrl: baseUrl, name: baseUrl);
+    final server = SubsonicServer(baseUrl: baseUrl, name: name ?? baseUrl);
     final success = await server.tryConnect();
     if (success) {
       knownServers.add(server);
@@ -273,9 +273,39 @@ class SubsonicServer {
     // ping should fail with a catch of (e), but should expel starting with:
     // Subsonic API error
 
+    print(
+      "trying to connect to $baseUrl with dummy credentials to test connectivity",
+    );
+
     try {
-      await sub.ping();
-      canConnect = true;
+      print("pinging $baseUrl...");
+      final res = await sub.ping();
+
+      print(
+        "ping response from $baseUrl: success=${res.success}, error=${res.errorMessage}",
+      );
+
+      if (res.success) {
+        loggerPrint(
+          'SubsonicServer: unexpected successful ping to $baseUrl with dummy credentials',
+        );
+      }
+
+      if (res.errorMessage != null &&
+          res.errorMessage!.contains('Subsonic API error')) {
+        loggerPrint(
+          'SubsonicServer: received expected API error from $baseUrl, server is reachable',
+        );
+        canConnect = true;
+        return true; // server is reachable and responded with an API error, which is expected
+      } else if (res.errorMessage != null) {
+        loggerPrint(
+          'SubsonicServer: received unexpected error from $baseUrl — ${res.errorMessage}',
+        );
+        canConnect = false;
+        return false; // server is reachable but responded with an unexpected error
+      }
+      
       return true; // ping succeeded, server is reachable (but we don't expect this since credentials are wrong)
     } catch (e) {
       final error = e.toString();

@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:cosmodrome/components/layouts/main_layout.dart';
+import 'package:cosmodrome/pages/add_server_page.dart';
+import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/login_page.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
@@ -81,6 +83,18 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       pageBuilder: (context, state) =>
           const NoTransitionPage(child: LoginPage()),
     ),
+
+    GoRoute(
+      path: '/addserver',
+      pageBuilder: (context, state) =>
+          const NoTransitionPage(child: AddServerPage()),
+    ),
+
+    GoRoute(
+      path: '/adduser',
+      pageBuilder: (context, state) =>
+          const NoTransitionPage(child: AddUserPage()),
+    ),
   ],
 );
 
@@ -110,18 +124,19 @@ class Application extends StatelessWidget {
           ...FLocalizations.localizationsDelegates,
         ],
         debugShowCheckedModeBanner: false,
-        theme: theme.toApproximateMaterialTheme().copyWith(
-          pageTransitionsTheme: PageTransitionsTheme(
-            builders: {
-              // disable page transitions for ALL..
-              TargetPlatform.android: SadPageTransition(),
-              TargetPlatform.iOS: SadPageTransition(),
-              TargetPlatform.linux: SadPageTransition(),
-              TargetPlatform.macOS: SadPageTransition(),
-              TargetPlatform.windows: SadPageTransition(),
-            },
-          ),
-        ),
+        theme: theme.toApproximateMaterialTheme(),
+        // theme: theme.toApproximateMaterialTheme().copyWith(
+        //   pageTransitionsTheme: PageTransitionsTheme(
+        //     builders: {
+        //       // disable page transitions for ALL..
+        //       TargetPlatform.android: SadPageTransition(),
+        //       TargetPlatform.iOS: SadPageTransition(),
+        //       TargetPlatform.linux: SadPageTransition(),
+        //       TargetPlatform.macOS: SadPageTransition(),
+        //       TargetPlatform.windows: SadPageTransition(),
+        //     },
+        //   ),
+        // ),
         routerConfig: router,
         builder: (_, child) => SafeArea(
           bottom: false,

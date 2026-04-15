@@ -1,13 +1,5 @@
 import 'package:flutter/widgets.dart';
 
-double generateCardWidth(int axisCount, double spacing, double maxWidth) {
-  if (axisCount == 1) {
-    return maxWidth;
-  }
-
-  return (maxWidth - (spacing * (axisCount - 1))) / axisCount;
-}
-
 int generateAxisCount(
   BoxConstraints constraints,
   int maxCardsPerLine,
@@ -35,6 +27,14 @@ int generateAxisCount(
   }
 
   return 1;
+}
+
+double generateCardWidth(int axisCount, double spacing, double maxWidth) {
+  if (axisCount == 1) {
+    return maxWidth;
+  }
+
+  return (maxWidth - (spacing * (axisCount - 1))) / axisCount;
 }
 
 class GridBasedLayoutBuilder extends StatelessWidget {

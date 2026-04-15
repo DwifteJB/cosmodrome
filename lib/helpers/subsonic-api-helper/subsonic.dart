@@ -36,7 +36,10 @@ class Subsonic {
     };
 
     final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
+    loggerPrint('Making API request to $uri');
     final response = await http.get(uri);
+
+    loggerPrint("made request!");
 
     if (response.statusCode != 200) {
       loggerPrint(
