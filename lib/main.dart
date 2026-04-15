@@ -40,7 +40,7 @@ void main() async {
 
   await subsonicProvider.tryRestoreSession();
 
-  router = _buildRouter(subsonicProvider.isAuthenticated ? '/home' : '/');
+  router = _buildRouter('/home');
 
   runApp(const Application());
 }
@@ -58,13 +58,14 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 GoRouter _buildRouter(String initialLocation) => GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: initialLocation,
+  onException: (context, state, router) => router.go('/home'),
   routes: [
     // layout routes
     ShellRoute(
       routes: [
         // /
         GoRoute(
-          path: '/',
+          path: '/home',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: HomePage()),
         ),
