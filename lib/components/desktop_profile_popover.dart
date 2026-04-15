@@ -39,6 +39,7 @@ class _DesktopAccountPopoverContentState
   bool _serversExpanded = false;
   final Set<String> _hoveredItems = {};
 
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SubsonicProvider>();
@@ -96,6 +97,7 @@ class _DesktopAccountPopoverContentState
                   : _buildNoAccountPill(context, colors),
             ),
             // all profiles
+            Container(height: 1, color: colors.border),
             _buildSectionHeader(
               context,
               'Profiles',
@@ -119,7 +121,7 @@ class _DesktopAccountPopoverContentState
                         ),
                         _buildAddButton(
                           context,
-                          '+ Add Account',
+                          'Add Account',
                           widget.onAddAccount,
                         ),
                       ],
@@ -128,6 +130,7 @@ class _DesktopAccountPopoverContentState
             ),
             const SizedBox(height: 8),
             // Servers section
+            Container(height: 1, color: colors.border),
             _buildSectionHeader(
               context,
               'Servers',
@@ -146,7 +149,7 @@ class _DesktopAccountPopoverContentState
                         ),
                         _buildAddButton(
                           context,
-                          '+ Add Server',
+                          'Add Server',
                           widget.onAddServer,
                         ),
                       ],
@@ -171,11 +174,7 @@ class _DesktopAccountPopoverContentState
     SubsonicAccount account,
     dynamic colors,
   ) {
-    String TestColor = account.username[0].toUpperCase();
-    // hex it to a color
-    final color = Color(
-      (TestColor.codeUnitAt(0) * 0xFFFFFF ~/ 26) | 0xFF000000,
-    );
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -187,14 +186,9 @@ class _DesktopAccountPopoverContentState
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: color,
-            child: Text(
-              account.username[0].toUpperCase(),
-              style: context.theme.typography.sm.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            backgroundImage: account.avatar.isNotEmpty
+                ? MemoryImage(account.avatar)
+                : Image.asset("/assets/logo.png").image,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -223,7 +217,6 @@ class _DesktopAccountPopoverContentState
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: Colors.green.withOpacity(0.15),
               borderRadius: BorderRadius.circular(20),
@@ -239,14 +232,7 @@ class _DesktopAccountPopoverContentState
                     color: Colors.green,
                   ),
                 ),
-                const SizedBox(width: 5),
-                Text(
-                  'Active',
-                  style: context.theme.typography.xs.copyWith(
-                    color: Colors.green,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+              
               ],
             ),
           ),
@@ -260,15 +246,18 @@ class _DesktopAccountPopoverContentState
     String label,
     VoidCallback onTap,
   ) {
-    final colors = context.theme.colors;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Text(
-          label,
-          style: context.theme.typography.sm.copyWith(color: colors.primary),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: FButton(
+        variant: FButtonVariant.outline,
+        onPress: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(FIcons.plus, size: 14),
+            const SizedBox(width: 6),
+            Text(label),
+          ],
         ),
       ),
     );
@@ -579,12 +568,7 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
     SubsonicAccount? activeAccount,
     dynamic colors,
   ) {
-    String Username = activeAccount?.username[0] != null
-        ? activeAccount!.username[0].toUpperCase()
-        : 'Meowmeowmeow';
-    // hex it to a color
-    final color = Color((Username.codeUnitAt(0) * 0xFFFFFF ~/ 26) | 0xFF000000);
-
+   
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: colors.border)),
@@ -595,14 +579,9 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
           ...[
             CircleAvatar(
               radius: 16,
-              backgroundColor: color,
-              child: Text(
-                Username,
-                style: context.theme.typography.xs.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              backgroundImage: activeAccount?.avatar.isNotEmpty == true
+                  ? MemoryImage(activeAccount!.avatar)
+                  : Image.asset("/assets/logo.png").image,
             ),
             const SizedBox(width: 10),
             Expanded(

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/subsonic-user.dart';
 
@@ -6,6 +8,9 @@ class SubsonicAccount {
   final String id;
   final String baseUrl;
   final String username;
+  Uint8List avatar = Uint8List(
+    0,
+  ); // fetched separately and cached in memory, not stored in json
 
   // Kept in memory and storage to allow recreating the Subsonic instance.
   final String _password;

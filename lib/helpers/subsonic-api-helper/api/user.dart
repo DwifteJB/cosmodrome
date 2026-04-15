@@ -3,6 +3,9 @@
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/subsonic-user.dart';
 import 'package:cosmodrome/utils/logger.dart';
+import 'package:flutter/foundation.dart';
+
+final Map<String, Uint8List> _avatarCache = {};
 
 final Expando<SubsonicUser> _currentUserCache = Expando<SubsonicUser>();
 
@@ -13,6 +16,26 @@ void _setCurrentUser(Subsonic subsonic, SubsonicUser user) {
 }
 
 extension SubsonicUserApi on Subsonic {
+  // https://www.subsonic.org/pages/api.jsp#getAvatar
+  Future<Uint8List> getAvatar({String username = ''}) async {
+    final grabUser = username.isEmpty ? auth.username : username;
+    if (_avatarCache.containsKey(grabUser)) {
+      loggerPrint('getAvatar: returning cached avatar for $grabUser');
+      return _avatarCache[grabUser]!;
+    }
+    try {
+      final res = await bytesApiRequest(
+        'getAvatar',
+        params: {'username': grabUser},
+      );
+
+      return res;
+    } catch (e) {
+      loggerPrint('getAvatar failed: $e');
+      rethrow;
+    }
+  }
+  
   // https://www.subsonic.org/pages/api.jsp#getUser
   Future<SubsonicUser> getUser({
     String username = '',

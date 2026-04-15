@@ -7,6 +7,7 @@ import 'package:cosmodrome/components/desktop_titlebar.dart';
 import 'package:cosmodrome/components/profile_sheet.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/theme/sidebar_item_style.dart';
+import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/foundation.dart';
@@ -39,6 +40,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   late AnimationController aniu;
 
+  bool get _hideTopBar =>
+      widget.selectedRoute != null &&
+      widget.selectedRoute!.startsWith('/library/album');
+
+
   bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
@@ -59,6 +65,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   @override
+  void didUpdateWidget(MainLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedRoute != widget.selectedRoute) {
+      _scrollController.jumpTo(0);
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     aniu = AnimationController(
@@ -74,6 +88,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     print("using desktop layout");
 
     return Scaffold(
+      backgroundColor: colors.background,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -190,7 +205,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildNavButton(context, _navItems[0]),
+                _buildNavButton(context, _navItems[0], showLabel: false),
                 AnimatedSize(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
@@ -202,8 +217,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _buildNavButton(context, _navItems[1]),
-                              _buildNavButton(context, _navItems[2]),
+                              _buildNavButton(context, _navItems[1], showLabel: false),
+                              _buildNavButton(context, _navItems[2], showLabel: false),
                             ],
                           ),
                   ),
@@ -222,20 +237,58 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     final topPadding = MediaQuery.of(context).padding.top;
     const navHeight = 80.0;
     return Scaffold(
+      backgroundColor: colors.background,
       body: Stack(
         children: [
+          // accent gradient for album/playlist pages — fades in once color is ready
+          if (_hideTopBar)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: topPadding + MediaQuery.of(context).size.height * 0.38,
+              child: IgnorePointer(
+                child: ValueListenableBuilder<Color?>(
+                  valueListenable: accentColorNotifier,
+                  builder: (context, accentColor, _) {
+                    return AnimatedOpacity(
+                      opacity: accentColor != null ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 700),
+                      curve: Curves.easeIn,
+                      child: accentColor == null
+                          ? const SizedBox.expand()
+                          : Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    accentColor.withValues(alpha: 0.55),
+                                    accentColor.withValues(alpha: 0.30),
+                                    colors.background.withValues(alpha: 0.0),
+                                  ],
+                                  stops: const [0.0, 0.15, 1.0],
+                                ),
+                              ),
+                            ),
+                    );
+                  },
+                ),
+              ),
+            ),
           // actual content
           Positioned.fill(
             child: SingleChildScrollView(
               controller: _scrollController,
+              
               child: Column(
                 children: [
-                  SizedBox(height: topPadding + 80),
+                  SizedBox(height: _hideTopBar ? topPadding : topPadding + 80),
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight:
                           MediaQuery.of(context).size.height -
-                          (topPadding + 80) -
+                          (_hideTopBar ? topPadding : topPadding + 80) -
                           (navHeight + bottomPadding),
                     ),
                     child: widget.child,
@@ -291,13 +344,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             ),
           ),
           // top bar
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 56 + topPadding,
-            child: _buildMobileTopBar(context),
-          ),
+          if (!_hideTopBar)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 56 + topPadding,
+              child: _buildMobileTopBar(context),
+            ),
           // floating dual-pill nav
           Positioned(
             bottom: bottomPadding + 18,
@@ -319,13 +373,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
     final subsonic = context.read<SubsonicProvider>();
 
-    String username = subsonic.activeAccount?.username[0] ?? 'meowmeowmeow';
-
-    String TestColor = username.toUpperCase();
-    // hex it to a color
-    final color = Color(
-      (TestColor.codeUnitAt(0) * 0xFFFFFF ~/ 26) | 0xFF000000,
-    );
 
     return Container(
       height: 56 + topPadding,
@@ -358,24 +405,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               ),
               child: CircleAvatar(
                 radius: 20,
-                backgroundColor: color,
-                child: Text(
-                  (() {
-                    final username =
-                        context
-                            .watch<SubsonicProvider>()
-                            .activeAccount
-                            ?.username ??
-                        '';
-                    return username.isNotEmpty
-                        ? username[0].toUpperCase()
-                        : '?';
-                  })(),
-                  style: context.theme.typography.sm.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                backgroundImage:
+                    subsonic.activeAccount?.avatar.isNotEmpty == true
+                    ? MemoryImage(subsonic.activeAccount!.avatar)
+                    : Image.asset("/assets/logo.png").image,
               ),
             ),
           ],

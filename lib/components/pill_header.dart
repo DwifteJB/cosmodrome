@@ -46,7 +46,7 @@ class PillHeader extends StatelessWidget {
                       padding: const EdgeInsets.all(10),
                       color: colors.background.withOpacity(0.8),
                       child: Icon(
-                        FIcons.arrowLeft,
+                        FIcons.chevronLeft,
                         size: 20,
                         color: colors.foreground,
                       ),

@@ -1,23 +1,4 @@
-/*
-indexses
-<subsonic-response status="ok" version="1.10.1">
-<indexes lastModified="237462836472342" ignoredArticles="The El La Los Las Le Les">
-<shortcut id="11" name="Audio books"/>
-<shortcut id="10" name="Podcasts"/>
-<index name="A">
-<artist id="1" name="ABBA"/>
-<artist id="2" name="Alanis Morisette"/>
-<artist id="3" name="Alphaville" starred="2013-11-02T12:30:00"/>
-</index>
-<index name="B">
-<artist name="Bob Dylan" id="4"/>
-</index>
-<child id="111" parent="11" title="Dancing Queen" isDir="false" album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="24" size="8421341" contentType="audio/mpeg" suffix="mp3" duration="146" bitRate="128" path="ABBA/Arrival/Dancing Queen.mp3"/>
-<child id="112" parent="11" title="Money, Money, Money" isDir="false" album="Arrival" artist="ABBA" track="7" year="1978" genre="Pop" coverArt="25" size="4910028" contentType="audio/flac" suffix="flac" transcodedContentType="audio/mpeg" transcodedSuffix="mp3" duration="208" bitRate="128" path="ABBA/Arrival/Money, Money, Money.mp3"/>
-</indexes>
-</subsonic-response
-*/
-
+// TYPES FOR BROWSING-RELATED SUBSONIC API RESPONSES
 class Index {
   String name;
   List<IndexArtist> artists;
@@ -54,6 +35,7 @@ class IndexArtist {
   }
 }
 
+
 class IndexesResponse {
   List<Index> indexes;
   List<MusicFolder> musicFolders;
@@ -80,23 +62,138 @@ class IndexesResponse {
 }
 
 class MusicFolder {
-  String id;
+  int id;
   String name;
 
   MusicFolder({required this.id, required this.name});
 
   factory MusicFolder.fromJson(Map<String, dynamic> json) {
-    return MusicFolder(id: json['id'] as String, name: json['name'] as String);
+    return MusicFolder(id: json['id'] as int, name: json['name'] as String);
   }
 }
 
 class Shortcut {
-  String id;
+  int id;
   String name;
 
   Shortcut({required this.id, required this.name});
 
   factory Shortcut.fromJson(Map<String, dynamic> json) {
-    return Shortcut(id: json['id'] as String, name: json['name'] as String);
+    return Shortcut(id: json['id'] as int, name: json['name'] as String);
+  }
+}
+
+class Album {
+  final String id;
+  final String name;
+  final String artist;
+  final String? artistId;
+  final String? coverArt;
+  final int songCount;
+  final int duration;
+  final int? year;
+  final String? genre;
+  final DateTime? starred;
+
+  Album({
+    required this.id,
+    required this.name,
+    required this.artist,
+    this.artistId,
+    this.coverArt,
+    required this.songCount,
+    required this.duration,
+    this.year,
+    this.genre,
+    this.starred,
+  });
+
+  factory Album.fromJson(Map<String, dynamic> json) {
+    return Album(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      artist: json['artist'] as String? ?? '',
+      artistId: json['artistId'] as String?,
+      coverArt: json['coverArt'] as String?,
+      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      year: (json['year'] as num?)?.toInt(),
+      genre: json['genre'] as String?,
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
+    );
+  }
+}
+
+class Song {
+  final String id;
+  final String title;
+  final String? artist;
+  final String? album;
+  final int? track;
+  final int? duration;
+  final String? coverArt;
+
+  Song({
+    required this.id,
+    required this.title,
+    this.artist,
+    this.album,
+    this.track,
+    this.duration,
+    this.coverArt,
+  });
+
+  factory Song.fromJson(Map<String, dynamic> json) {
+    return Song(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      artist: json['artist'] as String?,
+      album: json['album'] as String?,
+      track: (json['track'] as num?)?.toInt(),
+      duration: (json['duration'] as num?)?.toInt(),
+      coverArt: json['coverArt'] as String?,
+    );
+  }
+}
+
+class AlbumDetail extends Album {
+  final List<Song> songs;
+
+  AlbumDetail({
+    required super.id,
+    required super.name,
+    required super.artist,
+    super.artistId,
+    super.coverArt,
+    required super.songCount,
+    required super.duration,
+    super.year,
+    super.genre,
+    super.starred,
+    required this.songs,
+  });
+
+  factory AlbumDetail.fromJson(Map<String, dynamic> json) {
+    final songsJson = json['song'] as List<dynamic>? ?? [];
+    final songs = songsJson
+        .map((s) => Song.fromJson(s as Map<String, dynamic>))
+        .toList();
+    return AlbumDetail(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      artist: json['artist'] as String? ?? '',
+      artistId: json['artistId'] as String?,
+      coverArt: json['coverArt'] as String?,
+      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      year: (json['year'] as num?)?.toInt(),
+      genre: json['genre'] as String?,
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
+      songs: songs,
+    );
   }
 }

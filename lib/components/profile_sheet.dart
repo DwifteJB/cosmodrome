@@ -89,6 +89,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
             child: ListView(
               padding: const EdgeInsets.only(bottom: 32),
               children: [
+                  Container(height: 1, color: context.theme.colors.border),
                 _buildSectionHeader(
                   context,
                   'Profiles',
@@ -112,7 +113,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
                                 provider,
                               ),
                             ),
-                            _buildAddButton(context, '+ Add Account', () {
+                              _buildAddButton(context, 'Add Account', () {
                               Navigator.pop(context);
                               context.push('/adduser');
                             }),
@@ -121,6 +122,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
                       : const SizedBox.shrink(),
                 ),
                 const SizedBox(height: 8),
+                  Container(height: 1, color: context.theme.colors.border),
                 _buildSectionHeader(
                   context,
                   'Servers',
@@ -137,7 +139,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
                             ...provider.knownServers.map(
                               (server) => _buildServerRow(context, server),
                             ),
-                            _buildAddButton(context, '+ Add Server', () {
+                              _buildAddButton(context, 'Add Server', () {
                               Navigator.pop(context);
                               context.push('/addserver');
                             }),
@@ -164,11 +166,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
     SubsonicAccount account,
     dynamic colors,
   ) {
-    String TestColor = account.username[0].toUpperCase();
-    // hex it to a color
-    final color = Color(
-      (TestColor.codeUnitAt(0) * 0xFFFFFF ~/ 26) | 0xFF000000,
-    );
+   
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -180,14 +178,9 @@ class _ProfileSheetState extends State<ProfileSheet> {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: color,
-            child: Text(
-              account.username[0].toUpperCase(),
-              style: context.theme.typography.sm.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            backgroundImage: account.avatar.isNotEmpty
+                ? MemoryImage(account.avatar)
+                : Image.asset("/assets/logo.png").image,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -249,15 +242,18 @@ class _ProfileSheetState extends State<ProfileSheet> {
     String label,
     VoidCallback onTap,
   ) {
-    final colors = context.theme.colors;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-        child: Text(
-          label,
-          style: context.theme.typography.sm.copyWith(color: colors.primary),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: FButton(
+        variant: FButtonVariant.outline,
+        onPress: onTap,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(FIcons.plus, size: 14),
+            const SizedBox(width: 6),
+            Text(label),
+          ],
         ),
       ),
     );

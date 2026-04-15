@@ -1,11 +1,15 @@
 import 'dart:io';
 
+import 'package:cosmodrome/components/custom_scroll_behaviour.dart';
 import 'package:cosmodrome/components/layouts/main_layout.dart';
+// PAGES
 import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
+import 'package:cosmodrome/pages/album_page.dart';
 import 'package:cosmodrome/pages/home.dart';
-import 'package:cosmodrome/pages/login_page.dart';
+//
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -71,17 +75,17 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: HomePage()),
         ),
+        GoRoute(
+          path: '/library/album/:id',
+          pageBuilder: (context, state) => NoTransitionPage(
+            child: AlbumPage(albumId: state.pathParameters['id']!),
+          ),
+        ),
       ],
       navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) {
         return MainLayout(selectedRoute: state.uri.toString(), child: child);
       },
-    ),
-
-    GoRoute(
-      path: '/login',
-      pageBuilder: (context, state) =>
-          const NoTransitionPage(child: LoginPage()),
     ),
 
     GoRoute(
@@ -103,18 +107,13 @@ class Application extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base =
-        const <TargetPlatform>{
-          TargetPlatform.android,
-          TargetPlatform.iOS,
-          TargetPlatform.fuchsia,
-        }.contains(defaultTargetPlatform)
-        ? FThemes.neutral.dark.touch
-        : FThemes.neutral.dark.desktop;
+    final isTouch = const <TargetPlatform>{
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+      TargetPlatform.fuchsia,
+    }.contains(defaultTargetPlatform);
 
-    final theme = base.copyWith(
-      colors: base.colors.copyWith(background: AppColors.background),
-    );
+    final theme = appTheme(touch: isTouch);
 
     return ChangeNotifierProvider.value(
       value: subsonicProvider,
@@ -123,8 +122,11 @@ class Application extends StatelessWidget {
         localizationsDelegates: const [
           ...FLocalizations.localizationsDelegates,
         ],
+        scrollBehavior: ScrollBehaviorModified(),
         debugShowCheckedModeBanner: false,
-        theme: theme.toApproximateMaterialTheme(),
+        theme: theme.toApproximateMaterialTheme().copyWith(
+          scaffoldBackgroundColor: AppColors.background,
+        ),
         // theme: theme.toApproximateMaterialTheme().copyWith(
         //   pageTransitionsTheme: PageTransitionsTheme(
         //     builders: {

@@ -35,6 +35,7 @@ class SubsonicProvider extends ChangeNotifier {
 
   bool get isAuthenticated => _authState == AuthState.authenticated;
 
+
   /// The current subsonic istance for the active account. Will throw if not authenticated.
   Subsonic get subsonic {
     assert(activeAccount != null, 'SubsonicProvider: no active account');
@@ -156,6 +157,9 @@ class SubsonicProvider extends ChangeNotifier {
     assert(_accounts.any((a) => a.id == id), 'switchAccount: unknown id $id');
     _activeId = id;
     loggerPrint('SubsonicProvider: switched to $id');
+
+    _getAvatarsForActiveAccount();
+
     _storage.write(key: _keyActiveId, value: id);
     notifyListeners();
   }
@@ -185,7 +189,7 @@ class SubsonicProvider extends ChangeNotifier {
         loggerPrint('SubsonicProvider: restored account ${account.id}');
       }
     } catch (e) {
-      loggerPrint('SubsonicProvider: failed to restore accounts — $e');
+      loggerPrint('SubsonicProvider: failed to restore accounts - $e');
       await _storage.delete(key: _keyAccounts);
       return _setState(AuthState.unauthenticated);
     }
@@ -199,8 +203,59 @@ class SubsonicProvider extends ChangeNotifier {
         ? activeId
         : _accounts.first.id;
 
+    _getAvatarsForActiveAccount();
     loggerPrint('SubsonicProvider: active account is $_activeId');
     _setState(AuthState.authenticated);
+  }
+
+  Future<void> _getAvatarsForActiveAccount() async {
+    final active = activeAccount;
+    if (active == null) return;
+
+    if (active.avatar.isEmpty) {
+      try {
+        final avatarBytes = await active.subsonic.getAvatar();
+        active.avatar = avatarBytes;
+        loggerPrint('SubsonicProvider: fetched avatar for ${active.username}');
+        notifyListeners();
+      } catch (e) {
+        loggerPrint(
+          'SubsonicProvider: failed to fetch avatar for ${active.username} - $e',
+        );
+      }
+    }
+  }
+
+  Future<void> _getAvatarsForAllAccounts() async {
+    for (final account in _accounts) {
+      if (account.id == _activeId && account.avatar.isEmpty) {
+        // check if the server is reachable before trying to fetch avatar
+        SubsonicServer server = knownServers.firstWhere(
+          (s) => account.baseUrl.contains(s.baseUrl),
+          orElse: () =>
+              SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
+        );
+
+        if (!server.canConnect) {
+          loggerPrint(
+            'SubsonicProvider: skipping avatar fetch for ${account.username} because server ${account.baseUrl} is not reachable',
+          );
+          continue;
+        }
+
+        try {
+          final avatarBytes = await account.subsonic.getAvatar();
+          account.avatar = avatarBytes;
+          loggerPrint(
+            'SubsonicProvider: fetched avatar for ${account.username}',
+          );
+        } catch (e) {
+          loggerPrint(
+            'SubsonicProvider: failed to fetch avatar for ${account.username} - $e',
+          );
+        }
+      }
+    }
   }
 
   Future<void> _getKnownServersFromStorage() async {
@@ -223,7 +278,7 @@ class SubsonicProvider extends ChangeNotifier {
         );
       }
     } catch (e) {
-      loggerPrint('SubsonicProvider: failed to restore known servers — $e');
+      loggerPrint('SubsonicProvider: failed to restore known servers - $e');
       await _storage.delete(key: _keyKnownServers);
     }
   }
@@ -241,6 +296,10 @@ class SubsonicProvider extends ChangeNotifier {
       knownServers.map((s) => {'baseUrl': s.baseUrl, 'name': s.name}).toList(),
     );
     await _storage.write(key: _keyKnownServers, value: serversJson);
+
+    // TEMP? get all avatars
+    await _getAvatarsForAllAccounts();
+    
   }
 
   void _setState(AuthState state) {
@@ -300,7 +359,7 @@ class SubsonicServer {
         return true; // server is reachable and responded with an API error, which is expected
       } else if (res.errorMessage != null) {
         loggerPrint(
-          'SubsonicServer: received unexpected error from $baseUrl — ${res.errorMessage}',
+          'SubsonicServer: received unexpected error from $baseUrl - ${res.errorMessage}',
         );
         canConnect = false;
         return false; // server is reachable but responded with an unexpected error
@@ -314,7 +373,7 @@ class SubsonicServer {
         return true; // server is reachable and responded with an API error, which is expected
       } else {
         loggerPrint(
-          'SubsonicServer: connection test failed for $baseUrl — $error',
+          'SubsonicServer: connection test failed for $baseUrl - $error',
         );
         canConnect = false;
         return false; // some other error occurred, server might not be reachable
