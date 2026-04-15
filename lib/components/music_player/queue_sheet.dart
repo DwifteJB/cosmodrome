@@ -4,6 +4,8 @@
 
   USE SIDEBAR/SIDE SHEET FOR DESKTOP
 */
+import 'dart:math';
+
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
@@ -77,6 +79,7 @@ class QueueSheet extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                             height: 0
                           ),
+                          duration: max(5, (song.title.length / 10).ceil()),
                           maxWidth: 100,
                         ),
                         subtitle: song.artist != null
@@ -100,13 +103,7 @@ class QueueSheet extends StatelessWidget {
                               ),
                               onPressed: () => player.removeFromQueue(index),
                             ),
-                            ReorderableDragStartListener(
-                              index: index,
-                              child: Icon(
-                                Icons.drag_handle,
-                                color: context.theme.colors.mutedForeground,
-                              ),
-                            ),
+                           
                           ],
                         ),
                       );

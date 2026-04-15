@@ -1,4 +1,3 @@
-import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/material.dart';
@@ -52,15 +51,20 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
 
         return Container(
           decoration: BoxDecoration(
-            color: AppColors.sidebar,
-            border: Border(top: BorderSide(color: colors.border, width: 1)),
+            color: AppColors.background,
+         
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Progress bar with timestamps
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.only(
+                  left: 12,
+                  right: 12,
+                  top: 8,
+                  bottom: 8,
+                ),
                 child: Row(
                   children: [
                     SizedBox(
@@ -81,9 +85,7 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                             activeTrackColor: Colors.white,
                             inactiveTrackColor: Colors.white24,
                             overlayColor: Colors.white12,
-                            thumbShape: hasSong
-                                ? const RoundSliderThumbShape(enabledThumbRadius: 5)
-                                : SliderComponentShape.noThumb,
+                                thumbShape: SliderComponentShape.noThumb,
                             trackHeight: 2,
                             overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
                           ),
@@ -195,14 +197,15 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                                         CrossAxisAlignment.start,
                                     // song title
                                     children: [
-                                      ScrollingText(
-                                        text: song.title,
+                                      Text(
+                                        song.title,
                                         style: context.theme.typography.xs
                                             .copyWith(
                                           fontWeight: FontWeight.w400,
                                           color: Colors.white,
                                         ),
-                                        maxWidth: 200,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       SizedBox(height: 2),
                                       Text(
@@ -251,6 +254,10 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                                         thumbShape: RoundSliderThumbShape(
                                             enabledThumbRadius: 5),
                                         trackHeight: 2,
+                                        overlayShape: RoundSliderOverlayShape(
+                                          overlayRadius: 10,
+                                        ),
+
                                       ),
                                     ),
                                 child: Slider(

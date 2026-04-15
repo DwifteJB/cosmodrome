@@ -1,4 +1,4 @@
-package com.example.cosmodrome
+package me.rmfosho.cosmodrome
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,4 +1,3 @@
-import 'package:cosmodrome/components/forms/add_server_form.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/material.dart';
@@ -150,6 +149,19 @@ class _AddUserFormState extends State<AddUserForm> {
     );
     } else {
       // TODO: change to dropdown
+      showMenu(
+        context: context,
+        position: RelativeRect.fill
+            .deflate(40)
+            .shift(Offset(0, 40)), // TODO: calculate based on button position
+        items: provider.knownServers.map((server) {
+          return PopupMenuItem(value: server, child: Text(server.name));
+        }).toList(),
+      ).then((selected) {
+        if (selected != null) {
+          setState(() => _selectedServer = selected);
+        }
+      });
     }
   }
 

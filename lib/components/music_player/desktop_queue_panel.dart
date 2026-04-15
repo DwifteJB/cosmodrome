@@ -32,8 +32,6 @@ class DesktopQueuePanel extends StatelessWidget {
               height: 32,
               child: Row(
                 children: [
-                  const SizedBox(width: 16),
-                  const Spacer(),
                   // close button on left for macOS, right for others
                   IconButton(
                     icon: Icon(FIcons.x, size: 14, color: colors.mutedForeground),
@@ -44,6 +42,8 @@ class DesktopQueuePanel extends StatelessWidget {
                       minHeight: 32,
                     ),
                   ),
+                  const Spacer(),
+
                   // window controls if open
                   if (!isMacOS) ...[
                     DesktopWindowButton(
@@ -89,7 +89,7 @@ class DesktopQueuePanel extends StatelessWidget {
                     );
                   }
                   return ListView.builder(
-                    padding: EdgeInsets.zero,
+                    padding: EdgeInsets.only(bottom: 8),
                     itemCount: queue.length,
                     itemBuilder: (context, index) {
                       final song = queue[index];
@@ -132,24 +132,6 @@ class _QueueItemState extends State<_QueueItem> {
   String? _coverUrl;
 
   @override
-  void initState() {
-    super.initState();
-    _coverUrl = widget.player.coverArtUrlForSong(
-      widget.player.queue[widget.index],
-    );
-  }
-
-  @override
-  void didUpdateWidget(_QueueItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final song = widget.player.queue[widget.index];
-    final oldSong = oldWidget.player.queue[oldWidget.index];
-    if (song.id != oldSong.id) {
-      _coverUrl = widget.player.coverArtUrlForSong(song);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final song = widget.player.queue[widget.index];
@@ -166,7 +148,6 @@ class _QueueItemState extends State<_QueueItem> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
-              // Cover art or track number
               SizedBox(
                 width: 32,
                 height: 32,
@@ -220,6 +201,24 @@ class _QueueItemState extends State<_QueueItem> {
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(_QueueItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final song = widget.player.queue[widget.index];
+    final oldSong = oldWidget.player.queue[oldWidget.index];
+    if (song.id != oldSong.id) {
+      _coverUrl = widget.player.coverArtUrlForSong(song);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _coverUrl = widget.player.coverArtUrlForSong(
+      widget.player.queue[widget.index],
     );
   }
 

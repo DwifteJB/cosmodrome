@@ -27,7 +27,6 @@ class _AlbumHeader extends StatelessWidget {
 
   const _AlbumHeader({required this.album, super.key});
 
-
   @override
   Widget build(BuildContext context) {
     final parts = <String>[
@@ -35,18 +34,22 @@ class _AlbumHeader extends StatelessWidget {
       '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
       _formatDuration(album.duration),
     ];
-
+    
+    //
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // move to bottom, use spacer
+          
           Text(
             album.name,
             style: context.theme.typography.xl2.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w400,
               color: context.theme.colors.foreground,
-              letterSpacing: -0.06
+              letterSpacing: 1,
+              height: 0
             ),
           ),
           const SizedBox(height: 4),
@@ -155,11 +158,7 @@ class _AlbumPageState extends State<AlbumPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconButton(
-            icon: Icon(Icons.arrow_back, color: context.theme.colors.foreground),
-            onPressed: () => context.pop(),
-          ),
-          const SizedBox(height: 8),
+    
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -196,14 +195,17 @@ class _AlbumPageState extends State<AlbumPage> {
                         ),
                       ),
               ),
-              const SizedBox(width: 24),
               Expanded(child: _AlbumHeader(album: album)),
             ],
           ),
-          const SizedBox(height: 16),
-          const Divider(height: 1),
+          const SizedBox(height: 20),
           ...album.songs.map(
-            (s) => _DesktopTrackTile(song: s, albumArtist: album.artist, onTap: () => onClickSong(s)),
+            (s) => _DesktopTrackTile(
+              song: s,
+              albumArtist: album.artist,
+              onTap: () => onClickSong(s),
+              accentColor: accentColorNotifier.value,
+            ),
           ),
         ],
       ),
@@ -384,6 +386,8 @@ class _AlbumPageState extends State<AlbumPage> {
             song: s,
             albumArtist: album.artist,
             onTap: () => onClickSong(s),
+            accentColor:
+                accentColorNotifier.value ?? context.theme.colors.primary,
           ),
         ),
 
@@ -414,12 +418,14 @@ class _AlbumPageState extends State<AlbumPage> {
 class _DesktopTrackTile extends StatefulWidget {
   final Song song;
   final String albumArtist;
+  final Color? accentColor;
   final VoidCallback? onTap;
 
   const _DesktopTrackTile({
     required this.song,
     required this.albumArtist,
     this.onTap,
+    this.accentColor,
     super.key,
   });
 
@@ -432,6 +438,11 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
   bool _showPopover = false;
   final LayerLink _layerLink = LayerLink();
   OverlayEntry? _overlayEntry;
+
+  bool get isPlaying {
+    final player = context.watch<PlayerProvider>();
+    return player.currentSong?.id == widget.song.id;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -478,8 +489,10 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
                       Text(
                         song.title,
                         style: context.theme.typography.sm.copyWith(
-                          color: context.theme.colors.foreground,
-                          fontWeight: FontWeight.bold,
+                          color: isPlaying
+                              ? widget.accentColor
+                              : context.theme.colors.foreground,
+                          fontWeight: FontWeight.w400,
                           letterSpacing: -0.05,
                         ),
                         maxLines: 1,
@@ -613,26 +626,40 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
   }
 }
 
-class _MobileTrackTile extends StatelessWidget {
+class _MobileTrackTile extends StatefulWidget {
   final Song song;
   final String albumArtist;
-  final Color backgroundColor;
+  final Color accentColor;
   final VoidCallback? onTap;
 
   const _MobileTrackTile({
     required this.song,
     required this.albumArtist,
-    this.backgroundColor = Colors.transparent,
-    super.key,
+    required this.accentColor,
     this.onTap,
+    super.key,
   });
 
   @override
+  State<_MobileTrackTile> createState() => _MobileTrackTileState();
+}
+
+class _MobileTrackTileState extends State<_MobileTrackTile> {
+  bool get isPlaying {
+    final player = context.watch<PlayerProvider>();
+    return player.currentSong?.id == widget.song.id;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final song = widget.song;
+    final albumArtist = widget.albumArtist;
+    final onTap = widget.onTap;
     final trackNumber = song.track;
     final showArtist = song.artist != null &&
         song.artist!.isNotEmpty &&
         song.artist != albumArtist;
+
 
     return InkWell(
       onTap: onTap ?? () => context.read<PlayerProvider>().playNow(song),
@@ -668,8 +695,10 @@ class _MobileTrackTile extends StatelessWidget {
                   Text(
                     song.title,
                     style: context.theme.typography.sm.copyWith(
-                      color: context.theme.colors.foreground,
-                      fontWeight: .bold,
+                        color: isPlaying
+                            ? widget.accentColor
+                            : context.theme.colors.foreground,
+                        fontWeight: FontWeight.w400,
                       letterSpacing: -0.05
                     ),
                     

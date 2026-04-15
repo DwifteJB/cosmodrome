@@ -101,24 +101,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     accentColorNotifier.addListener(_onAccentChanged);
   }
 
-  void _onAccentChanged() {
-    final color = accentColorNotifier.value;
-    if (color != null) {
-      setState(() {
-        _accentColor = color;
-        _accentVisible = true;
-      });
-    } else {
-      setState(() => _accentVisible = false);
-      // Clear stored color after the fade-out completes
-      Future.delayed(const Duration(milliseconds: 750), () {
-        if (mounted && accentColorNotifier.value == null) {
-          setState(() => _accentColor = null);
-        }
-      });
-    }
-  }
-
   Widget _buildDesktopLayout(BuildContext context) {
     final colors = context.theme.colors;
 
@@ -356,6 +338,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       backgroundColor: colors.background,
       body: Stack(
         children: [
+         
           // accent gradient
           if (_hideTopBar)
             Positioned(
@@ -639,6 +622,24 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   void _navigateTo(String route) {
     context.go(route);
+  }
+
+  void _onAccentChanged() {
+    final color = accentColorNotifier.value;
+    if (color != null) {
+      setState(() {
+        _accentColor = color;
+        _accentVisible = true;
+      });
+    } else {
+      setState(() => _accentVisible = false);
+      // Clear stored color after the fade-out completes
+      Future.delayed(const Duration(milliseconds: 750), () {
+        if (mounted && accentColorNotifier.value == null) {
+          setState(() => _accentColor = null);
+        }
+      });
+    }
   }
 
   void _onScroll() {

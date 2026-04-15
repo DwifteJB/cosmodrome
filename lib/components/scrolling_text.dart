@@ -10,7 +10,7 @@ class ScrollingText extends StatefulWidget {
   ScrollingText({
     super.key,
     required this.text,
-    this.duration = 0,
+    this.duration = 5,
     this.style,
     required this.maxWidth,
   });
