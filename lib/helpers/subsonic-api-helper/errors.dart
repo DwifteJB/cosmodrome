@@ -1,4 +1,3 @@
-
 enum SubsonicError {
   genericError,
   missingParameter,

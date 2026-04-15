@@ -28,7 +28,9 @@ class _LoginPageState extends State<LoginPage> {
         spacing: 10,
         children: [
           if (activeAccount != null)
-            Text('Logged in as ${activeAccount.user.username} on ${activeAccount.baseUrl}'),
+            Text(
+              'Logged in as ${activeAccount.user.username} on ${activeAccount.baseUrl}',
+            ),
           if (provider.errorMessage != null)
             Text(
               provider.errorMessage!,
@@ -48,11 +50,12 @@ class _LoginPageState extends State<LoginPage> {
           FTextField.password(
             label: const Text('Password'),
             control: FTextFieldControl.managed(controller: _passwordController),
-            
           ),
           FButton(
             onPress: isLoading ? null : _login,
-            child: isLoading ? const CircularProgressIndicator() : const Text('Login'),
+            child: isLoading
+                ? const CircularProgressIndicator()
+                : const Text('Login'),
           ),
         ],
       ),

@@ -8,71 +8,37 @@ import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-enum AuthState { initial, loading, authenticated, unauthenticated }
-
 const _keyAccounts = 'subsonic_accounts';
 const _keyActiveId = 'subsonic_active_id';
+const _keyKnownServers = 'subsonic_known_servers';
+
+enum AuthState { initial, loading, authenticated, unauthenticated }
 
 class SubsonicProvider extends ChangeNotifier {
   final _storage = const FlutterSecureStorage();
 
   AuthState _authState = AuthState.initial;
   final List<SubsonicAccount> _accounts = [];
+
+  final List<SubsonicServer> knownServers = [];
+
   String? _activeId;
   String? _errorMessage;
 
-  AuthState get authState => _authState;
-  String? get errorMessage => _errorMessage;
-  bool get isAuthenticated => _authState == AuthState.authenticated;
-
   List<SubsonicAccount> get accounts => List.unmodifiable(_accounts);
+  SubsonicAccount? get activeAccount => _activeId == null
+      ? null
+      : _accounts.where((a) => a.id == _activeId).firstOrNull;
+  AuthState get authState => _authState;
 
-  SubsonicAccount? get activeAccount =>
-      _activeId == null ? null : _accounts.where((a) => a.id == _activeId).firstOrNull;
+  String? get errorMessage => _errorMessage;
+
+  bool get isAuthenticated => _authState == AuthState.authenticated;
 
   /// The current subsonic istance for the active account. Will throw if not authenticated.
   Subsonic get subsonic {
     assert(activeAccount != null, 'SubsonicProvider: no active account');
     return activeAccount!.subsonic;
-  }
-
-  /// Attempts to restore accounts and active session from storage.
-  /// For ALL accounts.
-  Future<void> tryRestoreSession() async {
-    _setState(AuthState.loading);
-
-    final raw = await _storage.read(key: _keyAccounts);
-    final activeId = await _storage.read(key: _keyActiveId);
-
-    if (raw == null) {
-      loggerPrint('SubsonicProvider: no saved accounts');
-      return _setState(AuthState.unauthenticated);
-    }
-
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      for (final item in list) {
-        final account = SubsonicAccount.fromJson(item as Map<String, dynamic>);
-        _accounts.add(account);
-        loggerPrint('SubsonicProvider: restored account ${account.id}');
-      }
-    } catch (e) {
-      loggerPrint('SubsonicProvider: failed to restore accounts — $e');
-      await _storage.delete(key: _keyAccounts);
-      return _setState(AuthState.unauthenticated);
-    }
-
-    if (_accounts.isEmpty) {
-      return _setState(AuthState.unauthenticated);
-    }
-
-    // restore active account, default to first if missing or invalid
-    _activeId = _accounts.any((a) => a.id == activeId)
-        ? activeId
-        : _accounts.first.id;
-
-    loggerPrint('SubsonicProvider: active account is $_activeId');
-    _setState(AuthState.authenticated);
   }
 
   /// Adds a new account and makes it active. If an account with the same id
@@ -85,7 +51,11 @@ class SubsonicProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final sub = Subsonic(baseUrl: baseUrl, username: username, password: password);
+    final sub = Subsonic(
+      baseUrl: baseUrl,
+      username: username,
+      password: password,
+    );
 
     final ping = await sub.ping();
     if (!ping.success) {
@@ -129,6 +99,25 @@ class SubsonicProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> addKnownServer(String baseUrl) async {
+    if (knownServers.any((s) => s.baseUrl == baseUrl)) {
+      loggerPrint('SubsonicProvider: server $baseUrl already known');
+      return true; // already known, consider it a success
+    }
+
+    final server = SubsonicServer(baseUrl: baseUrl, name: baseUrl);
+    final success = await server.tryConnect();
+    if (success) {
+      knownServers.add(server);
+      loggerPrint('SubsonicProvider: added known server $baseUrl');
+    } else {
+      loggerPrint('SubsonicProvider: failed to connect to server $baseUrl');
+    }
+
+    await _persist(); // save known servers to storage
+    return success;
+  }
+
   /// Removes an account by id. If it was the active account, switches to
   /// the next available one (or sets unauthenticated if none remain).
   Future<void> removeAccount(String id) async {
@@ -140,16 +129,9 @@ class SubsonicProvider extends ChangeNotifier {
     }
 
     await _persist();
-    _setState(_accounts.isEmpty ? AuthState.unauthenticated : AuthState.authenticated);
-  }
-
-  /// Switches the active account.
-  void switchAccount(String id) {
-    assert(_accounts.any((a) => a.id == id), 'switchAccount: unknown id $id');
-    _activeId = id;
-    loggerPrint('SubsonicProvider: switched to $id');
-    _storage.write(key: _keyActiveId, value: id);
-    notifyListeners();
+    _setState(
+      _accounts.isEmpty ? AuthState.unauthenticated : AuthState.authenticated,
+    );
   }
 
   /// Removes all accounts and clears storage.
@@ -163,6 +145,89 @@ class SubsonicProvider extends ChangeNotifier {
     _setState(AuthState.unauthenticated);
   }
 
+  Future<void> removeKnownServer(String baseUrl) async {
+    knownServers.removeWhere((s) => s.baseUrl == baseUrl);
+    loggerPrint('SubsonicProvider: removed known server $baseUrl');
+    await _persist(); // save known servers to storage
+  }
+
+  /// Switches the active account.
+  void switchAccount(String id) {
+    assert(_accounts.any((a) => a.id == id), 'switchAccount: unknown id $id');
+    _activeId = id;
+    loggerPrint('SubsonicProvider: switched to $id');
+    _storage.write(key: _keyActiveId, value: id);
+    notifyListeners();
+  }
+
+  /// Attempts to restore accounts and active session from storage.
+  /// Also attempts to get all known servers from the accounts and test connectivity, removing those that fail.
+  /// For ALL accounts.
+  Future<void> tryRestoreSession() async {
+    _setState(AuthState.loading);
+
+    // read known servers first
+    await _getKnownServersFromStorage();
+
+    final raw = await _storage.read(key: _keyAccounts);
+    final activeId = await _storage.read(key: _keyActiveId);
+
+    if (raw == null) {
+      loggerPrint('SubsonicProvider: no saved accounts');
+      return _setState(AuthState.unauthenticated);
+    }
+
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      for (final item in list) {
+        final account = SubsonicAccount.fromJson(item as Map<String, dynamic>);
+        _accounts.add(account);
+        loggerPrint('SubsonicProvider: restored account ${account.id}');
+      }
+    } catch (e) {
+      loggerPrint('SubsonicProvider: failed to restore accounts — $e');
+      await _storage.delete(key: _keyAccounts);
+      return _setState(AuthState.unauthenticated);
+    }
+
+    if (_accounts.isEmpty) {
+      return _setState(AuthState.unauthenticated);
+    }
+
+    // restore active account, default to first if missing or invalid
+    _activeId = _accounts.any((a) => a.id == activeId)
+        ? activeId
+        : _accounts.first.id;
+
+    loggerPrint('SubsonicProvider: active account is $_activeId');
+    _setState(AuthState.authenticated);
+  }
+
+  Future<void> _getKnownServersFromStorage() async {
+    final raw = await _storage.read(key: _keyKnownServers);
+    if (raw == null) {
+      loggerPrint('SubsonicProvider: no known servers in storage');
+      return;
+    }
+
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      for (final item in list) {
+        final server = SubsonicServer(
+          baseUrl: item['baseUrl'] as String,
+          name: item['name'] as String,
+        );
+        knownServers.add(server);
+        loggerPrint(
+          'SubsonicProvider: restored known server ${server.baseUrl}',
+        );
+      }
+    } catch (e) {
+      loggerPrint('SubsonicProvider: failed to restore known servers — $e');
+      await _storage.delete(key: _keyKnownServers);
+    }
+  }
+
   // saves accounts to storage! saving!
   Future<void> _persist() async {
     final json = jsonEncode(_accounts.map((a) => a.toJson()).toList());
@@ -170,10 +235,60 @@ class SubsonicProvider extends ChangeNotifier {
     if (_activeId != null) {
       await _storage.write(key: _keyActiveId, value: _activeId);
     }
+
+    // also save known servers
+    final serversJson = jsonEncode(
+      knownServers.map((s) => {'baseUrl': s.baseUrl, 'name': s.name}).toList(),
+    );
+    await _storage.write(key: _keyKnownServers, value: serversJson);
   }
 
   void _setState(AuthState state) {
     _authState = state;
     notifyListeners();
+  }
+}
+
+class SubsonicServer {
+  final String name;
+  final String baseUrl;
+  bool canConnect = false;
+
+  SubsonicServer({
+    required this.baseUrl,
+    required this.name,
+    this.canConnect = false,
+  });
+
+  bool get isLocal => baseUrl.contains('localhost') || baseUrl.contains('100');
+
+  Future<bool> tryConnect() async {
+    // just do a simple get check to see if the server is reachable & we get an error response (since we don't have credentials yet)
+    final sub = Subsonic(
+      baseUrl: baseUrl,
+      username: 'dummy',
+      password: 'dummy',
+    );
+
+    // ping should fail with a catch of (e), but should expel starting with:
+    // Subsonic API error
+
+    try {
+      await sub.ping();
+      canConnect = true;
+      return true; // ping succeeded, server is reachable (but we don't expect this since credentials are wrong)
+    } catch (e) {
+      final error = e.toString();
+      if (error.contains('Subsonic API error')) {
+        canConnect = true;
+        return true; // server is reachable and responded with an API error, which is expected
+      } else {
+        loggerPrint(
+          'SubsonicServer: connection test failed for $baseUrl — $error',
+        );
+        canConnect = false;
+        return false; // some other error occurred, server might not be reachable
+      }
+    }
   }
 }

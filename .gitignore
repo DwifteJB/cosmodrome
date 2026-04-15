@@ -48,3 +48,6 @@ app.*.map.json
 docker-data/
 !docker-data/data/.gitkeep
 !docker-data/music/.gitkeep
+
+# for trying to get aurality design
+aurality/

@@ -1,4 +1,3 @@
-
 // ignore_for_file: avoid_print
 
 bool printInProduction = true;
@@ -12,7 +11,6 @@ void loggerError(dynamic message) {
 }
 
 void loggerPrint(dynamic message) {
-
   // get stack trace
   final stackTrace = StackTrace.current;
 

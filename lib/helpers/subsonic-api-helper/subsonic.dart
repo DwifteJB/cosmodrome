@@ -39,7 +39,9 @@ class Subsonic {
     final response = await http.get(uri);
 
     if (response.statusCode != 200) {
-      loggerPrint('HTTP error ${response.statusCode} from $endpoint: ${response.body}');
+      loggerPrint(
+        'HTTP error ${response.statusCode} from $endpoint: ${response.body}',
+      );
       throw Exception('HTTP ${response.statusCode} from $endpoint');
     }
 
@@ -48,11 +50,17 @@ class Subsonic {
 
     if (root['status'] == 'failed') {
       final err = root['error'] as Map<String, dynamic>;
-      final SubsonicError error = getErrorFromCode((err['code'] as num).toInt());
-      loggerPrint('Subsonic API error from $endpoint: $error (${err['message']})');
+      final SubsonicError error = getErrorFromCode(
+        (err['code'] as num).toInt(),
+      );
+      loggerPrint(
+        'Subsonic API error from $endpoint: $error (${err['message']})',
+      );
       // throw string of useful error
       final usefulError = errorToSensibleNames(error);
-      throw Exception('Subsonic API error from $endpoint: $usefulError (${err['message']})');
+      throw Exception(
+        'Subsonic API error from $endpoint: $usefulError (${err['message']})',
+      );
     }
 
     loggerPrint('API request to $endpoint successful: ${root['status']}');

@@ -1,5 +1,5 @@
-import 'package:cosmodrome/helpers/subsonic-api-helper/api/user.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/types/subsonic-user.dart';
 
 class SubsonicAccount {
   // id is username@baseUrl
@@ -18,17 +18,14 @@ class SubsonicAccount {
     required this.username,
     required String password,
     required this.user,
-  })  : id = '$username@$baseUrl',
-        _password = password {
-    subsonic = Subsonic(baseUrl: baseUrl, username: username, password: password);
+  }) : id = '$username@$baseUrl',
+       _password = password {
+    subsonic = Subsonic(
+      baseUrl: baseUrl,
+      username: username,
+      password: password,
+    );
   }
-
-  Map<String, dynamic> toJson() => {
-        'baseUrl': baseUrl,
-        'username': username,
-        'password': _password,
-        'user': user.toJson(),
-      };
 
   factory SubsonicAccount.fromJson(Map<String, dynamic> json) {
     return SubsonicAccount(
@@ -38,4 +35,11 @@ class SubsonicAccount {
       user: SubsonicUser.fromJson(json['user'] as Map<String, dynamic>),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'baseUrl': baseUrl,
+    'username': username,
+    'password': _password,
+    'user': user.toJson(),
+  };
 }

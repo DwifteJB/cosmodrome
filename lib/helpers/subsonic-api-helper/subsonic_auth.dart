@@ -7,10 +7,7 @@ class SubsonicAuth {
   final String username;
   final String password;
 
-  SubsonicAuth({
-    required this.username,
-    required this.password,
-  });
+  SubsonicAuth({required this.username, required this.password});
 
   // generate token as per api spec (https://www.subsonic.org/pages/api.jsp)
   SubsonicAuthToken generateToken() {
@@ -24,7 +21,10 @@ class SubsonicAuth {
   static String _randomSalt({int length = 8}) {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     final rng = Random.secure();
-    return List.generate(length, (_) => chars[rng.nextInt(chars.length)]).join();
+    return List.generate(
+      length,
+      (_) => chars[rng.nextInt(chars.length)],
+    ).join();
   }
 }
 
