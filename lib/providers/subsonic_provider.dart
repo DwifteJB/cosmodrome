@@ -62,7 +62,7 @@ class SubsonicProvider extends ChangeNotifier {
     if (!ping.success) {
       final error = ping.errorMessage ?? 'Could not reach server';
       _errorMessage = error;
-      loggerPrint('SubsonicProvider: ping failed — $error');
+      loggerPrint('SubsonicProvider: ping failed - $error');
       notifyListeners();
       return error;
     }
@@ -94,7 +94,7 @@ class SubsonicProvider extends ChangeNotifier {
     } catch (e) {
       final error = e.toString();
       _errorMessage = error;
-      loggerPrint('SubsonicProvider: addAccount failed — $error');
+      loggerPrint('SubsonicProvider: addAccount failed - $error');
       notifyListeners();
       return error;
     }

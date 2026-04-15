@@ -4,7 +4,11 @@ import 'dart:ui';
 
 import 'package:cosmodrome/components/desktop_profile_popover.dart';
 import 'package:cosmodrome/components/desktop_titlebar.dart';
+import 'package:cosmodrome/components/music_player/desktop_player_bar.dart';
+import 'package:cosmodrome/components/music_player/desktop_queue_panel.dart';
+import 'package:cosmodrome/components/music_player/mini_player.dart';
 import 'package:cosmodrome/components/profile_sheet.dart';
+import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/theme/sidebar_item_style.dart';
 import 'package:cosmodrome/utils/accent_notifier.dart';
@@ -36,7 +40,15 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   final _searchController = TextEditingController();
-  final _scrollController = ScrollController();
+  // Separate controllers prevent double-attachment when go_router briefly keeps
+  // both layouts in the tree during navigation transitions.
+  final _mobileScrollController = ScrollController();
+  final _desktopScrollController = ScrollController();
+  bool _queueOpen = false;
+
+  // Accent gradient: keep last non-null color so it stays rendered during fade-out
+  Color? _accentColor;
+  bool _accentVisible = false;
 
   late AnimationController aniu;
 
@@ -57,19 +69,25 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    _scrollController.dispose();
-    aniu.dispose();
-    super.dispose();
-  }
-
-  @override
   void didUpdateWidget(MainLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedRoute != widget.selectedRoute) {
-      _scrollController.jumpTo(0);
+      if (_mobileScrollController.hasClients) _mobileScrollController.jumpTo(0);
+      if (_desktopScrollController.hasClients) _desktopScrollController.jumpTo(0);
+      if (!(widget.selectedRoute?.startsWith('/library/album') ?? false)) {
+        accentColorNotifier.value = null;
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    accentColorNotifier.removeListener(_onAccentChanged);
+    _searchController.dispose();
+    _mobileScrollController.dispose();
+    _desktopScrollController.dispose();
+    aniu.dispose();
+    super.dispose();
   }
 
   @override
@@ -79,24 +97,42 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _scrollController.addListener(_onScroll);
+    _mobileScrollController.addListener(_onScroll);
+    accentColorNotifier.addListener(_onAccentChanged);
+  }
+
+  void _onAccentChanged() {
+    final color = accentColorNotifier.value;
+    if (color != null) {
+      setState(() {
+        _accentColor = color;
+        _accentVisible = true;
+      });
+    } else {
+      setState(() => _accentVisible = false);
+      // Clear stored color after the fade-out completes
+      Future.delayed(const Duration(milliseconds: 750), () {
+        if (mounted && accentColorNotifier.value == null) {
+          setState(() => _accentColor = null);
+        }
+      });
+    }
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
     final colors = context.theme.colors;
-
-    print("using desktop layout");
 
     return Scaffold(
       backgroundColor: colors.background,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // sidebar
           SizedBox(
             width: AppLayout.sidebarWidth,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Color(0xFF151517),
+                color: const Color(0xFF151517),
                 border: Border(
                   right: BorderSide(color: colors.border, width: 1),
                 ),
@@ -109,7 +145,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                   footerPadding: .add(
                     const EdgeInsets.symmetric(horizontal: 12),
                   ),
-                  decoration: .boxDelta(color: AppColors.sidebar)
+                  decoration: .boxDelta(color: AppColors.sidebar),
                 ),
                 header: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,17 +190,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                       (item) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 1),
                         child: FSidebarItem(
-                        label: Text(item.label),
-                        icon: Icon(item.icon, size: 20),
-                        selected: _isSelected(item),
-                        onPress: () => _navigateTo(item.route),
-                        style: desktopSidebarItem(
-                          colors: colors,
-                          typography: context.theme.typography,
-                          style: context.theme.style,
-                          touch: false,
-                        ),
-                        
+                          label: Text(item.label),
+                          icon: Icon(item.icon, size: 20),
+                          selected: _isSelected(item),
+                          onPress: () => _navigateTo(item.route),
+                          style: desktopSidebarItem(
+                            colors: colors,
+                            typography: context.theme.typography,
+                            style: context.theme.style,
+                            touch: false,
+                          ),
                         ),
                       ),
                     )
@@ -172,12 +207,93 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               ),
             ),
           ),
+
+          // Right side: content + player bar stacked vertically
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_isDesktop) const DesktopTitlebar(),
-                Expanded(child: SingleChildScrollView(child: widget.child)),
+                // Content row (main area + optional queue panel)
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Main content area
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              top: -32,
+                              left: 0,
+                              right: 0,
+                              height:
+                                  MediaQuery.of(context).size.height * 0.38 +
+                                  32,
+                              child: IgnorePointer(
+                                child: AnimatedOpacity(
+                                  opacity: _accentVisible ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 700),
+                                  curve: Curves.easeIn,
+                                  child: _accentColor == null
+                                      ? const SizedBox.expand()
+                                      : Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                _accentColor!.withValues(alpha: 0.55),
+                                                _accentColor!.withValues(alpha: 0.30),
+                                                colors.background.withValues(alpha: 0.0),
+                                              ],
+                                              stops: const [0.0, 0.15, 1.0],
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (_isDesktop)
+                                    DesktopTitlebar(
+                                      showWindowControls: !_queueOpen,
+                                      canGoBack:
+                                          widget.selectedRoute != '/home' &&
+                                          widget.selectedRoute != null,
+                                      onBack: () => context.pop(),
+                                      queueOpen: _queueOpen,
+                                      onToggleQueue: () => setState(
+                                          () => _queueOpen = !_queueOpen),
+                                    ),
+                                  Expanded(
+                                    child: SingleChildScrollView(
+                                      controller: _desktopScrollController,
+                                      child: widget.child,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Queue panel
+                      if (_queueOpen)
+                        SizedBox(
+                          width: 280,
+                          child: DesktopQueuePanel(
+                            onClose: () =>
+                                setState(() => _queueOpen = false),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // plr bar
+                const DesktopPlayerBar(),
               ],
             ),
           ),
@@ -240,7 +356,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       backgroundColor: colors.background,
       body: Stack(
         children: [
-          // accent gradient for album/playlist pages — fades in once color is ready
+          // accent gradient
           if (_hideTopBar)
             Positioned(
               top: 0,
@@ -248,39 +364,33 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               right: 0,
               height: topPadding + MediaQuery.of(context).size.height * 0.38,
               child: IgnorePointer(
-                child: ValueListenableBuilder<Color?>(
-                  valueListenable: accentColorNotifier,
-                  builder: (context, accentColor, _) {
-                    return AnimatedOpacity(
-                      opacity: accentColor != null ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 700),
-                      curve: Curves.easeIn,
-                      child: accentColor == null
-                          ? const SizedBox.expand()
-                          : Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    accentColor.withValues(alpha: 0.55),
-                                    accentColor.withValues(alpha: 0.30),
-                                    colors.background.withValues(alpha: 0.0),
-                                  ],
-                                  stops: const [0.0, 0.15, 1.0],
-                                ),
-                              ),
+                child: AnimatedOpacity(
+                  opacity: _accentVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeIn,
+                  child: _accentColor == null
+                      ? const SizedBox.expand()
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                _accentColor!.withValues(alpha: 0.55),
+                                _accentColor!.withValues(alpha: 0.30),
+                                colors.background.withValues(alpha: 0.0),
+                              ],
+                              stops: const [0.0, 0.15, 1.0],
                             ),
-                    );
-                  },
+                          ),
+                        ),
                 ),
               ),
             ),
           // actual content
           Positioned.fill(
             child: SingleChildScrollView(
-              controller: _scrollController,
-              
+              controller: _mobileScrollController,
               child: Column(
                 children: [
                   SizedBox(height: _hideTopBar ? topPadding : topPadding + 80),
@@ -352,14 +462,54 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               height: 56 + topPadding,
               child: _buildMobileTopBar(context),
             ),
+
+          // mini mobile player! (if song playing, and not collapsed)
+          Positioned(
+            bottom: bottomPadding + 18 + 48 + 20,
+            left: 16,
+            right: 16,
+            child: Consumer<PlayerProvider>(
+              builder: (_, player, _) {
+                if (!player.hasCurrentSong) return const SizedBox.shrink();
+                final collapsed = aniu.value > 0.3;
+                return AnimatedOpacity(
+                  opacity: collapsed ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: IgnorePointer(
+                    ignoring: collapsed,
+                    child: const MiniPlayer(),
+                  ),
+                );
+              },
+            ),
+          ),
           // floating dual-pill nav
           Positioned(
             bottom: bottomPadding + 18,
             left: 16,
             right: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [_buildMainPill(context), _buildSearchPill(context)],
+            child: Consumer<PlayerProvider>(
+              builder: (_, player, _) {
+                final collapsed = aniu.value > 0.3;
+                return Row(
+                  children: [
+                    _buildMainPill(context),
+
+                    // mini mobile player! (if song playing, and collapsed)
+                    Expanded(
+                      child: player.hasCurrentSong && collapsed
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: const MiniPlayer(),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    _buildSearchPill(context),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -493,7 +643,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   void _onScroll() {
     const maxScroll = 250;
-    final scrollOffset = _scrollController.offset.clamp(0.0, maxScroll);
+    final scrollOffset = _mobileScrollController.offset.clamp(0.0, maxScroll);
     final opacity = scrollOffset / maxScroll;
 
     if (opacity != aniu.value) {

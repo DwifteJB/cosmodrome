@@ -50,6 +50,20 @@ class Subsonic {
     return response.bodyBytes;
   }
 
+  /// Builds a stream URL without making an HTTP request.
+  /// Safe to use directly in just_audio's setUrl().
+  String streamUrl(String id) {
+    final tok = auth.generateToken();
+    return Uri.http(baseUrl, '/rest/stream', {
+      'id': id,
+      'u': auth.username,
+      't': tok.token,
+      's': tok.salt,
+      'v': _apiVersion,
+      'c': _clientName,
+    }).toString();
+  }
+
   Future<Map<String, dynamic>> apiRequest(
     String endpoint, {
     Map<String, String> params = const {},

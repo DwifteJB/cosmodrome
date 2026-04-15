@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 
 class ScrollingText extends StatefulWidget {
   final String text;
-  final int duration;
+  int duration;
   final TextStyle? style;
   final double maxWidth;
 
-  const ScrollingText({
+  ScrollingText({
     super.key,
     required this.text,
-    this.duration = 10,
+    this.duration = 0,
     this.style,
     required this.maxWidth,
   });
@@ -28,10 +28,16 @@ class _ScrollingTextState extends State<ScrollingText>
   Widget build(BuildContext context) {
     return SizedBox(
       width: widget.maxWidth,
-      child: SingleChildScrollView(
+      child: ScrollConfiguration(
+        behavior: const ScrollBehavior().copyWith(
+          scrollbars: false,
+          overscroll: false,
+        ),
+        child: SingleChildScrollView(
         controller: _scrollController,
         scrollDirection: Axis.horizontal,
         child: Text(widget.text, style: widget.style),
+      ),
       ),
     );
   }
@@ -56,6 +62,11 @@ class _ScrollingTextState extends State<ScrollingText>
               _scrollController.position.maxScrollExtent);
         }
       });
+
+    if (widget.duration == 0) {
+      // set duration based on text length (assuming ~10 chars per second)
+      widget.duration = (widget.text.length / 10).ceil();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _startAnimation());
   }
 

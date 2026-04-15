@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:cosmodrome/components/custom_scroll_behaviour.dart';
 import 'package:cosmodrome/components/layouts/main_layout.dart';
 // PAGES
@@ -8,6 +9,7 @@ import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/album_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 //
+import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
@@ -16,6 +18,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
+import 'package:just_audio_background/just_audio_background.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -23,6 +27,25 @@ void main() async {
   usePathUrlStrategy();
   GoRouter.optionURLReflectsImperativeAPIs = true;
   WidgetsFlutterBinding.ensureInitialized();
+
+  JustAudioMediaKit.ensureInitialized(
+    linux: true, // default: true  - dependency: media_kit_libs_linux
+    windows: true, // default: true  - dependency: media_kit_libs_windows_audio
+    android: true, // default: false - dependency: media_kit_libs_android_audio
+    iOS: true, // default: false - dependency: media_kit_libs_ios_audio
+    macOS: true, // default: false - dependency: media_kit_libs_macos_audio
+  );
+
+  JustAudioMediaKit.title = "Cosmodrome";
+
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'me.rmfosho.cosmodrome.channel.audio',
+    androidNotificationChannelName: 'Cosmodrome',
+    androidNotificationOngoing: true,
+  );
+
+  final session = await AudioSession.instance;
+  await session.configure(AudioSessionConfiguration.music());
 
   // DESKTOP ONLY!!!
   if (isDesktop) {
@@ -115,8 +138,14 @@ class Application extends StatelessWidget {
 
     final theme = appTheme(touch: isTouch);
 
-    return ChangeNotifierProvider.value(
-      value: subsonicProvider,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: subsonicProvider),
+        ChangeNotifierProxyProvider<SubsonicProvider, PlayerProvider>(
+          create: (_) => PlayerProvider(),
+          update: (_, sub, player) => player!..update(sub),
+        ),
+      ],
       child: MaterialApp.router(
         supportedLocales: FLocalizations.supportedLocales,
         localizationsDelegates: const [
