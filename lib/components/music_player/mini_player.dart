@@ -31,7 +31,8 @@ class MiniPlayer extends StatelessWidget {
           onTap: () => showFSheet(
             context: context,
             side: FLayout.btt,
-            mainAxisMaxRatio: 0.92,
+            mainAxisMaxRatio: 1.0,
+        useSafeArea: false,
             builder: (_) => const FullscreenPlayer(),
           ),
           child: Container(

@@ -340,7 +340,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         children: [
          
           // accent gradient
-          if (_hideTopBar)
             Positioned(
               top: 0,
               left: 0,

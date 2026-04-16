@@ -30,7 +30,7 @@ extension SubsonicBrowsingApi on Subsonic {
           .map((json) => Index.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print("Error fetching indexes: $e");
+      loggerPrint("Error fetching indexes: $e");
       return [];
     }
   }
@@ -44,12 +44,12 @@ extension SubsonicBrowsingApi on Subsonic {
           response['musicFolders']['musicFolder'] as List<dynamic>;
 
       // log entire response
-      print("getMusicFolders response: $response");
+      loggerPrint("getMusicFolders response: $response");
       return musicFoldersJson
           .map((json) => MusicFolder.fromJson(json))
           .toList();
     } catch (e) {
-      print("Error fetching music folders: $e");
+      loggerPrint("Error fetching music folders: $e");
       return [];
     }
   }
@@ -88,7 +88,7 @@ extension SubsonicBrowsingApi on Subsonic {
           .map((j) => Album.fromJson(j as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Error fetching album list ($type): $e');
+      loggerPrint('Error fetching album list ($type): $e');
       return [];
     }
   }
@@ -100,7 +100,7 @@ extension SubsonicBrowsingApi on Subsonic {
       final songs = root['randomSongs']?['song'] as List<dynamic>? ?? [];
       return songs.map((s) => Song.fromJson(s as Map<String, dynamic>)).toList();
     } catch (e) {
-      print('Error fetching random songs: $e');
+      loggerPrint('Error fetching random songs: $e');
       return [];
     }
   }
@@ -113,7 +113,7 @@ extension SubsonicBrowsingApi on Subsonic {
       if (albumJson == null) return null;
       return AlbumDetail.fromJson(albumJson);
     } catch (e) {
-      print('Error fetching album $id: $e');
+      loggerPrint('Error fetching album $id: $e');
       return null;
     }
   }

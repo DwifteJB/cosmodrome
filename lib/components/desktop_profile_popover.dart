@@ -34,11 +34,11 @@ class _DesktopAccountPopoverContent extends StatefulWidget {
 
 class _DesktopAccountPopoverContentState
     extends State<_DesktopAccountPopoverContent> {
-  final Map<String, bool?> _connectivity = {};
+
+
   bool _profilesExpanded = false;
   bool _serversExpanded = false;
   final Set<String> _hoveredItems = {};
-
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +166,6 @@ class _DesktopAccountPopoverContentState
   @override
   void initState() {
     super.initState();
-    _checkConnectivity();
   }
 
   Widget _buildActiveProfileCard(
@@ -188,7 +187,7 @@ class _DesktopAccountPopoverContentState
             radius: 20,
             backgroundImage: account.avatar.isNotEmpty
                 ? MemoryImage(account.avatar)
-                : Image.asset("/assets/logo.png").image,
+                : Image.asset("/assets/images/logo.png").image,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -338,7 +337,6 @@ class _DesktopAccountPopoverContentState
     SubsonicProvider provider,
   ) {
     final colors = context.theme.colors;
-    final connected = _connectivity[baseUrl];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -353,8 +351,14 @@ class _DesktopAccountPopoverContentState
           ),
         ),
         ...accounts.map((account) {
+          final serverFromAccount = provider.knownServers.firstWhere(
+            (s) => s.baseUrl == account.baseUrl,
+            orElse: () =>
+                SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
+          );
+
           final isActive = provider.activeAccount?.id == account.id;
-          final accountConnected = isActive ? true : connected;
+          final accountConnected = serverFromAccount.canConnect == true;
           final key = account.id;
 
           return MouseRegion(
@@ -421,7 +425,7 @@ class _DesktopAccountPopoverContentState
     SubsonicProvider provider,
   ) {
     final colors = context.theme.colors;
-    final connected = _connectivity[server.baseUrl];
+    final connected = server.canConnect;
     final key = server.baseUrl;
 
     return MouseRegion(
@@ -471,28 +475,7 @@ class _DesktopAccountPopoverContentState
     );
   }
 
-  Future<void> _checkConnectivity() async {
-    final provider = context.read<SubsonicProvider>();
-    final activeUrl = provider.activeAccount?.baseUrl;
 
-    if (activeUrl != null) {
-      setState(() => _connectivity[activeUrl] = true);
-    }
-
-    final urlsToCheck = <String>{};
-    for (final account in provider.accounts) {
-      if (account.baseUrl != activeUrl) urlsToCheck.add(account.baseUrl);
-    }
-    for (final server in provider.knownServers) {
-      if (server.baseUrl != activeUrl) urlsToCheck.add(server.baseUrl);
-    }
-
-    for (final url in urlsToCheck) {
-      SubsonicServer(baseUrl: url, name: url).tryConnect().then((connected) {
-        if (mounted) setState(() => _connectivity[url] = connected);
-      });
-    }
-  }
 
   Widget _dot(bool? connected) => Container(
     width: 8,
@@ -514,7 +497,7 @@ class _DesktopAccountPopoverContentState
 
   String _statusText(bool? connected) {
     if (connected == null) return 'Checking…';
-    return connected ? 'Connected' : 'Could not connect';
+    return connected ? 'Connected' : 'Cannot connect';
   }
 }
 
@@ -581,7 +564,7 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
               radius: 16,
               backgroundImage: activeAccount?.avatar.isNotEmpty == true
                   ? MemoryImage(activeAccount!.avatar)
-                  : Image.asset("/assets/logo.png").image,
+                  : Image.asset("/assets/images/logo.png").image,
             ),
             const SizedBox(width: 10),
             Expanded(

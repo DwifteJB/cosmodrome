@@ -11,7 +11,9 @@ extension SubsonicBasicApi on Subsonic {
     return license['valid'] as String;
   }
 
-  Future<({bool success, int? errorCode, String? errorMessage})> ping() async {
+  Future<({bool success, int? errorCode, String? errorMessage})> ping({
+    int timeoutSeconds = 5,
+  }) async {
     try {
       await apiRequest('ping.view');
       return (success: true, errorCode: null, errorMessage: null);

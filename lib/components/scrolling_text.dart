@@ -52,6 +52,12 @@ class _ScrollingTextState extends State<ScrollingText>
   @override
   void initState() {
     super.initState();
+    
+    if (widget.duration == 0) {
+      // set duration based on text length (assuming ~5 chars per second)
+      widget.duration = (widget.text.length / 5).ceil();
+    }
+
     _scrollController = ScrollController();
     _animationController = AnimationController(
       vsync: this,
@@ -63,10 +69,7 @@ class _ScrollingTextState extends State<ScrollingText>
         }
       });
 
-    if (widget.duration == 0) {
-      // set duration based on text length (assuming ~10 chars per second)
-      widget.duration = (widget.text.length / 10).ceil();
-    }
+    
     WidgetsBinding.instance.addPostFrameCallback((_) => _startAnimation());
   }
 

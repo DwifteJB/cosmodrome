@@ -2,10 +2,24 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:skeletonizer/skeletonizer.dart';
+
+final fakeAlbums = List.generate(
+  10,
+  (index) => Album(
+    id: 'fake_$index',
+    name: 'Album $index',
+    artist: 'Artist $index',
+    coverArt: null,
+    songCount: 0,
+    duration: 0,
+  ),
+);
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,14 +41,6 @@ class _AlbumCard extends StatefulWidget {
 class _AlbumCardState extends State<_AlbumCard> {
   static const double _cardWidth = 150.0;
   late final String? _coverUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _coverUrl = widget.album.coverArt != null
-        ? widget.subsonic.coverArtUrl(widget.album.coverArt!, size: 300)
-        : null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,15 +86,8 @@ class _AlbumCardState extends State<_AlbumCard> {
                   : Container(
                       width: cardWidth,
                       height: cardWidth,
-                      decoration: BoxDecoration(
-                        color: context.theme.colors.muted,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.album,
-                        color: context.theme.colors.mutedForeground,
-                        size: 40,
-                      ),
+                      color: context.theme.colors.muted,
+                      
                     ),
             ),
             const SizedBox(height: 6),
@@ -113,6 +112,14 @@ class _AlbumCardState extends State<_AlbumCard> {
         ),
       ),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _coverUrl = widget.album.coverArt != null
+        ? widget.subsonic.coverArtUrl(widget.album.coverArt!, size: 300)
+        : null;
   }
 }
 
@@ -141,11 +148,13 @@ class _HomePageState extends State<HomePage> {
           title: 'Recently Added',
           albums: _recentAlbums ?? [],
           subsonic: provider.subsonic,
+          isLoading: _loading,
         ),
         _HorizontalCarousel(
           title: 'Starred',
           albums: _starredAlbums ?? [],
           subsonic: provider.subsonic,
+          isLoading: _loading,
         ),
         const SizedBox(height: 24),
       ],
@@ -195,15 +204,21 @@ class _HorizontalCarousel extends StatelessWidget {
   final String title;
   final List<Album> albums;
   final Subsonic subsonic;
+  bool isLoading;
 
-  const _HorizontalCarousel({
+  _HorizontalCarousel({
     required this.title,
     required this.albums,
     required this.subsonic,
+    this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (!isLoading && albums.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.only(top: 24),
       child: Column(
@@ -220,33 +235,59 @@ class _HorizontalCarousel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          if (albums.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Nothing here yet',
-                style: context.theme.typography.sm.copyWith(
-                  color: context.theme.colors.mutedForeground,
-                ),
-              ),
-            )
-          else
-            SizedBox(
+         
+          // fall back to fake albums if the real ones aren't loaded yet, to show the skeleton effect
+          Skeletonizer(
+            enabled: isLoading,
+            effect: ShimmerEffect(
+              baseColor: context.theme.colors.muted,
+              highlightColor: context.theme.colors.muted.withOpacity(0.5),
+            ),
+            child: !isLoading && albums.isEmpty
+                ? SizedBox(
+                    height: 200,
+                    child: Center(
+                      child: Text(
+                        'It feels empty in here...',
+                        style: context.theme.typography.md.copyWith(
+                          color: context.theme.colors.mutedForeground,
+                        ),
+                      ),
+                    ),
+                  )
+                : SizedBox(
               height: 210,
-              child: ListView.builder(
+                    child: ScrollConfiguration(
+                      behavior: ScrollBehavior().copyWith(
+                        dragDevices: {
+                          PointerDeviceKind.mouse,
+                          PointerDeviceKind.touch,
+                          PointerDeviceKind.trackpad,
+                        },
+                      ),
+                      child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: albums.length,
+                        itemCount:
+                            albums.length +
+                            (albums.isEmpty ? fakeAlbums.length : 0),
                 itemBuilder: (context, index) {
                   return Padding(
                     padding: EdgeInsets.only(
-                      right: index < albums.length - 1 ? 12 : 0,
+                      right: 12
                     ),
-                    child: _AlbumCard(album: albums[index], subsonic: subsonic),
+                            child: _AlbumCard(
+                              album: albums.isNotEmpty
+                                  ? albums[index]
+                                  : fakeAlbums[index - albums.length],
+                              subsonic: subsonic,
+                            ),
                   );
                 },
-              ),
+                      ),
+                    )
             ),
+          )
         ],
       ),
     );
@@ -256,26 +297,28 @@ class _HorizontalCarousel extends StatelessWidget {
 class _NoAccountView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Add an account to get started',
-              style: context.theme.typography.xl.copyWith(
-                color: context.theme.colors.foreground,
-              ),
-              textAlign: TextAlign.center,
+    // background of a bunch of shimmering album cards in a row
+    // so grid based layout that it looks like a music library, but the cards are just gray boxes with a shimmer effect
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'No account connected',
+            style: context.theme.typography.xl.copyWith(
+              fontWeight: FontWeight.bold,
+              color: context.theme.colors.foreground,
             ),
-            const SizedBox(height: 20),
-            FButton(
-              onPress: () => context.push('/adduser'),
-              child: const Text('Add Account'),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Please add an account to view your music library.',
+            style: context.theme.typography.md.copyWith(
+              color: context.theme.colors.mutedForeground,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

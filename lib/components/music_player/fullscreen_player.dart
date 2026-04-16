@@ -6,10 +6,14 @@
 
 import 'package:cosmodrome/components/music_player/queue_sheet.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
+import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
 class FullscreenPlayer extends StatefulWidget {
@@ -22,6 +26,9 @@ class FullscreenPlayer extends StatefulWidget {
 class _FullscreenPlayerState extends State<FullscreenPlayer> {
   bool _seeking = false;
   double _seekValue = 0.0;
+
+  Color? _accentColor;
+  String? _cacheId;
 
   @override
   Widget build(BuildContext context) {
@@ -121,9 +128,13 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                       activeTrackColor: Colors.white,
                       inactiveTrackColor: Colors.white24,
                       overlayColor: Colors.white24,
-                      thumbShape: SliderComponentShape.noThumb
+                        thumbShape: SliderComponentShape.noThumb,
+                        overlayShape: RoundSliderOverlayShape(
+                          overlayRadius: 12,
+                        ),
                     ),
                   ), child: Slider(
+                    
                     value: sliderValue,
                     min: 0.0,
                     max: 1.0,
@@ -226,6 +237,21 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     );
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final player = Provider.of<PlayerProvider>(context);
+    _extractAccentColor(player.currentSong ?? Song(id: '', title: ''));
+  }
+
+  @override
+  void initState() {
+    // if current song changes then we want to extract the accent color from the new song's cover art, so we listen to the player provider for changes and update the accent color accordingly
+    super.initState();
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+    _extractAccentColor(player.currentSong ?? Song(id: '', title: ''));
+  }
+
   Widget _coverPlaceholder(double size) {
     return Container(
       width: size,
@@ -233,6 +259,29 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
       color: Colors.grey[800],
       child: Icon(Icons.album, color: Colors.white38, size: size * 0.4),
     );
+  }
+
+  Future<Color?> _extractAccentColor(Song song) async {
+    final sp = Provider.of<SubsonicProvider>(context, listen: false);
+    if (_accentColor != null && _cacheId == song.id) return _accentColor!;
+
+    if (song.coverArt == null) return AppColors.background;
+    final saveCoverArtURL = sp.subsonic.coverArtUrl(song.id);
+    try {
+      final generator = await PaletteGenerator.fromImageProvider(
+        NetworkImage(saveCoverArtURL),
+        size: const Size(200, 200),
+      );
+
+      final color =
+          generator.vibrantColor?.color ?? generator.dominantColor?.color;
+      _accentColor = color;
+      _cacheId = song.id;
+
+      return color;
+    } catch (_) {}
+
+    return AppColors.background;
   }
 
   static String _fmt(Duration d) {

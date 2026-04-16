@@ -21,6 +21,70 @@ class Subsonic {
     auth = SubsonicAuth(username: username, password: password);
   }
 
+  Future<Map<String, dynamic>> apiRequest(
+    String endpoint, {
+    Map<String, String> params = const {},
+    int timeoutSeconds = 5,
+  }) async {
+    final tok = auth.generateToken();
+    final query = {
+      'u': auth.username,
+      't': tok.token,
+      's': tok.salt,
+      'v': _apiVersion,
+      'c': _clientName,
+      'f': 'json',
+      ...params,
+    };
+
+    final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
+    loggerPrint('Making API request to $uri');
+    final response = await http
+        .get(uri, headers: {'timeout': timeoutSeconds.toString()})
+        .timeout(
+          Duration(seconds: timeoutSeconds),
+          onTimeout: () {
+            loggerPrint(
+              'API request to $endpoint timed out after $timeoutSeconds seconds',
+            );
+            throw Exception(
+              'API request to $endpoint timed out after $timeoutSeconds seconds',
+            );
+          },
+        );
+
+    loggerPrint("made request!");
+
+    if (response.statusCode != 200) {
+      loggerPrint(
+        'HTTP error ${response.statusCode} from $endpoint: ${response.body}',
+      );
+      throw Exception('HTTP ${response.statusCode} from $endpoint');
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final root = body['subsonic-response'] as Map<String, dynamic>;
+
+    if (root['status'] == 'failed') {
+      final err = root['error'] as Map<String, dynamic>;
+      final SubsonicError error = getErrorFromCode(
+        (err['code'] as num).toInt(),
+      );
+      loggerPrint(
+        'Subsonic API error from $endpoint: $error (${err['message']})',
+      );
+      // throw string of useful error
+      final usefulError = errorToSensibleNames(error);
+      throw Exception(
+        'Subsonic API error from $endpoint: $usefulError (${err['message']})',
+      );
+    }
+
+    loggerPrint('API request to $endpoint successful: ${root['status']}');
+
+    return root;
+  }
+
   // since avatar uses binary, this is required for it
   Future<Uint8List> bytesApiRequest(
     String endpoint, {
@@ -62,56 +126,5 @@ class Subsonic {
       'v': _apiVersion,
       'c': _clientName,
     }).toString();
-  }
-
-  Future<Map<String, dynamic>> apiRequest(
-    String endpoint, {
-    Map<String, String> params = const {},
-  }) async {
-    final tok = auth.generateToken();
-    final query = {
-      'u': auth.username,
-      't': tok.token,
-      's': tok.salt,
-      'v': _apiVersion,
-      'c': _clientName,
-      'f': 'json',
-      ...params,
-    };
-
-    final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
-    loggerPrint('Making API request to $uri');
-    final response = await http.get(uri);
-
-    loggerPrint("made request!");
-
-    if (response.statusCode != 200) {
-      loggerPrint(
-        'HTTP error ${response.statusCode} from $endpoint: ${response.body}',
-      );
-      throw Exception('HTTP ${response.statusCode} from $endpoint');
-    }
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final root = body['subsonic-response'] as Map<String, dynamic>;
-
-    if (root['status'] == 'failed') {
-      final err = root['error'] as Map<String, dynamic>;
-      final SubsonicError error = getErrorFromCode(
-        (err['code'] as num).toInt(),
-      );
-      loggerPrint(
-        'Subsonic API error from $endpoint: $error (${err['message']})',
-      );
-      // throw string of useful error
-      final usefulError = errorToSensibleNames(error);
-      throw Exception(
-        'Subsonic API error from $endpoint: $usefulError (${err['message']})',
-      );
-    }
-
-    loggerPrint('API request to $endpoint successful: ${root['status']}');
-
-    return root;
   }
 }

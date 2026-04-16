@@ -7,14 +7,22 @@
 import 'dart:math';
 
 import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 
-class QueueSheet extends StatelessWidget {
+class QueueSheet extends StatefulWidget {
   const QueueSheet({super.key});
+
+  @override
+  State<QueueSheet> createState() => _QueueSheetState();
+}
+
+class _QueueSheetState extends State<QueueSheet> {
+  final Map<String, String> _idToCoverUrlCache = {};
 
   @override
   Widget build(BuildContext context) {
@@ -56,20 +64,39 @@ class QueueSheet extends StatelessWidget {
                 Expanded(
                   child: ReorderableListView.builder(
                     itemCount: queue.length,
+                    key: const Key('queue_list'),
                     onReorder: player.reorderQueue,
                     itemBuilder: (context, index) {
+                      print(
+                        "key: ${queue[index].id}_$index.${queue[index].title}.${queue[index].artist}.${DateTime.now().millisecondsSinceEpoch}",
+                      );
                       final song = queue[index];
-                      return ListTile(
-                        key: ValueKey('${song.id}_$index'),
+                      return InkWell(
+                        key: ValueKey(
+                          '${song.id}_$index.${song.title}.${song.artist}.${DateTime.now().millisecondsSinceEpoch}',
+                        ),
+                        child: ListTile(
                         leading: ClipRRect(
+                            key: ValueKey('cover_${song.id}'),
                           borderRadius: BorderRadius.circular(4),
                           child: Image.network(
-                            player.currentCoverArtUrl ?? '',
+                              _idToCoverUrlCache[song.id] ?? '',
+
                             width: 40,
                             height: 40,
                             fit: BoxFit.cover,
-                            errorBuilder: (ctx, err, stack) =>
-                                Container(color: Colors.white24),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    color: context.theme.colors.muted,
+                                    child: Icon(
+                                      Icons.music_note,
+                                      color:
+                                          context.theme.colors.mutedForeground,
+                                      size: 20,
+                                    ),
+                                  ),
                           ),
                         ),
                         title: ScrollingText(
@@ -106,6 +133,7 @@ class QueueSheet extends StatelessWidget {
                            
                           ],
                         ),
+                        ),
                       );
                     },
                   ),
@@ -116,5 +144,27 @@ class QueueSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final player = Provider.of<PlayerProvider>(context);
+    _getAllCoverUrls(player.queue, player);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final player = Provider.of<PlayerProvider>(context, listen: false);
+    _getAllCoverUrls(player.queue, player);
+  }
+
+  void _getAllCoverUrls(List<Song> songs, PlayerProvider player) {
+    for (var song in songs) {
+      if (!_idToCoverUrlCache.containsKey(song.id)) {
+        _idToCoverUrlCache[song.id] = player.coverArtUrlForSong(song) ?? '';
+      }
+    }
   }
 }

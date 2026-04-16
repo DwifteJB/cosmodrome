@@ -5,6 +5,8 @@ abstract final class AppColors {
   static const sidebar = Color(0xFF151517);
   static const sidebarSelected = Color(0xFF1E1E21);
 
+  static const auraColor = Color(0xFFFF85FF);
+
   static const trackNumber = Color(0xFF9C9C9C);
 }
 

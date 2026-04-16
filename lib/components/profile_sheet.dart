@@ -15,7 +15,6 @@ class ProfileSheet extends StatefulWidget {
 }
 
 class _ProfileSheetState extends State<ProfileSheet> {
-  final Map<String, bool?> _connectivity = {};
   bool _profilesExpanded = true;
   bool _serversExpanded = true;
 
@@ -158,7 +157,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
   @override
   void initState() {
     super.initState();
-    _checkConnectivity();
   }
 
   Widget _buildActiveProfileCard(
@@ -180,7 +178,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
             radius: 20,
             backgroundImage: account.avatar.isNotEmpty
                 ? MemoryImage(account.avatar)
-                : Image.asset("/assets/logo.png").image,
+                : Image.asset("/assets/images/logo.png").image,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -204,34 +202,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  'Active',
-                  style: context.theme.typography.xs.copyWith(
-                    color: Colors.green,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          
         ],
       ),
     );
@@ -334,7 +305,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
     SubsonicProvider provider,
   ) {
     final colors = context.theme.colors;
-    final connected = _connectivity[baseUrl];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -350,7 +320,14 @@ class _ProfileSheetState extends State<ProfileSheet> {
         ),
         ...accounts.map((account) {
           final isActive = provider.activeAccount?.id == account.id;
-          final accountConnected = isActive ? true : connected;
+          // get server by account
+          final server = provider.knownServers.firstWhere(
+            (s) => s.baseUrl == account.baseUrl,
+            orElse: () =>
+                SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
+          );
+          final accountConnected = server.canConnect;
+
           return Dismissible(
             key: ValueKey(account.id),
             direction: DismissDirection.endToStart,
@@ -410,7 +387,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
 
   Widget _buildServerRow(BuildContext context, SubsonicServer server) {
     final colors = context.theme.colors;
-    final connected = _connectivity[server.baseUrl];
+    final connected = server.canConnect;
 
     return Dismissible(
       key: ValueKey(server.baseUrl),
@@ -461,31 +438,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
     );
   }
 
-  Future<void> _checkConnectivity() async {
-    final provider = context.read<SubsonicProvider>();
-    final activeUrl = provider.activeAccount?.baseUrl;
-
-    // mark it as connected right away (probably is)
-    if (activeUrl != null) {
-      setState(() => _connectivity[activeUrl] = true);
-    }
-
-    // get all urls from the server providers
-    final urlsToCheck = <String>{};
-    for (final account in provider.accounts) {
-      if (account.baseUrl != activeUrl) urlsToCheck.add(account.baseUrl);
-    }
-    for (final server in provider.knownServers) {
-      if (server.baseUrl != activeUrl) urlsToCheck.add(server.baseUrl);
-    }
-
-    for (final url in urlsToCheck) {
-      SubsonicServer(baseUrl: url, name: url).tryConnect().then((connected) {
-        if (mounted) setState(() => _connectivity[url] = connected);
-      });
-    }
-  }
-
   Widget _dot(bool? connected) => Container(
     width: 8,
     height: 8,
@@ -506,6 +458,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
 
   String _statusText(bool? connected) {
     if (connected == null) return 'Checking…';
-    return connected ? 'Connected' : 'Could not connect';
+    return connected ? 'Connected' : 'Cannot connect';
   }
 }

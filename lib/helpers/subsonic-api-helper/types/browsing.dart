@@ -134,6 +134,8 @@ class Song {
   final int? track;
   final int? duration;
   final String? coverArt;
+  final int? samplingRate;
+  final int? bitRate;
 
   Song({
     required this.id,
@@ -143,6 +145,8 @@ class Song {
     this.track,
     this.duration,
     this.coverArt,
+    this.samplingRate,
+    this.bitRate,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
@@ -154,6 +158,8 @@ class Song {
       track: (json['track'] as num?)?.toInt(),
       duration: (json['duration'] as num?)?.toInt(),
       coverArt: json['coverArt'] as String?,
+      samplingRate: (json['samplingRate'] as num?)?.toInt(),
+      bitRate: (json['bitRate'] as num?)?.toInt(),
     );
   }
 }

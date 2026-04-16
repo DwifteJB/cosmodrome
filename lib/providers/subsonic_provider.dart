@@ -108,11 +108,17 @@ class SubsonicProvider extends ChangeNotifier {
 
     final server = SubsonicServer(baseUrl: baseUrl, name: name ?? baseUrl);
     final success = await server.tryConnect();
+    
     if (success) {
+      server.canConnect = true;
       knownServers.add(server);
-      loggerPrint('SubsonicProvider: added known server $baseUrl');
+      loggerPrint(
+        'SubsonicProvider: added known server $baseUrl, can connect successfully',
+      );
     } else {
-      loggerPrint('SubsonicProvider: failed to connect to server $baseUrl');
+      loggerPrint(
+        'SubsonicProvider: failed to connect to server $baseUrl, cannot add as known server',
+      );
     }
 
     await _persist(); // save known servers to storage
@@ -148,6 +154,20 @@ class SubsonicProvider extends ChangeNotifier {
 
   Future<void> removeKnownServer(String baseUrl) async {
     knownServers.removeWhere((s) => s.baseUrl == baseUrl);
+
+    // remove all accounts that belong to this server
+
+    // check if the active account belongs to this server, if so switch to another one (or unauthenticated if none remain)
+    if (activeAccount != null && activeAccount!.baseUrl == baseUrl) {
+      _activeId = _accounts.where((a) => a.baseUrl != baseUrl).firstOrNull?.id;
+      if (_activeId == null) {
+        _setState(AuthState.unauthenticated);
+      }
+    }
+
+    // remove accounts from this server
+    _accounts.removeWhere((a) => a.baseUrl == baseUrl);
+
     loggerPrint('SubsonicProvider: removed known server $baseUrl');
     await _persist(); // save known servers to storage
   }
@@ -272,6 +292,18 @@ class SubsonicProvider extends ChangeNotifier {
           baseUrl: item['baseUrl'] as String,
           name: item['name'] as String,
         );
+
+        // try connecting to the server before adding it to the known servers list
+        final canConnect = await server.tryConnect();
+        if (!canConnect) {
+          loggerPrint(
+            'SubsonicProvider: cannot connect to known server ${server.baseUrl}, skipping',
+          );
+          server.canConnect = false;
+        } else {
+          server.canConnect = true;
+        }
+
         knownServers.add(server);
         loggerPrint(
           'SubsonicProvider: restored known server ${server.baseUrl}',
@@ -332,15 +364,15 @@ class SubsonicServer {
     // ping should fail with a catch of (e), but should expel starting with:
     // Subsonic API error
 
-    print(
+    loggerPrint(
       "trying to connect to $baseUrl with dummy credentials to test connectivity",
     );
 
     try {
-      print("pinging $baseUrl...");
+      loggerPrint("pinging $baseUrl...");
       final res = await sub.ping();
 
-      print(
+      loggerPrint(
         "ping response from $baseUrl: success=${res.success}, error=${res.errorMessage}",
       );
 

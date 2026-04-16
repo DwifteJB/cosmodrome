@@ -85,6 +85,8 @@ class _AlbumPageState extends State<AlbumPage> {
   bool _loading = true;
   String? _error;
 
+  Color _localCoverColor = AppColors.auraColor;
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -204,7 +206,7 @@ class _AlbumPageState extends State<AlbumPage> {
               song: s,
               albumArtist: album.artist,
               onTap: () => onClickSong(s),
-              accentColor: accentColorNotifier.value,
+              accentColor: accentColorNotifier.value ?? _localCoverColor,
             ),
           ),
         ],
@@ -222,6 +224,9 @@ class _AlbumPageState extends State<AlbumPage> {
       final color = generator.vibrantColor?.color ?? generator.dominantColor?.color;
       loggerPrint("Extracted accent color: $color");
       if (mounted) accentColorNotifier.value = color;
+      setState(() {
+        _localCoverColor = color ?? AppColors.auraColor;
+      });
     } catch (_) {}
   }
 
@@ -292,7 +297,16 @@ class _AlbumPageState extends State<AlbumPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PillHeader(title: '', onBack: () => context.pop()),
+        PillHeader(
+          title: '',
+          onBack: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/home'); // fallback to home if no back history
+            }
+          },
+        ),
         const SizedBox(height: 16),
         Center(
           child: ClipRRect(
@@ -386,8 +400,8 @@ class _AlbumPageState extends State<AlbumPage> {
             song: s,
             albumArtist: album.artist,
             onTap: () => onClickSong(s),
-            accentColor:
-                accentColorNotifier.value ?? context.theme.colors.primary,
+            accentColor: 
+                accentColorNotifier.value ?? AppColors.auraColor,
           ),
         ),
 
@@ -562,6 +576,7 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
     if (mounted) setState(() => _showPopover = false);
   }
 
+  // TODO: fix
   void _showContextMenu(BuildContext context) {
     _removeOverlay();
     final overlay = Overlay.of(context);
@@ -573,7 +588,6 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
     _overlayEntry = OverlayEntry(
       builder: (_) => Stack(
         children: [
-          // Dismiss backdrop
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -656,10 +670,6 @@ class _MobileTrackTileState extends State<_MobileTrackTile> {
     final albumArtist = widget.albumArtist;
     final onTap = widget.onTap;
     final trackNumber = song.track;
-    final showArtist = song.artist != null &&
-        song.artist!.isNotEmpty &&
-        song.artist != albumArtist;
-
 
     return InkWell(
       onTap: onTap ?? () => context.read<PlayerProvider>().playNow(song),
@@ -668,6 +678,7 @@ class _MobileTrackTileState extends State<_MobileTrackTile> {
         side: FLayout.btt,
         builder: (ctx) =>
             _TrackContextMenu(song: song, albumArtist: albumArtist),
+        useRootNavigator: true,
       ),
       child: Container(
         child: Padding(
@@ -705,12 +716,12 @@ class _MobileTrackTileState extends State<_MobileTrackTile> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (showArtist)
+                  
                     Text(
-                      song.artist!,
+                      song.artist ?? albumArtist,
                       style: context.theme.typography.xs.copyWith(
                         color: AppColors.trackNumber,
-                        letterSpacing: -0.05
+                        letterSpacing: -0.05,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
