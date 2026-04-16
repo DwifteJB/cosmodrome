@@ -47,10 +47,9 @@ class PlayerProvider extends ChangeNotifier {
 
   String? get currentCoverArtUrl => _cachedCoverArtUrl;
 
-  Song? get currentSong =>
-      _currentIndex >= 0 && _currentIndex < _queue.length
-          ? _queue[_currentIndex]
-          : null;
+  Song? get currentSong => _currentIndex >= 0 && _currentIndex < _queue.length
+      ? _queue[_currentIndex]
+      : null;
 
   Duration get duration => _duration;
   bool get hasCurrentSong => currentSong != null;
@@ -225,8 +224,25 @@ class PlayerProvider extends ChangeNotifier {
     if (song == null) return;
     try {
       final url = _subsonicProvider!.subsonic.streamUrl(song.id);
-      
-      await _player.setUrl(url, tag: MediaItem(id: song.id, duration: Duration(seconds: song.duration ?? 0), title: song.title, album: song.album, artist: song.artist, artUri: song.coverArt != null ? Uri.parse(_subsonicProvider!.subsonic.coverArtUrl(song.coverArt!, size: 300)) : null));
+
+      await _player.setUrl(
+        url,
+        tag: MediaItem(
+          id: song.id,
+          duration: Duration(seconds: song.duration ?? 0),
+          title: song.title,
+          album: song.album,
+          artist: song.artist,
+          artUri: song.coverArt != null
+              ? Uri.parse(
+                  _subsonicProvider!.subsonic.coverArtUrl(
+                    song.coverArt!,
+                    size: 300,
+                  ),
+                )
+              : null,
+        ),
+      );
       await _player.play();
     } catch (_) {}
   }
@@ -240,8 +256,10 @@ class PlayerProvider extends ChangeNotifier {
       return;
     }
     try {
-      _cachedCoverArtUrl =
-          _subsonicProvider!.subsonic.coverArtUrl(song.coverArt!, size: 300);
+      _cachedCoverArtUrl = _subsonicProvider!.subsonic.coverArtUrl(
+        song.coverArt!,
+        size: 300,
+      );
     } catch (_) {
       _cachedCoverArtUrl = null;
     }

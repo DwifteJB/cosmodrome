@@ -180,9 +180,7 @@ class _TitlebarButtonState extends State<_TitlebarButton> {
           width: 36,
           height: 32,
           color: Colors.transparent,
-          child: Center(
-            child: Icon(widget.icon, size: 16, color: color),
-          ),
+          child: Center(child: Icon(widget.icon, size: 16, color: color)),
         ),
       ),
     );

@@ -35,7 +35,7 @@ extension SubsonicUserApi on Subsonic {
       rethrow;
     }
   }
-  
+
   // https://www.subsonic.org/pages/api.jsp#getUser
   Future<SubsonicUser> getUser({
     String username = '',

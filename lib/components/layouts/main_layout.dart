@@ -14,6 +14,7 @@ import 'package:cosmodrome/theme/sidebar_item_style.dart';
 import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
+import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -28,6 +29,22 @@ const _navItems = [
   _NavItem(label: 'Search', route: '/search', icon: FIcons.search),
 ];
 
+String uriToTitle(String uri) {
+  switch (uri) {
+    case '/home':
+      return 'Home';
+    case '/library':
+      return 'your library';
+    default:
+      // try get from _navItems
+      final item = _navItems.firstWhere(
+        (item) => uri.startsWith(item.route),
+        orElse: () => _NavItem(label: '', route: '', icon: FIcons.qrCode),
+      );
+      return item.label.isNotEmpty ? item.label : 'Page';
+  }
+}
+
 class MainLayout extends StatefulWidget {
   final Widget child;
   final String? selectedRoute;
@@ -40,25 +57,24 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   final _searchController = TextEditingController();
-  // Separate controllers prevent double-attachment when go_router briefly keeps
-  // both layouts in the tree during navigation transitions.
+
   final _mobileScrollController = ScrollController();
   final _desktopScrollController = ScrollController();
   bool _queueOpen = false;
 
-  // Accent gradient: keep last non-null color so it stays rendered during fade-out
+  String? _customTitle;
+
   Color? _accentColor;
   bool _accentVisible = false;
 
   late AnimationController aniu;
 
-  bool get _hideTopBar =>
-      widget.selectedRoute != null &&
-      widget.selectedRoute!.startsWith('/library/album');
-
-
   bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+
+  bool get _isSubPage =>
+      widget.selectedRoute != null &&
+      !_navItems.any((item) => widget.selectedRoute == item.route);
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +89,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedRoute != widget.selectedRoute) {
       if (_mobileScrollController.hasClients) _mobileScrollController.jumpTo(0);
-      if (_desktopScrollController.hasClients) _desktopScrollController.jumpTo(0);
+      if (_desktopScrollController.hasClients)
+        _desktopScrollController.jumpTo(0);
       if (!(widget.selectedRoute?.startsWith('/library/album') ?? false)) {
         accentColorNotifier.value = null;
       }
@@ -99,6 +116,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     );
     _mobileScrollController.addListener(_onScroll);
     accentColorNotifier.addListener(_onAccentChanged);
+    customTitle.addListener(_onCustomTitleChanged);
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
@@ -190,12 +208,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             ),
           ),
 
-          // Right side: content + player bar stacked vertically
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Content row (main area + optional queue panel)
                 Expanded(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -224,9 +240,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                                               begin: Alignment.topCenter,
                                               end: Alignment.bottomCenter,
                                               colors: [
-                                                _accentColor!.withValues(alpha: 0.55),
-                                                _accentColor!.withValues(alpha: 0.30),
-                                                colors.background.withValues(alpha: 0.0),
+                                                _accentColor!.withValues(
+                                                  alpha: 0.55,
+                                                ),
+                                                _accentColor!.withValues(
+                                                  alpha: 0.30,
+                                                ),
+                                                colors.background.withValues(
+                                                  alpha: 0.0,
+                                                ),
                                               ],
                                               stops: const [0.0, 0.15, 1.0],
                                             ),
@@ -248,7 +270,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                                       onBack: () => context.pop(),
                                       queueOpen: _queueOpen,
                                       onToggleQueue: () => setState(
-                                          () => _queueOpen = !_queueOpen),
+                                        () => _queueOpen = !_queueOpen,
+                                      ),
                                     ),
                                   Expanded(
                                     child: SingleChildScrollView(
@@ -267,8 +290,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                         SizedBox(
                           width: 280,
                           child: DesktopQueuePanel(
-                            onClose: () =>
-                                setState(() => _queueOpen = false),
+                            onClose: () => setState(() => _queueOpen = false),
                           ),
                         ),
                     ],
@@ -315,8 +337,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                         : Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _buildNavButton(context, _navItems[1], showLabel: false),
-                              _buildNavButton(context, _navItems[2], showLabel: false),
+                              _buildNavButton(
+                                context,
+                                _navItems[1],
+                                showLabel: false,
+                              ),
+                              _buildNavButton(
+                                context,
+                                _navItems[2],
+                                showLabel: false,
+                              ),
                             ],
                           ),
                   ),
@@ -338,49 +368,48 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       backgroundColor: colors.background,
       body: Stack(
         children: [
-         
           // accent gradient
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: topPadding + MediaQuery.of(context).size.height * 0.38,
-              child: IgnorePointer(
-                child: AnimatedOpacity(
-                  opacity: _accentVisible ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 700),
-                  curve: Curves.easeIn,
-                  child: _accentColor == null
-                      ? const SizedBox.expand()
-                      : Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                _accentColor!.withValues(alpha: 0.55),
-                                _accentColor!.withValues(alpha: 0.30),
-                                colors.background.withValues(alpha: 0.0),
-                              ],
-                              stops: const [0.0, 0.15, 1.0],
-                            ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: topPadding + MediaQuery.of(context).size.height * 0.38,
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _accentVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeIn,
+                child: _accentColor == null
+                    ? const SizedBox.expand()
+                    : Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              _accentColor!.withValues(alpha: 0.55),
+                              _accentColor!.withValues(alpha: 0.30),
+                              colors.background.withValues(alpha: 0.0),
+                            ],
+                            stops: const [0.0, 0.15, 1.0],
                           ),
                         ),
-                ),
+                      ),
               ),
             ),
+          ),
           // actual content
           Positioned.fill(
             child: SingleChildScrollView(
               controller: _mobileScrollController,
               child: Column(
                 children: [
-                  SizedBox(height: _hideTopBar ? topPadding : topPadding + 80),
+                  SizedBox(height: topPadding + 20),
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight:
                           MediaQuery.of(context).size.height -
-                          (_hideTopBar ? topPadding : topPadding + 80) -
+                          (topPadding + 20) -
                           (navHeight + bottomPadding),
                     ),
                     child: widget.child,
@@ -411,7 +440,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               ),
             ),
           ),
-          // top gradient 
+          // top gradient
           Positioned(
             top: 0,
             left: 0,
@@ -436,14 +465,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             ),
           ),
           // top bar
-          if (!_hideTopBar)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 56 + topPadding,
-              child: _buildMobileTopBar(context),
-            ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 56 + topPadding,
+            child: _buildMobileTopBar(context),
+          ),
 
           // mini mobile player! (if song playing, and not collapsed)
           Positioned(
@@ -505,7 +533,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
     final subsonic = context.read<SubsonicProvider>();
 
-
     return Container(
       height: 56 + topPadding,
       padding: EdgeInsets.only(top: topPadding, left: 20, right: 16),
@@ -519,30 +546,83 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text(
-              _getPageTitle(),
-              style: context.theme.typography.xl2.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colors.foreground,
+            if (_isSubPage)
+              GestureDetector(
+                onTap: () =>
+                    context.canPop() ? context.pop() : context.go('/home'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: colors.border),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        color: colors.background.withOpacity(0.8),
+                        child: Icon(
+                          FIcons.chevronLeft,
+                          size: 20,
+                          color: colors.foreground,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Text(
+                _getPageTitle(),
+                style: context.theme.typography.xl2.copyWith(
+                  fontWeight: FontWeight.bold,
+                  height: 0,
+                  color: colors.foreground,
+                ),
               ),
-            ),
             const Spacer(),
-            GestureDetector(
-              onTap: () => showFSheet(
-                context: context,
-                side: FLayout.btt,
-                mainAxisMaxRatio: null,
-                useSafeArea: true,
-                builder: (_) => const ProfileSheet(),
+            // custom buttons
+            // FButton(
+            //   onPress: () => context.push('/search'),
+
+            //   style: .delta(
+            //     decoration: .delta([
+            //       FVariantOperation.all(
+            //         .boxDelta(
+            //           color: AppColors.mutedButtonColor,
+            //           borderRadius: BorderRadius.circular(40),
+            //           border: Border.all(color: colors.border, width: 1),
+            //         ),
+            //       ),
+                  
+            //     ]),
+            //     contentStyle: .delta(
+            //       padding: EdgeInsetsGeometryDelta.value(
+            //         const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+            //       ),
+            //     ),
+            //   ),
+            //   child: const Icon(FIcons.plus, size: 24, color: Colors.white),
+            // ),
+
+            if (widget.selectedRoute == '/home' || widget.selectedRoute == '/')
+              GestureDetector(
+                onTap: () => showFSheet(
+                  context: context,
+                  side: FLayout.btt,
+                  mainAxisMaxRatio: null,
+                  useSafeArea: true,
+                  builder: (_) => const ProfileSheet(),
+                ),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundImage:
+                      subsonic.activeAccount?.avatar.isNotEmpty == true
+                      ? MemoryImage(subsonic.activeAccount!.avatar)
+                      : Image.asset("/assets/logo.png").image,
+                ),
               ),
-              child: CircleAvatar(
-                radius: 20,
-                backgroundImage:
-                    subsonic.activeAccount?.avatar.isNotEmpty == true
-                    ? MemoryImage(subsonic.activeAccount!.avatar)
-                    : Image.asset("/assets/logo.png").image,
-              ),
-            ),
           ],
         ),
       ),
@@ -607,10 +687,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   String _getPageTitle() {
-    for (final item in _navItems) {
-      if (_isSelected(item)) return item.label;
-    }
-    return '';
+    if (_customTitle != null) return _customTitle!;
+    return uriToTitle(widget.selectedRoute ?? '/home');
   }
 
   bool _isSelected(_NavItem item) {
@@ -639,6 +717,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         }
       });
     }
+  }
+
+  void _onCustomTitleChanged() {
+    setState(() {
+      _customTitle = customTitle.value;
+    });
   }
 
   void _onScroll() {

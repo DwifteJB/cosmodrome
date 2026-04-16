@@ -34,8 +34,6 @@ class _DesktopAccountPopoverContent extends StatefulWidget {
 
 class _DesktopAccountPopoverContentState
     extends State<_DesktopAccountPopoverContent> {
-
-
   bool _profilesExpanded = false;
   bool _serversExpanded = false;
   final Set<String> _hoveredItems = {};
@@ -145,7 +143,8 @@ class _DesktopAccountPopoverContentState
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ...provider.knownServers.map(
-                          (server) => _buildServerRow(context, server, provider),
+                          (server) =>
+                              _buildServerRow(context, server, provider),
                         ),
                         _buildAddButton(
                           context,
@@ -173,7 +172,14 @@ class _DesktopAccountPopoverContentState
     SubsonicAccount account,
     dynamic colors,
   ) {
-    
+    // get server for account
+    final provider = context.read<SubsonicProvider>();
+    final server = provider.knownServers.firstWhere(
+      (s) => s.baseUrl == account.baseUrl,
+      orElse: () =>
+          SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -204,14 +210,13 @@ class _DesktopAccountPopoverContentState
                   maxWidth: 200,
                 ),
                 ScrollingText(
-                  text: account.baseUrl,
+                  text: server.name,
                   maxWidth: 200,
                   style: context.theme.typography.xs.copyWith(
                     color: colors.mutedForeground,
                   ),
                   duration: 3,
-                )
-                
+                ),
               ],
             ),
           ),
@@ -231,7 +236,6 @@ class _DesktopAccountPopoverContentState
                     color: Colors.green,
                   ),
                 ),
-              
               ],
             ),
           ),
@@ -338,27 +342,26 @@ class _DesktopAccountPopoverContentState
   ) {
     final colors = context.theme.colors;
 
+    final server = provider.knownServers.firstWhere(
+      (s) => s.baseUrl == baseUrl,
+      orElse: () => SubsonicServer(baseUrl: baseUrl, name: baseUrl),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Text(
-            baseUrl,
+            "${server.name} ($baseUrl)",
             style: context.theme.typography.xs.copyWith(
               color: colors.mutedForeground,
             ),
           ),
         ),
         ...accounts.map((account) {
-          final serverFromAccount = provider.knownServers.firstWhere(
-            (s) => s.baseUrl == account.baseUrl,
-            orElse: () =>
-                SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
-          );
-
           final isActive = provider.activeAccount?.id == account.id;
-          final accountConnected = serverFromAccount.canConnect == true;
+          final accountConnected = server.canConnect;
           final key = account.id;
 
           return MouseRegion(
@@ -475,8 +478,6 @@ class _DesktopAccountPopoverContentState
     );
   }
 
-
-
   Widget _dot(bool? connected) => Container(
     width: 8,
     height: 8,
@@ -551,7 +552,6 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
     SubsonicAccount? activeAccount,
     dynamic colors,
   ) {
-   
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: colors.border)),

@@ -34,7 +34,11 @@ class DesktopQueuePanel extends StatelessWidget {
                 children: [
                   // close button on left for macOS, right for others
                   IconButton(
-                    icon: Icon(FIcons.x, size: 14, color: colors.mutedForeground),
+                    icon: Icon(
+                      FIcons.x,
+                      size: 14,
+                      color: colors.mutedForeground,
+                    ),
                     onPressed: onClose,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -143,7 +147,9 @@ class _QueueItemState extends State<_QueueItem> {
       child: Container(
         color: isCurrent
             ? AppColors.sidebarSelected
-            : (_isHovered ? colors.secondary.withValues(alpha: 0.3) : Colors.transparent),
+            : (_isHovered
+                  ? colors.secondary.withValues(alpha: 0.3)
+                  : Colors.transparent),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
@@ -173,7 +179,9 @@ class _QueueItemState extends State<_QueueItem> {
                       song.title,
                       style: context.theme.typography.xs.copyWith(
                         color: isCurrent ? colors.primary : colors.foreground,
-                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -195,7 +203,10 @@ class _QueueItemState extends State<_QueueItem> {
                   icon: Icon(FIcons.x, size: 12, color: colors.mutedForeground),
                   onPressed: widget.onRemove,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                  constraints: const BoxConstraints(
+                    minWidth: 24,
+                    minHeight: 24,
+                  ),
                 ),
             ],
           ),

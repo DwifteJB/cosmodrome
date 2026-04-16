@@ -22,8 +22,11 @@ class _CtrlBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     return IconButton(
-      icon: Icon(icon,
-          size: 20, color: active ? colors.primary : colors.mutedForeground),
+      icon: Icon(
+        icon,
+        size: 20,
+        color: active ? colors.primary : colors.mutedForeground,
+      ),
       onPressed: onTap,
       splashRadius: 16,
     );
@@ -50,10 +53,7 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
             : (totalMs > 0 ? (posMs / totalMs).clamp(0.0, 1.0) : 0.0);
 
         return Container(
-          decoration: BoxDecoration(
-            color: AppColors.background,
-         
-          ),
+          decoration: BoxDecoration(color: AppColors.background),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -79,17 +79,21 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                     ),
                     Expanded(
                       child: Theme(
-                        data: context.theme.toApproximateMaterialTheme().copyWith(
-                          sliderTheme: SliderThemeData(
-                            thumbColor: Colors.white,
-                            activeTrackColor: Colors.white,
-                            inactiveTrackColor: Colors.white24,
-                            overlayColor: Colors.white12,
+                        data: context.theme
+                            .toApproximateMaterialTheme()
+                            .copyWith(
+                              sliderTheme: SliderThemeData(
+                                thumbColor: Colors.white,
+                                activeTrackColor: Colors.white,
+                                inactiveTrackColor: Colors.white24,
+                                overlayColor: Colors.white12,
                                 thumbShape: SliderComponentShape.noThumb,
-                            trackHeight: 2,
-                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
-                          ),
-                        ),
+                                trackHeight: 2,
+                                overlayShape: const RoundSliderOverlayShape(
+                                  overlayRadius: 10,
+                                ),
+                              ),
+                            ),
                         child: SizedBox(
                           height: 20,
                           child: Slider(
@@ -98,9 +102,9 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                             max: 1.0,
                             onChangeStart: hasSong
                                 ? (v) => setState(() {
-                                      _seeking = true;
-                                      _seekValue = v;
-                                    })
+                                    _seeking = true;
+                                    _seekValue = v;
+                                  })
                                 : null,
                             onChanged: hasSong
                                 ? (v) => setState(() => _seekValue = v)
@@ -108,8 +112,11 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                             onChangeEnd: hasSong
                                 ? (v) {
                                     setState(() => _seeking = false);
-                                    player.seekTo(Duration(
-                                        milliseconds: (v * totalMs).round()));
+                                    player.seekTo(
+                                      Duration(
+                                        milliseconds: (v * totalMs).round(),
+                                      ),
+                                    );
                                   }
                                 : null,
                           ),
@@ -201,9 +208,9 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                                         song.title,
                                         style: context.theme.typography.xs
                                             .copyWith(
-                                          fontWeight: FontWeight.w400,
-                                          color: Colors.white,
-                                        ),
+                                              fontWeight: FontWeight.w400,
+                                              color: Colors.white,
+                                            ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -219,8 +226,8 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                                         ].join(' · '),
                                         style: context.theme.typography.xs
                                             .copyWith(
-                                          color: colors.mutedForeground,
-                                        ),
+                                              color: colors.mutedForeground,
+                                            ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -239,8 +246,11 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           children: [
-                            Icon(Icons.volume_up_rounded,
-                                size: 16, color: colors.mutedForeground),
+                            Icon(
+                              Icons.volume_up_rounded,
+                              size: 16,
+                              color: colors.mutedForeground,
+                            ),
                             Expanded(
                               child: Theme(
                                 data: context.theme
@@ -252,12 +262,12 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                                         inactiveTrackColor: Colors.white24,
                                         overlayColor: Colors.white12,
                                         thumbShape: RoundSliderThumbShape(
-                                            enabledThumbRadius: 5),
+                                          enabledThumbRadius: 5,
+                                        ),
                                         trackHeight: 2,
                                         overlayShape: RoundSliderOverlayShape(
                                           overlayRadius: 10,
                                         ),
-
                                       ),
                                     ),
                                 child: Slider(

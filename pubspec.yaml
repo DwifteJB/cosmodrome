@@ -19,6 +19,8 @@ dependencies:
   gradient_blur: ^1.0.2+1
   palette_generator: ^0.3.3
 
+  page_transition: ^2.2.1
+
 
   # just audio
   just_audio: ^0.9.41

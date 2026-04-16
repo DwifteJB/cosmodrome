@@ -7,7 +7,10 @@ import 'package:flutter/cupertino.dart';
 
 class CustomScrollPhysics extends ClampingScrollPhysics {
   @override
-  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
     final Tolerance tolerance = toleranceFor(position);
     if (velocity.abs() >= tolerance.velocity || position.outOfRange) {
       return BouncingScrollSimulation(
@@ -25,7 +28,11 @@ class CustomScrollPhysics extends ClampingScrollPhysics {
 
 class ScrollBehaviorModified extends CupertinoScrollBehavior {
   @override
-  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) {
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
     return StretchingOverscrollIndicator(
       axisDirection: details.direction,
       child: child,

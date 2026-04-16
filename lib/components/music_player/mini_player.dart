@@ -32,7 +32,7 @@ class MiniPlayer extends StatelessWidget {
             context: context,
             side: FLayout.btt,
             mainAxisMaxRatio: 1.0,
-        useSafeArea: false,
+            useSafeArea: false,
             builder: (_) => const FullscreenPlayer(),
           ),
           child: Container(

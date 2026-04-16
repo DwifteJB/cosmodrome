@@ -130,23 +130,23 @@ class _AddUserFormState extends State<AddUserForm> {
   void _openServerPicker(BuildContext context, SubsonicProvider provider) {
     if (isMobile(context)) {
       showFSheet(
-      context: context,
-      side: FLayout.btt,
-      mainAxisMaxRatio: 0.5,
-      builder: (sheetCtx) => _ServerPickerSheet(
-        knownServers: List.unmodifiable(provider.knownServers),
-        onSelected: (server) {
-          setState(() => _selectedServer = server);
-          Navigator.pop(sheetCtx);
-        },
-        onAddNew: widget.onAddServerPressed == null
-            ? null
-            : () {
-                Navigator.pop(sheetCtx);
-                widget.onAddServerPressed!();
-              },
-      ),
-    );
+        context: context,
+        side: FLayout.btt,
+        mainAxisMaxRatio: 0.5,
+        builder: (sheetCtx) => _ServerPickerSheet(
+          knownServers: List.unmodifiable(provider.knownServers),
+          onSelected: (server) {
+            setState(() => _selectedServer = server);
+            Navigator.pop(sheetCtx);
+          },
+          onAddNew: widget.onAddServerPressed == null
+              ? null
+              : () {
+                  Navigator.pop(sheetCtx);
+                  widget.onAddServerPressed!();
+                },
+        ),
+      );
     } else {
       // TODO: change to dropdown
       showMenu(
@@ -165,8 +165,6 @@ class _AddUserFormState extends State<AddUserForm> {
     }
   }
 
-
-  
   Future<void> _submit() async {
     if (_selectedServer == null) {
       setState(() => _error = 'Please select a server.');

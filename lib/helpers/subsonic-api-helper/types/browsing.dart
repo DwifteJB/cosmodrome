@@ -35,7 +35,6 @@ class IndexArtist {
   }
 }
 
-
 class IndexesResponse {
   List<Index> indexes;
   List<MusicFolder> musicFolders;
@@ -89,6 +88,7 @@ class Album {
   final String artist;
   final String? artistId;
   final String? coverArt;
+  String? cachedCoverUrl;
   final int songCount;
   final int duration;
   final int? year;

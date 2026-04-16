@@ -8,6 +8,7 @@ import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/album_page.dart';
 import 'package:cosmodrome/pages/home.dart';
+import 'package:cosmodrome/pages/library_page.dart';
 //
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
@@ -31,7 +32,7 @@ void main() async {
   JustAudioMediaKit.ensureInitialized(
     linux: true, // default: true  - dependency: media_kit_libs_linux
     windows: true, // default: true  - dependency: media_kit_libs_windows_audio
-    android: false, 
+    android: false,
     iOS: true, // default: false - dependency: media_kit_libs_ios_audio
     macOS: true, // default: false - dependency: media_kit_libs_macos_audio
   );
@@ -89,15 +90,20 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
   initialLocation: initialLocation,
   onException: (context, state, router) => router.go('/home'),
   routes: [
-    // layout routes
     ShellRoute(
       routes: [
-        // /
         GoRoute(
           path: '/home',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: HomePage()),
         ),
+
+        GoRoute(
+          path: '/library',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: LibraryPage()),
+        ),
+
         GoRoute(
           path: '/library/album/:id',
           pageBuilder: (context, state) => NoTransitionPage(
@@ -113,14 +119,16 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
 
     GoRoute(
       path: '/addserver',
+      parentNavigatorKey: _rootNavigatorKey,
       pageBuilder: (context, state) =>
-          const NoTransitionPage(child: AddServerPage()),
+          MaterialPage(key: state.pageKey, child: const AddServerPage()),
     ),
 
     GoRoute(
       path: '/adduser',
+      parentNavigatorKey: _rootNavigatorKey,
       pageBuilder: (context, state) =>
-          const NoTransitionPage(child: AddUserPage()),
+          MaterialPage(key: state.pageKey, child: const AddUserPage()),
     ),
   ],
 );
@@ -155,19 +163,17 @@ class Application extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: theme.toApproximateMaterialTheme().copyWith(
           scaffoldBackgroundColor: AppColors.background,
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.macOS: _NoTransition(),
+              TargetPlatform.windows: _NoTransition(),
+              TargetPlatform.linux: _NoTransition(),
+              TargetPlatform.fuchsia: _NoTransition(),
+            },
+          ),
         ),
-        // theme: theme.toApproximateMaterialTheme().copyWith(
-        //   pageTransitionsTheme: PageTransitionsTheme(
-        //     builders: {
-        //       // disable page transitions for ALL..
-        //       TargetPlatform.android: SadPageTransition(),
-        //       TargetPlatform.iOS: SadPageTransition(),
-        //       TargetPlatform.linux: SadPageTransition(),
-        //       TargetPlatform.macOS: SadPageTransition(),
-        //       TargetPlatform.windows: SadPageTransition(),
-        //     },
-        //   ),
-        // ),
         routerConfig: router,
         builder: (_, child) => SafeArea(
           bottom: false,
@@ -187,7 +193,9 @@ class Application extends StatelessWidget {
   }
 }
 
-class SadPageTransition extends PageTransitionsBuilder {
+class _NoTransition extends PageTransitionsBuilder {
+  const _NoTransition();
+
   @override
   Widget buildTransitions<T>(
     PageRoute<T> route,
@@ -195,7 +203,5 @@ class SadPageTransition extends PageTransitionsBuilder {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) {
-    return child;
-  }
+  ) => child;
 }

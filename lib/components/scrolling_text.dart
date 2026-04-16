@@ -34,10 +34,10 @@ class _ScrollingTextState extends State<ScrollingText>
           overscroll: false,
         ),
         child: SingleChildScrollView(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        child: Text(widget.text, style: widget.style),
-      ),
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: Text(widget.text, style: widget.style),
+        ),
       ),
     );
   }
@@ -52,24 +52,26 @@ class _ScrollingTextState extends State<ScrollingText>
   @override
   void initState() {
     super.initState();
-    
+
     if (widget.duration == 0) {
       // set duration based on text length (assuming ~5 chars per second)
       widget.duration = (widget.text.length / 5).ceil();
     }
 
     _scrollController = ScrollController();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: Duration(seconds: widget.duration),
-    )..addListener(() {
-        if (_scrollController.hasClients) {
-          _scrollController.jumpTo(_animationController.value *
-              _scrollController.position.maxScrollExtent);
-        }
-      });
+    _animationController =
+        AnimationController(
+          vsync: this,
+          duration: Duration(seconds: widget.duration),
+        )..addListener(() {
+          if (_scrollController.hasClients) {
+            _scrollController.jumpTo(
+              _animationController.value *
+                  _scrollController.position.maxScrollExtent,
+            );
+          }
+        });
 
-    
     WidgetsBinding.instance.addPostFrameCallback((_) => _startAnimation());
   }
 

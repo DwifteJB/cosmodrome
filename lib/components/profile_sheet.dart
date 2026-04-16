@@ -21,6 +21,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SubsonicProvider>();
+
     final colors = context.theme.colors;
 
     // group
@@ -36,127 +37,125 @@ class _ProfileSheetState extends State<ProfileSheet> {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
-        child: Column(
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
+        child: Consumer<SubsonicProvider>(
+          builder: (context, value, child) => Column(
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            // header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
-              child: Row(
-                children: [
-                  Text(
-                    'Accounts',
-                    style: context.theme.typography.xl.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colors.foreground,
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        FIcons.x,
-                        size: 20,
-                        color: colors.mutedForeground,
+
+              // header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
+                child: Row(
+                  children: [
+                    Text(
+                      'Accounts',
+                      style: context.theme.typography.xl.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.foreground,
                       ),
                     ),
-                  ),
-                ],
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          FIcons.x,
+                          size: 20,
+                          color: colors.mutedForeground,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            // profile card
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: activeAccount != null
-                  ? _buildActiveProfileCard(context, activeAccount, colors)
-                  : _buildNoAccountPill(context, colors),
-            ),
-            // content
-            Expanded(
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 32),
-              children: [
-                  Container(height: 1, color: context.theme.colors.border),
-                _buildSectionHeader(
-                  context,
-                  'Profiles',
-                  _profilesExpanded,
-                  () => setState(
-                    () => _profilesExpanded = !_profilesExpanded,
-                  ),
+              // profile card
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                child: activeAccount != null
+                    ? _buildActiveProfileCard(context, activeAccount, colors)
+                    : _buildNoAccountPill(context, colors),
+              ),
+              // content
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 32),
+                  children: [
+                    Container(height: 1, color: context.theme.colors.border),
+                    _buildSectionHeader(
+                      context,
+                      'Profiles',
+                      _profilesExpanded,
+                      () => setState(
+                        () => _profilesExpanded = !_profilesExpanded,
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: _profilesExpanded
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ...accountsByServer.entries.map(
+                                  (entry) => _buildServerGroup(
+                                    context,
+                                    entry.key,
+                                    entry.value,
+                                    provider,
+                                  ),
+                                ),
+                                _buildAddButton(context, 'Add Account', () {
+                                  context.push('/adduser');
+                                }),
+                              ],
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(height: 1, color: context.theme.colors.border),
+                    _buildSectionHeader(
+                      context,
+                      'Servers',
+                      _serversExpanded,
+                      () =>
+                          setState(() => _serversExpanded = !_serversExpanded),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: _serversExpanded
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ...provider.knownServers.map(
+                                  (server) => _buildServerRow(context, server),
+                                ),
+                                _buildAddButton(context, 'Add Server', () {
+                                  context.push('/addserver');
+                                }),
+                              ],
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
                 ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  child: _profilesExpanded
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ...accountsByServer.entries.map(
-                              (entry) => _buildServerGroup(
-                                context,
-                                entry.key,
-                                entry.value,
-                                provider,
-                              ),
-                            ),
-                              _buildAddButton(context, 'Add Account', () {
-                              Navigator.pop(context);
-                              context.push('/adduser');
-                            }),
-                          ],
-                        )
-                      : const SizedBox.shrink(),
-                ),
-                const SizedBox(height: 8),
-                  Container(height: 1, color: context.theme.colors.border),
-                _buildSectionHeader(
-                  context,
-                  'Servers',
-                  _serversExpanded,
-                  () => setState(() => _serversExpanded = !_serversExpanded),
-                ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  child: _serversExpanded
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ...provider.knownServers.map(
-                              (server) => _buildServerRow(context, server),
-                            ),
-                              _buildAddButton(context, 'Add Server', () {
-                              Navigator.pop(context);
-                              context.push('/addserver');
-                            }),
-                          ],
-                        )
-                      : const SizedBox.shrink(),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    ));
-  }
-
-  @override
-  void initState() {
-    super.initState();
+    );
   }
 
   Widget _buildActiveProfileCard(
@@ -164,7 +163,14 @@ class _ProfileSheetState extends State<ProfileSheet> {
     SubsonicAccount account,
     dynamic colors,
   ) {
-   
+    // get server for account
+    final provider = context.read<SubsonicProvider>();
+    final server = provider.knownServers.firstWhere(
+      (s) => s.baseUrl == account.baseUrl,
+      orElse: () =>
+          SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -193,7 +199,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
                   ),
                 ),
                 Text(
-                  account.baseUrl,
+                  server.name,
                   style: context.theme.typography.xs.copyWith(
                     color: colors.mutedForeground,
                   ),
@@ -202,7 +208,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
               ],
             ),
           ),
-          
         ],
       ),
     );
@@ -306,13 +311,18 @@ class _ProfileSheetState extends State<ProfileSheet> {
   ) {
     final colors = context.theme.colors;
 
+    final server = provider.knownServers.firstWhere(
+      (s) => s.baseUrl == baseUrl,
+      orElse: () => SubsonicServer(baseUrl: baseUrl, name: baseUrl),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
           child: Text(
-            baseUrl,
+            "${server.name} ($baseUrl)",
             style: context.theme.typography.xs.copyWith(
               color: colors.mutedForeground,
             ),
@@ -320,12 +330,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
         ),
         ...accounts.map((account) {
           final isActive = provider.activeAccount?.id == account.id;
-          // get server by account
-          final server = provider.knownServers.firstWhere(
-            (s) => s.baseUrl == account.baseUrl,
-            orElse: () =>
-                SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
-          );
+
           final accountConnected = server.canConnect;
 
           return Dismissible(
@@ -392,7 +397,8 @@ class _ProfileSheetState extends State<ProfileSheet> {
     return Dismissible(
       key: ValueKey(server.baseUrl),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) => context.read<SubsonicProvider>().removeKnownServer(server.baseUrl),
+      onDismissed: (_) =>
+          context.read<SubsonicProvider>().removeKnownServer(server.baseUrl),
       background: const SizedBox.shrink(),
       secondaryBackground: Container(
         alignment: Alignment.centerRight,

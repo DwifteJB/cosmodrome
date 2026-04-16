@@ -35,7 +35,6 @@ class SubsonicProvider extends ChangeNotifier {
 
   bool get isAuthenticated => _authState == AuthState.authenticated;
 
-
   /// The current subsonic istance for the active account. Will throw if not authenticated.
   Subsonic get subsonic {
     assert(activeAccount != null, 'SubsonicProvider: no active account');
@@ -108,7 +107,7 @@ class SubsonicProvider extends ChangeNotifier {
 
     final server = SubsonicServer(baseUrl: baseUrl, name: name ?? baseUrl);
     final success = await server.tryConnect();
-    
+
     if (success) {
       server.canConnect = true;
       knownServers.add(server);
@@ -122,6 +121,7 @@ class SubsonicProvider extends ChangeNotifier {
     }
 
     await _persist(); // save known servers to storage
+    notifyListeners();
     return success;
   }
 
@@ -170,6 +170,7 @@ class SubsonicProvider extends ChangeNotifier {
 
     loggerPrint('SubsonicProvider: removed known server $baseUrl');
     await _persist(); // save known servers to storage
+    notifyListeners();
   }
 
   /// Switches the active account.
@@ -331,7 +332,6 @@ class SubsonicProvider extends ChangeNotifier {
 
     // TEMP? get all avatars
     await _getAvatarsForAllAccounts();
-    
   }
 
   void _setState(AuthState state) {
@@ -396,7 +396,7 @@ class SubsonicServer {
         canConnect = false;
         return false; // server is reachable but responded with an unexpected error
       }
-      
+
       return true; // ping succeeded, server is reachable (but we don't expect this since credentials are wrong)
     } catch (e) {
       final error = e.toString();

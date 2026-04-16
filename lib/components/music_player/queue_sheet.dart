@@ -76,15 +76,15 @@ class _QueueSheetState extends State<QueueSheet> {
                           '${song.id}_$index.${song.title}.${song.artist}.${DateTime.now().millisecondsSinceEpoch}',
                         ),
                         child: ListTile(
-                        leading: ClipRRect(
+                          leading: ClipRRect(
                             key: ValueKey('cover_${song.id}'),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Image.network(
+                            borderRadius: BorderRadius.circular(4),
+                            child: Image.network(
                               _idToCoverUrlCache[song.id] ?? '',
 
-                            width: 40,
-                            height: 40,
-                            fit: BoxFit.cover,
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Container(
                                     width: 40,
@@ -97,42 +97,41 @@ class _QueueSheetState extends State<QueueSheet> {
                                       size: 20,
                                     ),
                                   ),
-                          ),
-                        ),
-                        title: ScrollingText(
-                          text: song.title,
-                          style: context.theme.typography.sm.copyWith(
-                            color: context.theme.colors.foreground,
-                            fontWeight: FontWeight.w500,
-                            height: 0
-                          ),
-                          duration: max(5, (song.title.length / 10).ceil()),
-                          maxWidth: 100,
-                        ),
-                        subtitle: song.artist != null
-                            ? Text(
-                                song.artist!,
-                                style: context.theme.typography.xs.copyWith(
-                                  color: context.theme.colors.mutedForeground,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              )
-                            : null,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                Icons.remove_circle_outline,
-                                color: context.theme.colors.mutedForeground,
-                                size: 20,
-                              ),
-                              onPressed: () => player.removeFromQueue(index),
                             ),
-                           
-                          ],
-                        ),
+                          ),
+                          title: ScrollingText(
+                            text: song.title,
+                            style: context.theme.typography.sm.copyWith(
+                              color: context.theme.colors.foreground,
+                              fontWeight: FontWeight.w500,
+                              height: 0,
+                            ),
+                            duration: max(5, (song.title.length / 10).ceil()),
+                            maxWidth: 100,
+                          ),
+                          subtitle: song.artist != null
+                              ? Text(
+                                  song.artist!,
+                                  style: context.theme.typography.xs.copyWith(
+                                    color: context.theme.colors.mutedForeground,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                )
+                              : null,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  Icons.remove_circle_outline,
+                                  color: context.theme.colors.mutedForeground,
+                                  size: 20,
+                                ),
+                                onPressed: () => player.removeFromQueue(index),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },

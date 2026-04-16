@@ -1,4 +1,3 @@
-import 'package:cosmodrome/components/pill_header.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -6,10 +5,10 @@ import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
+import 'package:cosmodrome/utils/is_colour_too_dark.dart';
 import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
-import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
@@ -34,7 +33,7 @@ class _AlbumHeader extends StatelessWidget {
       '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
       _formatDuration(album.duration),
     ];
-    
+
     //
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -42,14 +41,13 @@ class _AlbumHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // move to bottom, use spacer
-          
           Text(
             album.name,
             style: context.theme.typography.xl2.copyWith(
               fontWeight: FontWeight.w400,
               color: context.theme.colors.foreground,
               letterSpacing: 1,
-              height: 0
+              height: 0,
             ),
           ),
           const SizedBox(height: 4),
@@ -90,7 +88,7 @@ class _AlbumPageState extends State<AlbumPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return SizedBox(
+      return const SizedBox(
         height: 200,
         child: Center(
           child: CircularProgressIndicator(
@@ -147,7 +145,11 @@ class _AlbumPageState extends State<AlbumPage> {
       width: size,
       height: size,
       color: context.theme.colors.muted,
-      child: Icon(Icons.album, color: context.theme.colors.mutedForeground, size: size * 0.4),
+      child: Icon(
+        Icons.album,
+        color: context.theme.colors.mutedForeground,
+        size: size * 0.4,
+      ),
     );
   }
 
@@ -160,7 +162,6 @@ class _AlbumPageState extends State<AlbumPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-    
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -221,8 +222,19 @@ class _AlbumPageState extends State<AlbumPage> {
         NetworkImage(_coverUrl!),
         size: const Size(200, 200),
       );
-      final color = generator.vibrantColor?.color ?? generator.dominantColor?.color;
-      loggerPrint("Extracted accent color: $color");
+      final color =
+          generator.vibrantColor?.color ?? generator.dominantColor?.color;
+      // figure out if its too dark
+      final tooDark = isColourTooDark(color ?? AppColors.auraColor);
+
+      if (tooDark) {
+        if (mounted) accentColorNotifier.value = AppColors.auraColor;
+        setState(() {
+          _localCoverColor = AppColors.auraColor;
+        });
+        return;
+      }
+
       if (mounted) accentColorNotifier.value = color;
       setState(() {
         _localCoverColor = color ?? AppColors.auraColor;
@@ -286,9 +298,7 @@ class _AlbumPageState extends State<AlbumPage> {
           ),
         ],
       ),
-    
     ];
-    
 
     // width of the device capped at 400
     var cardWidth = MediaQuery.of(context).size.width * 0.8;
@@ -297,17 +307,8 @@ class _AlbumPageState extends State<AlbumPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PillHeader(
-          title: '',
-          onBack: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/home'); // fallback to home if no back history
-            }
-          },
-        ),
-        const SizedBox(height: 16),
+        // sized
+        SizedBox(height: 40),
         Center(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
@@ -331,7 +332,7 @@ class _AlbumPageState extends State<AlbumPage> {
             fontWeight: FontWeight.bold,
             color: Colors.white,
             letterSpacing: -0.06,
-            height: 0
+            height: 0,
           ),
         ),
         Text(
@@ -340,7 +341,7 @@ class _AlbumPageState extends State<AlbumPage> {
           style: context.theme.typography.sm.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w500,
-              letterSpacing: -0.05
+            letterSpacing: -0.05,
           ),
         ),
         if (metaParts.isNotEmpty) ...[
@@ -400,8 +401,7 @@ class _AlbumPageState extends State<AlbumPage> {
             song: s,
             albumArtist: album.artist,
             onTap: () => onClickSong(s),
-            accentColor: 
-                accentColorNotifier.value ?? AppColors.auraColor,
+            accentColor: accentColorNotifier.value ?? AppColors.auraColor,
           ),
         ),
 
@@ -412,22 +412,21 @@ class _AlbumPageState extends State<AlbumPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: additionalDetails
-                .map((w) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: w,
-                    ))
+                .map(
+                  (w) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: w,
+                  ),
+                )
                 .toList(),
           ),
-        
         ],
 
         const SizedBox(height: 32),
-
       ],
     );
   }
 }
-
 
 class _DesktopTrackTile extends StatefulWidget {
   final Song song;
@@ -682,41 +681,42 @@ class _MobileTrackTileState extends State<_MobileTrackTile> {
       ),
       child: Container(
         child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 32,
-              child: Text(
-                trackNumber != null ? '$trackNumber' : '—', // em dash should be on all devices via font
-                style: context.theme.typography.xs.copyWith(
-                  color: AppColors.trackNumber,
-                  letterSpacing: -0.5,
-                  fontWeight: .bold
-                  
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 32,
+                child: Text(
+                  trackNumber != null
+                      ? '$trackNumber'
+                      : '—', // em dash should be on all devices via font
+                  style: context.theme.typography.xs.copyWith(
+                    color: AppColors.trackNumber,
+                    letterSpacing: -0.5,
+                    fontWeight: .bold,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    song.title,
-                    style: context.theme.typography.sm.copyWith(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title,
+                      style: context.theme.typography.sm.copyWith(
                         color: isPlaying
                             ? widget.accentColor
                             : context.theme.colors.foreground,
                         fontWeight: FontWeight.w400,
-                      letterSpacing: -0.05
+                        letterSpacing: -0.05,
+                      ),
+
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  
+
                     Text(
                       song.artist ?? albumArtist,
                       style: context.theme.typography.xs.copyWith(
@@ -726,20 +726,23 @@ class _MobileTrackTileState extends State<_MobileTrackTile> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                ],
-              ),
-            ),
-            if (song.duration != null)
-              Padding(padding: const EdgeInsets.only(left: 24), child: Text(
-                _formatDuration(song.duration!),
-                style: context.theme.typography.sm.copyWith(
-                  color: context.theme.colors.mutedForeground,
+                  ],
                 ),
-              ),)
-          ],
+              ),
+              if (song.duration != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 24),
+                  child: Text(
+                    _formatDuration(song.duration!),
+                    style: context.theme.typography.sm.copyWith(
+                      color: context.theme.colors.mutedForeground,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-      )
     );
   }
 

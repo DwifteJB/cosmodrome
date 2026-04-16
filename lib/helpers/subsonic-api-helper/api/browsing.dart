@@ -25,7 +25,8 @@ extension SubsonicBrowsingApi on Subsonic {
       loggerPrint("response: $response");
 
       final indexesJson =
-          (response['indexes'] as Map<String, dynamic>)['index'] as List<dynamic>;
+          (response['indexes'] as Map<String, dynamic>)['index']
+              as List<dynamic>;
       return indexesJson
           .map((json) => Index.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -96,9 +97,14 @@ extension SubsonicBrowsingApi on Subsonic {
   // https://www.subsonic.org/pages/api.jsp#getRandomSongs
   Future<List<Song>> getRandomSongs({int count = 10}) async {
     try {
-      final root = await apiRequest('getRandomSongs', params: {'size': '$count'});
+      final root = await apiRequest(
+        'getRandomSongs',
+        params: {'size': '$count'},
+      );
       final songs = root['randomSongs']?['song'] as List<dynamic>? ?? [];
-      return songs.map((s) => Song.fromJson(s as Map<String, dynamic>)).toList();
+      return songs
+          .map((s) => Song.fromJson(s as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       loggerPrint('Error fetching random songs: $e');
       return [];

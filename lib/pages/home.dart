@@ -87,7 +87,6 @@ class _AlbumCardState extends State<_AlbumCard> {
                       width: cardWidth,
                       height: cardWidth,
                       color: context.theme.colors.muted,
-                      
                     ),
             ),
             const SizedBox(height: 6),
@@ -144,6 +143,7 @@ class _HomePageState extends State<HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 12),
         _HorizontalCarousel(
           title: 'Recently Added',
           albums: _recentAlbums ?? [],
@@ -235,7 +235,7 @@ class _HorizontalCarousel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-         
+
           // fall back to fake albums if the real ones aren't loaded yet, to show the skeleton effect
           Skeletonizer(
             enabled: isLoading,
@@ -256,7 +256,7 @@ class _HorizontalCarousel extends StatelessWidget {
                     ),
                   )
                 : SizedBox(
-              height: 210,
+                    height: 210,
                     child: ScrollConfiguration(
                       behavior: ScrollBehavior().copyWith(
                         dragDevices: {
@@ -266,28 +266,26 @@ class _HorizontalCarousel extends StatelessWidget {
                         },
                       ),
                       child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         itemCount:
                             albums.length +
                             (albums.isEmpty ? fakeAlbums.length : 0),
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      right: 12
-                    ),
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: EdgeInsets.only(right: 12),
                             child: _AlbumCard(
                               album: albums.isNotEmpty
                                   ? albums[index]
                                   : fakeAlbums[index - albums.length],
                               subsonic: subsonic,
                             ),
-                  );
-                },
+                          );
+                        },
                       ),
-                    )
-            ),
-          )
+                    ),
+                  ),
+          ),
         ],
       ),
     );
