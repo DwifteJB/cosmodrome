@@ -6,7 +6,6 @@ import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/is_colour_too_dark.dart';
-import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';

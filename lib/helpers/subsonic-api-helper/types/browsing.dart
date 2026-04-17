@@ -164,6 +164,69 @@ class Song {
   }
 }
 
+class Artist {
+  final String id;
+  final String name;
+  final int albumCount;
+  final String? coverArt;
+  final DateTime? starred;
+
+  Artist({
+    required this.id,
+    required this.name,
+    required this.albumCount,
+    this.coverArt,
+    this.starred,
+  });
+
+  factory Artist.fromJson(Map<String, dynamic> json) {
+    return Artist(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      albumCount: (json['albumCount'] as num?)?.toInt() ?? 0,
+      coverArt: json['coverArt'] as String?,
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
+    );
+  }
+}
+
+class Playlist {
+  final String id;
+  final String name;
+  final String? comment;
+  final int songCount;
+  final int duration;
+  final String? coverArt;
+  final String owner;
+  final bool public;
+
+  Playlist({
+    required this.id,
+    required this.name,
+    this.comment,
+    required this.songCount,
+    required this.duration,
+    this.coverArt,
+    required this.owner,
+    this.public = false,
+  });
+
+  factory Playlist.fromJson(Map<String, dynamic> json) {
+    return Playlist(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      comment: json['comment'] as String?,
+      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      coverArt: json['coverArt'] as String?,
+      owner: json['owner'] as String? ?? '',
+      public: json['public'] as bool? ?? false,
+    );
+  }
+}
+
 class AlbumDetail extends Album {
   final List<Song> songs;
 

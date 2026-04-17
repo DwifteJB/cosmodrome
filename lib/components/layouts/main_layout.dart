@@ -62,7 +62,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   final _desktopScrollController = ScrollController();
   bool _queueOpen = false;
 
-  String? _customTitle;
+  LayoutConfig _layoutConfig = LayoutConfig.empty;
 
   Color? _accentColor;
   bool _accentVisible = false;
@@ -88,9 +88,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   void didUpdateWidget(MainLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedRoute != widget.selectedRoute) {
+      // reset immediately to prevent showing wrong title/buttons during transition, then clear after animations complete
+      _layoutConfig = LayoutConfig.empty;
       if (_mobileScrollController.hasClients) _mobileScrollController.jumpTo(0);
-      if (_desktopScrollController.hasClients)
+      if (_desktopScrollController.hasClients) {
         _desktopScrollController.jumpTo(0);
+      }
       if (!(widget.selectedRoute?.startsWith('/library/album') ?? false)) {
         accentColorNotifier.value = null;
       }
@@ -99,10 +102,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    accentColorNotifier.removeListener(_onAccentChanged);
     _searchController.dispose();
     _mobileScrollController.dispose();
     _desktopScrollController.dispose();
+
+    layoutConfig.removeListener(_onLayoutConfigChanged);
+    accentColorNotifier.removeListener(_onAccentChanged);
     aniu.dispose();
     super.dispose();
   }
@@ -115,8 +120,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       vsync: this,
     );
     _mobileScrollController.addListener(_onScroll);
+    _desktopScrollController.addListener(_onScroll);
+
+    layoutConfig.addListener(_onLayoutConfigChanged);
     accentColorNotifier.addListener(_onAccentChanged);
-    customTitle.addListener(_onCustomTitleChanged);
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
@@ -498,29 +505,35 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             bottom: bottomPadding + 18,
             left: 16,
             right: 16,
-            child: Consumer<PlayerProvider>(
-              builder: (_, player, _) {
-                final collapsed = aniu.value > 0.3;
-                return Row(
-                  children: [
-                    _buildMainPill(context),
+            child: _layoutConfig.hidePill
+                ? const SizedBox.shrink()
+                : Consumer<PlayerProvider>(
+                    builder: (_, player, _) {
+                      final collapsed = aniu.value > 0.3;
+                      return Row(
+                        children: [
+                          _layoutConfig.mainPillBuilder != null
+                              ? _layoutConfig.mainPillBuilder!(context)
+                              : _buildMainPill(context),
 
-                    // mini mobile player! (if song playing, and collapsed)
-                    Expanded(
-                      child: player.hasCurrentSong && collapsed
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: const MiniPlayer(),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    _buildSearchPill(context),
-                  ],
-                );
-              },
-            ),
+                          // mini mobile player! (if song playing, and collapsed)
+                          Expanded(
+                            child: player.hasCurrentSong && collapsed
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    child: const MiniPlayer(),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                          _layoutConfig.searchPillBuilder != null
+                              ? _layoutConfig.searchPillBuilder!(context)
+                              : _buildSearchPill(context),
+                        ],
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -528,6 +541,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   Widget _buildMobileTopBar(BuildContext context) {
+    // mixin allows pages to fully replace the top bar if they want, so check for that first
+    if (_layoutConfig.topBarBuilder != null) {
+      return _layoutConfig.topBarBuilder!(context);
+    }
+
     final colors = context.theme.colors;
     final topPadding = MediaQuery.of(context).padding.top;
 
@@ -583,28 +601,28 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               ),
             const Spacer(),
             // custom buttons
-            // FButton(
-            //   onPress: () => context.push('/search'),
-
-            //   style: .delta(
-            //     decoration: .delta([
-            //       FVariantOperation.all(
-            //         .boxDelta(
-            //           color: AppColors.mutedButtonColor,
-            //           borderRadius: BorderRadius.circular(40),
-            //           border: Border.all(color: colors.border, width: 1),
-            //         ),
-            //       ),
-                  
-            //     ]),
-            //     contentStyle: .delta(
-            //       padding: EdgeInsetsGeometryDelta.value(
-            //         const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-            //       ),
-            //     ),
-            //   ),
-            //   child: const Icon(FIcons.plus, size: 24, color: Colors.white),
-            // ),
+            ..._layoutConfig.buttons.map(
+              (button) => FButton(
+                onPress: button.onPressed,
+                style: .delta(
+                  decoration: .delta([
+                    FVariantOperation.all(
+                      .boxDelta(
+                        color: AppColors.mutedButtonColor,
+                        borderRadius: BorderRadius.circular(40),
+                        border: Border.all(color: colors.border, width: 1),
+                      ),
+                    ),
+                  ]),
+                  contentStyle: .delta(
+                    padding: EdgeInsetsGeometryDelta.value(
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                    ),
+                  ),
+                ),
+                child: Icon(button.icon, size: 24, color: Colors.white),
+              ),
+            ),
 
             if (widget.selectedRoute == '/home' || widget.selectedRoute == '/')
               GestureDetector(
@@ -687,7 +705,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   String _getPageTitle() {
-    if (_customTitle != null) return _customTitle!;
+    if (_layoutConfig.title != null) return _layoutConfig.title!;
     return uriToTitle(widget.selectedRoute ?? '/home');
   }
 
@@ -719,9 +737,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     }
   }
 
-  void _onCustomTitleChanged() {
+  void _onLayoutConfigChanged() {
     setState(() {
-      _customTitle = customTitle.value;
+      _layoutConfig = layoutConfig.value;
     });
   }
 

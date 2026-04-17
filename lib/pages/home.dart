@@ -117,7 +117,7 @@ class _AlbumCardState extends State<_AlbumCard> {
   void initState() {
     super.initState();
     _coverUrl = widget.album.coverArt != null
-        ? widget.subsonic.coverArtUrl(widget.album.coverArt!, size: 300)
+        ? widget.subsonic.cachedCoverArtUrl(widget.album.coverArt!, size: 300)
         : null;
   }
 }
