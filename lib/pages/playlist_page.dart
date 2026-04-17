@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:cosmodrome/components/song_context_sheet.dart';
+import 'package:cosmodrome/components/music-pages/music_page_cover_header.dart';
+import 'package:cosmodrome/components/music-pages/track_tile.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -92,7 +93,6 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
     return CustomScrollView(
       slivers: [
-        // space for topbar
         SliverToBoxAdapter(child: SizedBox(height: topPadding + 56 + 20)),
 
         // cover art
@@ -142,7 +142,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${_formatDuration(playlist.duration)}',
+                  '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}',
                   textAlign: TextAlign.center,
                   style: context.theme.typography.xs.copyWith(
                     color: context.theme.colors.mutedForeground,
@@ -202,19 +202,20 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           itemBuilder: (ctx, i) => ReorderableDragStartListener(
             key: ValueKey(_songs[i].id),
             index: i,
-            enabled: false, // disable long-press, use the drag handle inside (love flutter)
-            child: _MobileTrackTile(
+            enabled: false,
+            child: MusicPageMobileTrackTile(
               song: _songs[i],
-              index: i,
+              trackNumber: i + 1,
               accentColor: accentColor,
               onTap: () => _playSongAt(i),
               onRemove: () => _removeAt(i),
+              showDragHandle: true,
+              reorderIndex: i,
             ),
           ),
           onReorder: _onReorder,
         ),
 
-        // btm padding for nav
         SliverToBoxAdapter(
           child: SizedBox(height: bottomPadding + 100),
         ),
@@ -237,89 +238,25 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
   Widget _desktopLayout() {
     final playlist = _playlist!;
-    final coverUrl = _coverUrl;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: coverUrl != null
-                    ? Image.network(
-                        coverUrl,
-                        width: 280,
-                        height: 280,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, stack) => Container(
-                          width: 280,
-                          height: 280,
-                          color: context.theme.colors.muted,
-                          child: Icon(
-                            Icons.queue_music,
-                            color: context.theme.colors.mutedForeground,
-                            size: 80,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        width: 280,
-                        height: 280,
-                        decoration: BoxDecoration(
-                          color: context.theme.colors.muted,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.queue_music,
-                          color: context.theme.colors.mutedForeground,
-                          size: 80,
-                        ),
-                      ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        playlist.name,
-                        style: context.theme.typography.xl2.copyWith(
-                          fontWeight: FontWeight.w400,
-                          color: context.theme.colors.foreground,
-                          letterSpacing: 1,
-                          height: 0,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        playlist.owner,
-                        style: context.theme.typography.sm.copyWith(
-                          color: context.theme.colors.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${_formatDuration(playlist.duration)}',
-                        style: context.theme.typography.sm.copyWith(
-                          color: context.theme.colors.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          MusicPageCoverHeader(
+            coverUrl: _coverUrl,
+            title: playlist.name,
+            subtitle: playlist.owner,
+            metaText:
+                '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}',
+            placeholderIcon: Icons.queue_music,
           ),
           const SizedBox(height: 20),
           ..._songs.asMap().entries.map(
-            (e) => _DesktopTrackTile(
+            (e) => MusicPageDesktopTrackTile(
               song: e.value,
-              index: e.key,
+              trackNumber: e.key + 1,
               accentColor: accentColorNotifier.value ?? _localCoverColor,
               onTap: () => _playSongAt(e.key),
               onRemove: () => _removeAt(e.key),
@@ -367,13 +304,12 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           _playlist = playlist;
           _songs = List.of(playlist?.songs ?? []);
           _coverUrl = playlist?.coverArt != null
-              ? provider.subsonic.coverArtUrl(playlist!.coverArt!, size: 600)
+              ? provider.subsonic.cachedCoverArtUrl(playlist!.coverArt!, size: 600)
               : null;
           _error = playlist == null ? 'Playlist not found' : null;
           _loading = false;
         });
 
-        // push new title
         layoutConfig.value = LayoutConfig(
           title: playlist?.name ?? 'Playlist',
           buttons: pageButtons,
@@ -572,245 +508,6 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     final provider = context.read<SubsonicProvider>();
     final ids = _songs.map((s) => s.id).toList();
     provider.subsonic.replacePlaylistSongs(widget.playlistId, ids);
-  }
-
-  static String _formatDuration(int totalSeconds) {
-    final hours = totalSeconds ~/ 3600;
-    final minutes = (totalSeconds % 3600) ~/ 60;
-    if (hours > 0) return '${hours}h ${minutes}m';
-    return '${minutes}m';
-  }
-}
-
-class _MobileTrackTile extends StatefulWidget {
-  final Song song;
-  final int index;
-  final Color accentColor;
-  final VoidCallback? onTap;
-  final VoidCallback? onRemove;
-
-  const _MobileTrackTile({
-    required this.song,
-    required this.index,
-    required this.accentColor,
-    this.onTap,
-    this.onRemove,
-    super.key,
-  });
-
-  @override
-  State<_MobileTrackTile> createState() => _MobileTrackTileState();
-}
-
-class _MobileTrackTileState extends State<_MobileTrackTile> {
-  bool get isPlaying {
-    final player = context.watch<PlayerProvider>();
-    return player.currentSong?.id == widget.song.id;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final song = widget.song;
-
-    return InkWell(
-      onTap: widget.onTap,
-      onLongPress: () => showSongContextSheet(
-        context,
-        song,
-        onRemoveFromPlaylist: widget.onRemove,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 32,
-              child: Text(
-                '${widget.index + 1}',
-                style: context.theme.typography.xs.copyWith(
-                  color: AppColors.trackNumber,
-                  letterSpacing: -0.5,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    song.title,
-                    style: context.theme.typography.sm.copyWith(
-                      color: isPlaying
-                          ? widget.accentColor
-                          : context.theme.colors.foreground,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -0.05,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (song.artist != null)
-                    Text(
-                      song.artist!,
-                      style: context.theme.typography.xs.copyWith(
-                        color: AppColors.trackNumber,
-                        letterSpacing: -0.05,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            if (song.duration != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Text(
-                  _formatDuration(song.duration!),
-                  style: context.theme.typography.sm.copyWith(
-                    color: context.theme.colors.mutedForeground,
-                  ),
-                ),
-              ),
-            const SizedBox(width: 8),
-            ReorderableDragStartListener(
-              index: widget.index,
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(
-                  Icons.drag_handle,
-                  size: 20,
-                  color: AppColors.trackNumber,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  static String _formatDuration(int seconds) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-}
-
-class _DesktopTrackTile extends StatefulWidget {
-  final Song song;
-  final int index;
-  final Color? accentColor;
-  final VoidCallback? onTap;
-  final VoidCallback? onRemove;
-
-  const _DesktopTrackTile({
-    required this.song,
-    required this.index,
-    this.accentColor,
-    this.onTap,
-    this.onRemove,
-    super.key,
-  });
-
-  @override
-  State<_DesktopTrackTile> createState() => _DesktopTrackTileState();
-}
-
-class _DesktopTrackTileState extends State<_DesktopTrackTile> {
-  bool _isHovered = false;
-
-  bool get isPlaying {
-    final player = context.watch<PlayerProvider>();
-    return player.currentSong?.id == widget.song.id;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final song = widget.song;
-    final hoverBg = context.theme.colors.secondary.withValues(alpha: 0.2);
-
-    return GestureDetector(
-      onTap: widget.onTap,
-      onSecondaryTap: () => showSongContextSheet(
-        context,
-        song,
-        onRemoveFromPlaylist: widget.onRemove,
-      ),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: Container(
-          color: _isHovered ? hoverBg : Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    '${widget.index + 1}',
-                    style: context.theme.typography.xs.copyWith(
-                      color: AppColors.trackNumber,
-                      letterSpacing: -0.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        song.title,
-                        style: context.theme.typography.sm.copyWith(
-                          color: isPlaying
-                              ? widget.accentColor
-                              : context.theme.colors.foreground,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.05,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (song.artist != null)
-                        Text(
-                          song.artist!,
-                          style: context.theme.typography.xs.copyWith(
-                            color: AppColors.trackNumber,
-                            letterSpacing: -0.05,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                if (song.duration != null)
-                  Text(
-                    _formatDuration(song.duration!),
-                    style: context.theme.typography.sm.copyWith(
-                      color: context.theme.colors.mutedForeground,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  static String _formatDuration(int seconds) {
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
 

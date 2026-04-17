@@ -67,9 +67,6 @@ class _QueueSheetState extends State<QueueSheet> {
                     key: const Key('queue_list'),
                     onReorder: player.reorderQueue,
                     itemBuilder: (context, index) {
-                      print(
-                        "key: ${queue[index].id}_$index.${queue[index].title}.${queue[index].artist}.${DateTime.now().millisecondsSinceEpoch}",
-                      );
                       final song = queue[index];
                       return InkWell(
                         key: ValueKey(

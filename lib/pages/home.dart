@@ -204,9 +204,9 @@ class _HorizontalCarousel extends StatelessWidget {
   final String title;
   final List<Album> albums;
   final Subsonic subsonic;
-  bool isLoading;
+  final bool isLoading;
 
-  _HorizontalCarousel({
+  const _HorizontalCarousel({
     required this.title,
     required this.albums,
     required this.subsonic,
@@ -241,7 +241,7 @@ class _HorizontalCarousel extends StatelessWidget {
             enabled: isLoading,
             effect: ShimmerEffect(
               baseColor: context.theme.colors.muted,
-              highlightColor: context.theme.colors.muted.withOpacity(0.5),
+              highlightColor: context.theme.colors.muted.withValues(alpha: 0.5),
             ),
             child: !isLoading && albums.isEmpty
                 ? SizedBox(

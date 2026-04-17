@@ -11,7 +11,6 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -356,7 +355,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     if (_accentColor != null && _cacheId == song.id) return _accentColor!;
 
     if (song.coverArt == null) return AppColors.background;
-    final saveCoverArtURL = sp.subsonic.coverArtUrl(song.coverArt!, size: 300);
+    final saveCoverArtURL = sp.subsonic.cachedCoverArtUrl(song.coverArt!, size: 300);
     try {
       final generator = await PaletteGenerator.fromImageProvider(
         NetworkImage(saveCoverArtURL),

@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 
 class ScrollingText extends StatefulWidget {
   final String text;
-  int duration;
+  final int duration;
   final TextStyle? style;
   final double maxWidth;
 
-  ScrollingText({
+  const ScrollingText({
     super.key,
     required this.text,
     this.duration = 5,
@@ -16,13 +16,14 @@ class ScrollingText extends StatefulWidget {
   });
 
   @override
-  _ScrollingTextState createState() => _ScrollingTextState();
+  State<ScrollingText> createState() => _ScrollingTextState();
 }
 
 class _ScrollingTextState extends State<ScrollingText>
     with SingleTickerProviderStateMixin {
   late ScrollController _scrollController;
   late AnimationController _animationController;
+  late int _effectiveDuration;
 
   @override
   Widget build(BuildContext context) {
@@ -53,16 +54,15 @@ class _ScrollingTextState extends State<ScrollingText>
   void initState() {
     super.initState();
 
-    if (widget.duration == 0) {
-      // set duration based on text length (assuming ~5 chars per second)
-      widget.duration = (widget.text.length / 5).ceil();
-    }
+    _effectiveDuration = widget.duration == 0
+        ? (widget.text.length / 5).ceil()
+        : widget.duration;
 
     _scrollController = ScrollController();
     _animationController =
         AnimationController(
           vsync: this,
-          duration: Duration(seconds: widget.duration),
+          duration: Duration(seconds: _effectiveDuration),
         )..addListener(() {
           if (_scrollController.hasClients) {
             _scrollController.jumpTo(

@@ -1,4 +1,5 @@
-import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:cosmodrome/components/library/library_grid_item.dart';
+import 'package:cosmodrome/components/library/song_grid_item.dart';
 import 'package:cosmodrome/components/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
@@ -14,83 +15,11 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 enum CurrentMobileView { albums, artists, playlists, songs }
-
 class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
 
   @override
   State<LibraryPage> createState() => _LibraryPageState();
-}
-
-class _LibraryGridItem extends StatelessWidget {
-  final String? imageUrl;
-  final String title;
-  final String? subtitle;
-  final IconData placeholderIcon;
-  final VoidCallback? onTap;
-
-  const _LibraryGridItem({
-    required this.title,
-    this.subtitle,
-    this.imageUrl,
-    this.placeholderIcon = Icons.music_note,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 1,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (ctx, child, progress) => progress == null
-                          ? child
-                          : Container(color: ctx.theme.colors.muted),
-                      errorBuilder: (ctx, e, s) => _placeholder(ctx),
-                    )
-                  : _placeholder(context),
-            ),
-          ),
-          const SizedBox(height: 5),
-          ScrollingText(
-            text: title,
-            style: context.theme.typography.xs.copyWith(
-              fontWeight: FontWeight.w600,
-              color: context.theme.colors.foreground,
-            ),
-            maxWidth: 200,
-          ),
-          if (subtitle != null)
-            Text(
-              subtitle!,
-              style: context.theme.typography.xs.copyWith(
-                color: context.theme.colors.mutedForeground,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _placeholder(BuildContext context) => Container(
-    color: context.theme.colors.muted,
-    child: Icon(
-      placeholderIcon,
-      color: context.theme.colors.mutedForeground,
-      size: 28,
-    ),
-  );
 }
 
 class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
@@ -104,7 +33,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   final Set<CurrentMobileView> _loading = {};
   final Set<CurrentMobileView> _fetched = {};
 
-  // Custom top bar with scrollable view switcher tabs.
+  // use this to switch topbar layout on mobile
   @override
   Widget Function(BuildContext)? get topBarBuilder => _buildLibraryTopBar;
 
@@ -136,7 +65,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       case CurrentMobileView.albums:
         return _buildGrid(
           items: _albums,
-          itemBuilder: (ctx, album, _) => _LibraryGridItem(
+          itemBuilder: (ctx, album, _) => LibraryGridItem(
             imageUrl: album.coverArt != null
                 ? subsonic.cachedCoverArtUrl(album.coverArt!, size: 200)
                 : null,
@@ -150,7 +79,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       case CurrentMobileView.artists:
         return _buildGrid(
           items: _artists,
-          itemBuilder: (ctx, artist, _) => _LibraryGridItem(
+          itemBuilder: (ctx, artist, _) => LibraryGridItem(
             imageUrl: artist.coverArt != null
                 ? subsonic.cachedCoverArtUrl(artist.coverArt!, size: 200)
                 : null,
@@ -164,7 +93,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       case CurrentMobileView.playlists:
         return _buildGrid(
           items: _playlists,
-          itemBuilder: (ctx, playlist, _) => _LibraryGridItem(
+          itemBuilder: (ctx, playlist, _) => LibraryGridItem(
             imageUrl: playlist.coverArt != null
                 ? subsonic.cachedCoverArtUrl(playlist.coverArt!, size: 200)
                 : null,
@@ -179,7 +108,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       case CurrentMobileView.songs:
         return _buildList(
           _songs,
-          (ctx, song, _) => _SongGridItem(
+          (ctx, song, _) => SongGridItem(
             imageUrl: song.coverArt != null
                 ? subsonic.cachedCoverArtUrl(song.coverArt!, size: 200)
                 : null,
@@ -480,89 +409,6 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     // Push updated layout config so the main layout rebuilds the top bar
     layoutConfig.value = LayoutConfig(topBarBuilder: topBarBuilder);
     _fetchView(view);
-  }
-}
-
-class _SongGridItem extends StatelessWidget {
-  final String? imageUrl;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onPlay;
-  final VoidCallback? onLongPress;
-
-  const _SongGridItem({
-    required this.title,
-    required this.subtitle,
-    this.imageUrl,
-    this.onPlay,
-    this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onPlay,
-      onLongPress: onLongPress,
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            children: [
-              AspectRatio(
-                aspectRatio: 1,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: imageUrl != null
-                      ? Image.network(
-                          imageUrl!,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (ctx, child, progress) =>
-                              progress == null
-                              ? child
-                              : Container(color: ctx.theme.colors.muted),
-                          errorBuilder: (ctx, e, s) => Container(
-                            color: ctx.theme.colors.muted,
-                            child: Icon(
-                              Icons.music_note,
-                              color: ctx.theme.colors.mutedForeground,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: context.theme.colors.muted,
-                          child: Icon(
-                            Icons.music_note,
-                            color: context.theme.colors.mutedForeground,
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ScrollingText(text: title, maxWidth: 500),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: context.theme.typography.xs.copyWith(
-                        color: context.theme.colors.mutedForeground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 

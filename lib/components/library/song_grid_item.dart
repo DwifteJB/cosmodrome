@@ -1,0 +1,88 @@
+import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
+
+class SongGridItem extends StatelessWidget {
+  final String? imageUrl;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onPlay;
+  final VoidCallback? onLongPress;
+
+
+  const SongGridItem({
+    super.key, 
+    required this.title,
+    required this.subtitle,
+    this.imageUrl,
+    this.onPlay,
+    this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPlay,
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: [
+              AspectRatio(
+                aspectRatio: 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: imageUrl != null
+                      ? Image.network(
+                          imageUrl!,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (ctx, child, progress) =>
+                              progress == null
+                              ? child
+                              : Container(color: ctx.theme.colors.muted),
+                          errorBuilder: (ctx, e, s) => Container(
+                            color: ctx.theme.colors.muted,
+                            child: Icon(
+                              Icons.music_note,
+                              color: ctx.theme.colors.mutedForeground,
+                            ),
+                          ),
+                        )
+                      : Container(
+                          color: context.theme.colors.muted,
+                          child: Icon(
+                            Icons.music_note,
+                            color: context.theme.colors.mutedForeground,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ScrollingText(text: title, maxWidth: 500),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: context.theme.typography.xs.copyWith(
+                        color: context.theme.colors.mutedForeground,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

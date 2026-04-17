@@ -73,7 +73,7 @@ class PlayerProvider extends ChangeNotifier {
   String? coverArtUrlForSong(Song song) {
     if (song.coverArt == null || _subsonicProvider == null) return null;
     try {
-      return _subsonicProvider!.subsonic.coverArtUrl(song.coverArt!, size: 300);
+      return _subsonicProvider!.subsonic.cachedCoverArtUrl(song.coverArt!, size: 300);
     } catch (_) {
       return null;
     }
@@ -235,7 +235,7 @@ class PlayerProvider extends ChangeNotifier {
           artist: song.artist,
           artUri: song.coverArt != null
               ? Uri.parse(
-                  _subsonicProvider!.subsonic.coverArtUrl(
+                  _subsonicProvider!.subsonic.cachedCoverArtUrl(
                     song.coverArt!,
                     size: 300,
                   ),

@@ -4,7 +4,6 @@ import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 void showSongContextSheet(
@@ -78,7 +77,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                         width: 48,
                         height: 48,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        errorBuilder: (_, _, _) =>
                             _artPlaceholder(colors, 48),
                       ),
                     )
@@ -259,7 +258,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                                 width: 40,
                                 height: 40,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
+                                errorBuilder: (_, _, _) =>
                                     _artPlaceholder(colors, 40),
                               )
                             : _artPlaceholder(colors, 40),

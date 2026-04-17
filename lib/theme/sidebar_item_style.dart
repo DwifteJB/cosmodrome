@@ -91,7 +91,7 @@ FSidebarItemStyle desktopSidebarItem({
       AppColors.sidebar,
       variants: {
         [.selected, .hovered, .pressed]: AppColors.sidebarSelected,
-        [.disabled]: Color(AppColors.sidebar.value).withOpacity(0.5),
+        [.disabled]: AppColors.sidebar.withValues(alpha: 0.5),
       },
     ),
     padding: padding,
