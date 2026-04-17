@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cosmodrome/components/music-pages/music_page_cover_header.dart';
 import 'package:cosmodrome/components/music-pages/track_tile.dart';
+import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -16,6 +17,139 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
+
+class _PlaylistHeader extends StatelessWidget {
+  final PlaylistDetail playlist;
+  final List<Song> songs;
+  final VoidCallback onAddSongs;
+  final VoidCallback onRename;
+
+  const _PlaylistHeader({
+    required this.playlist,
+    required this.songs,
+    required this.onAddSongs,
+    required this.onRename,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final metaText =
+        '${songs.length} song${songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          ScrollingText(
+            text: playlist.name,
+            maxWidth: 600,
+            style: context.theme.typography.xl4.copyWith(
+              fontWeight: FontWeight.w500,
+              color: context.theme.colors.foreground,
+              letterSpacing: 1,
+              height: 0,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            playlist.owner,
+            style: context.theme.typography.xl.copyWith(
+              color: Colors.white,
+              height: 0,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            metaText,
+            style: context.theme.typography.md.copyWith(
+              color: context.theme.colors.mutedForeground,
+              height: 0,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(
+                child: FButton(
+                  onPress: songs.isEmpty
+                      ? null
+                      : () => context.read<PlayerProvider>().playAlbum(songs),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.play_arrow_rounded, size: 20),
+                      SizedBox(width: 6),
+                      Text('Play'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FButton(
+                  variant: FButtonVariant.outline,
+                  onPress: songs.isEmpty
+                      ? null
+                      : () => context.read<PlayerProvider>().playAlbum(
+                            songs,
+                            shuffle: true,
+                          ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.shuffle_rounded, size: 20),
+                      SizedBox(width: 6),
+                      Text('Shuffle'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: FButton(
+                  variant: FButtonVariant.outline,
+                  onPress: onAddSongs,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.playlist_add, size: 18),
+                      SizedBox(width: 6),
+                      Text('Add songs'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FButton(
+                  variant: FButtonVariant.outline,
+                  onPress: onRename,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.edit_outlined, size: 18),
+                      SizedBox(width: 6),
+                      Text('Rename'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class PlaylistPage extends StatefulWidget {
   final String playlistId;
@@ -238,32 +372,194 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
   Widget _desktopLayout() {
     final playlist = _playlist!;
+    final coverUrl = _coverUrl;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MusicPageCoverHeader(
-            coverUrl: _coverUrl,
-            title: playlist.name,
-            subtitle: playlist.owner,
-            metaText:
-                '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}',
-            placeholderIcon: Icons.queue_music,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 700;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isCompact)
+                _compactPlaylistHeader(playlist, coverUrl)
+              else
+                _widePlaylistHeader(playlist, coverUrl),
+              const SizedBox(height: 20),
+              ..._songs.asMap().entries.map(
+                (e) => MusicPageDesktopTrackTile(
+                  song: e.value,
+                  trackNumber: e.key + 1,
+                  accentColor: accentColorNotifier.value ?? _localCoverColor,
+                  onTap: () => _playSongAt(e.key),
+                  onRemove: () => _removeAt(e.key),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          ..._songs.asMap().entries.map(
-            (e) => MusicPageDesktopTrackTile(
-              song: e.value,
-              trackNumber: e.key + 1,
-              accentColor: accentColorNotifier.value ?? _localCoverColor,
-              onTap: () => _playSongAt(e.key),
-              onRemove: () => _removeAt(e.key),
+        );
+      },
+    );
+  }
+
+  Widget _widePlaylistHeader(PlaylistDetail playlist, String? coverUrl) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: coverUrl != null
+                ? Image.network(
+                    coverUrl,
+                    width: 280,
+                    height: 280,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _coverPlaceholder(280),
+                  )
+                : _coverPlaceholder(280),
+          ),
+          Expanded(
+            child: _PlaylistHeader(
+              playlist: playlist,
+              songs: _songs,
+              onAddSongs: _showAddSongsSheet,
+              onRename: _showEditTitleSheet,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _compactPlaylistHeader(PlaylistDetail playlist, String? coverUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: coverUrl != null
+                ? Image.network(
+                    coverUrl,
+                    width: 220,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _coverPlaceholder(220),
+                  )
+                : _coverPlaceholder(220),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            children: [
+              Text(
+                playlist.name,
+                textAlign: TextAlign.center,
+                style: context.theme.typography.xl2.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                playlist.owner,
+                textAlign: TextAlign.center,
+                style: context.theme.typography.sm.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}',
+                textAlign: TextAlign.center,
+                style: context.theme.typography.sm.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: FButton(
+                      onPress: _songs.isEmpty
+                          ? null
+                          : () => context
+                                .read<PlayerProvider>()
+                                .playAlbum(_songs),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.play_arrow_rounded, size: 20),
+                          SizedBox(width: 6),
+                          Text('Play'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FButton(
+                      variant: FButtonVariant.outline,
+                      onPress: _songs.isEmpty
+                          ? null
+                          : () => context.read<PlayerProvider>().playAlbum(
+                                _songs,
+                                shuffle: true,
+                              ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shuffle_rounded, size: 20),
+                          SizedBox(width: 6),
+                          Text('Shuffle'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: FButton(
+                      variant: FButtonVariant.outline,
+                      onPress: _showAddSongsSheet,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.playlist_add, size: 18),
+                          SizedBox(width: 6),
+                          Text('Add songs'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FButton(
+                      variant: FButtonVariant.outline,
+                      onPress: _showEditTitleSheet,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.edit_outlined, size: 18),
+                          SizedBox(width: 6),
+                          Text('Rename'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
