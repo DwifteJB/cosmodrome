@@ -1,4 +1,5 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -75,9 +76,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   Color? _accentColor;
   bool _accentVisible = false;
+  Timer? _accentHideTimer;
 
   String? _coverUrl;
   bool _coverVisible = false;
+  Timer? _coverHideTimer;
 
   late AnimationController aniu;
 
@@ -121,14 +124,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       if (_desktopScrollController.hasClients) {
         _desktopScrollController.jumpTo(0);
       }
-      if (!(widget.selectedRoute?.startsWith('/library/album') ?? false)) {
+      if (!_isMusicPageRoute(widget.selectedRoute)) {
         accentColorNotifier.value = null;
+        coverUrlNotifier.value = null;
       }
     }
   }
 
   @override
   void dispose() {
+    _accentHideTimer?.cancel();
+    _coverHideTimer?.cancel();
     _searchController.dispose();
     _mobileScrollController.dispose();
     _desktopScrollController.dispose();
@@ -1158,6 +1164,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   bool _isDesktopMenuHovered(String label) =>
       _desktopMenuHovered[label] ?? false;
 
+  bool _isMusicPageRoute(String? route) =>
+      route?.startsWith('/library/album') == true ||
+      route?.startsWith('/library/playlist') == true;
+
   bool _isPlaylistSelected(String playlistId) {
     final route = widget.selectedRoute;
     if (route == null) return false;
@@ -1194,6 +1204,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onAccentChanged() {
+    _accentHideTimer?.cancel();
     final color = accentColorNotifier.value;
     if (color != null) {
       setState(() {
@@ -1202,8 +1213,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       });
     } else {
       setState(() => _accentVisible = false);
-      // Clear stored color after the fade-out completes
-      Future.delayed(const Duration(milliseconds: 750), () {
+      _accentHideTimer = Timer(const Duration(milliseconds: 750), () {
         if (mounted && accentColorNotifier.value == null) {
           setState(() => _accentColor = null);
         }
@@ -1212,6 +1222,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onCoverUrlChanged() {
+    _coverHideTimer?.cancel();
     final url = coverUrlNotifier.value;
     if (url != null) {
       setState(() {
@@ -1220,7 +1231,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       });
     } else {
       setState(() => _coverVisible = false);
-      Future.delayed(const Duration(milliseconds: 750), () {
+      _coverHideTimer = Timer(const Duration(milliseconds: 750), () {
         if (mounted && coverUrlNotifier.value == null) {
           setState(() => _coverUrl = null);
         }
