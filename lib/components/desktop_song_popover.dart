@@ -9,10 +9,8 @@ import 'package:provider/provider.dart';
 class DesktopSongPopover extends StatefulWidget {
   final Song song;
   final VoidCallback? onRemoveFromPlaylist;
-  final Widget Function(
-    BuildContext context,
-    FPopoverController controller,
-  ) builder;
+  final Widget Function(BuildContext context, FPopoverController controller)
+  builder;
 
   const DesktopSongPopover({
     super.key,
@@ -52,8 +50,7 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
         );
       },
 
-      builder: (context, controller, _) =>
-          widget.builder(context, controller),
+      builder: (context, controller, _) => widget.builder(context, controller),
     );
   }
 

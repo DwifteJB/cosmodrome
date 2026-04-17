@@ -5,7 +5,6 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:flutter/material.dart';

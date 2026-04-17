@@ -59,7 +59,7 @@ class _AlbumHeader extends StatelessWidget {
             style: context.theme.typography.xl.copyWith(
               color: Colors.white,
               height: 0,
-              fontWeight: FontWeight.w400
+              fontWeight: FontWeight.w400,
             ),
           ),
           const SizedBox(height: 4),
@@ -68,7 +68,7 @@ class _AlbumHeader extends StatelessWidget {
             style: context.theme.typography.md.copyWith(
               color: context.theme.colors.mutedForeground,
               height: 0,
-              fontWeight: FontWeight.w400
+              fontWeight: FontWeight.w400,
             ),
           ),
 
@@ -333,7 +333,7 @@ class _AlbumPageState extends State<AlbumPage> {
         );
       },
     );
-}
+  }
 
   void _extractAccentColor() async {
     if (_coverUrl == null) return;
@@ -691,8 +691,7 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
                       ),
                     ),
                   ),
-                )
-                
+                ),
               ],
             ),
           ),
