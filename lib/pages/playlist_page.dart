@@ -155,9 +155,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                       child: FButton(
                         onPress: _songs.isEmpty
                             ? null
-                            : () => context
-                                  .read<PlayerProvider>()
-                                  .playAlbum(_songs),
+                            : () => context.read<PlayerProvider>().playAlbum(
+                                _songs,
+                              ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -175,9 +175,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                         onPress: _songs.isEmpty
                             ? null
                             : () => context.read<PlayerProvider>().playAlbum(
-                                  _songs,
-                                  shuffle: true,
-                                ),
+                                _songs,
+                                shuffle: true,
+                              ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -202,7 +202,8 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           itemBuilder: (ctx, i) => ReorderableDragStartListener(
             key: ValueKey(_songs[i].id),
             index: i,
-            enabled: false, // disable long-press, use the drag handle inside (love flutter)
+            enabled:
+                false, // disable long-press, use the drag handle inside (love flutter)
             child: _MobileTrackTile(
               song: _songs[i],
               index: i,
@@ -215,9 +216,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
         ),
 
         // btm padding for nav
-        SliverToBoxAdapter(
-          child: SizedBox(height: bottomPadding + 100),
-        ),
+        SliverToBoxAdapter(child: SizedBox(height: bottomPadding + 100)),
       ],
     );
   }
@@ -867,8 +866,7 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                 decoration: InputDecoration(
                   hintText: 'Search songs…',
                   hintStyle: TextStyle(color: colors.mutedForeground),
-                  prefixIcon:
-                      Icon(Icons.search, color: colors.mutedForeground),
+                  prefixIcon: Icon(Icons.search, color: colors.mutedForeground),
                   filled: true,
                   fillColor: colors.muted,
                   border: OutlineInputBorder(
@@ -942,8 +940,7 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
 
   void _onQueryChanged(String query) {
     _debounce?.cancel();
-    _debounce =
-        Timer(const Duration(milliseconds: 300), () => _search(query));
+    _debounce = Timer(const Duration(milliseconds: 300), () => _search(query));
   }
 
   Future<void> _search(String query) async {
@@ -951,8 +948,10 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
     setState(() => _searching = true);
     try {
       final provider = context.read<SubsonicProvider>();
-      final results =
-          await provider.subsonic.searchThreeSongs(q: query, count: 50);
+      final results = await provider.subsonic.searchThreeSongs(
+        q: query,
+        count: 50,
+      );
       if (mounted) setState(() => _results = results);
     } catch (_) {
       if (mounted) setState(() => _results = []);

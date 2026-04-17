@@ -20,8 +20,8 @@ Current support for the client is as following:
 - create installers for windows & linux
 - discord rich presence via golang sub-process using ipcs
 - ability to refresh subsonic songs
-- playlists
-- library view
+- [X] playlists yes
+- [X] library view
 - searching
 - bookmarks
 - starring

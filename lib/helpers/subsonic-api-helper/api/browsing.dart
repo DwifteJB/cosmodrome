@@ -177,13 +177,16 @@ extension SubsonicBrowsingApi on Subsonic {
     int? songIndexToRemove,
   }) async {
     try {
-      await apiRequest('updatePlaylist', params: {
-        'playlistId': playlistId,
-        'name': ?name,
-        'songIdToAdd': ?songIdToAdd,
-        if (songIndexToRemove != null)
-          'songIndexToRemove': '$songIndexToRemove',
-      });
+      await apiRequest(
+        'updatePlaylist',
+        params: {
+          'playlistId': playlistId,
+          'name': ?name,
+          'songIdToAdd': ?songIdToAdd,
+          if (songIndexToRemove != null)
+            'songIndexToRemove': '$songIndexToRemove',
+        },
+      );
     } catch (e) {
       loggerPrint('Error updating playlist $playlistId: $e');
       rethrow;
@@ -211,10 +214,10 @@ extension SubsonicBrowsingApi on Subsonic {
     List<String> songIds,
   ) async {
     try {
-      await multiParamRequest('createPlaylist', params: {
-        'playlistId': playlistId,
-        'songId': songIds,
-      });
+      await multiParamRequest(
+        'createPlaylist',
+        params: {'playlistId': playlistId, 'songId': songIds},
+      );
     } catch (e) {
       loggerPrint('Error replacing playlist songs $playlistId: $e');
       rethrow;

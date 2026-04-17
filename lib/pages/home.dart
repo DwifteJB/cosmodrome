@@ -31,6 +31,7 @@ class HomePage extends StatefulWidget {
 class _AlbumCard extends StatefulWidget {
   final Album album;
   final Subsonic subsonic;
+  final String type = 'album';
 
   const _AlbumCard({required this.album, required this.subsonic});
 

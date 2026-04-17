@@ -110,8 +110,9 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
 
   @override
   Widget build(BuildContext context) {
-    if (isMobile(context)) return _buildMobileView();
-    return const SizedBox.shrink();
+    // if (isMobile(context)) return _buildMobileView();
+    // return const SizedBox.shrink();
+    return _buildMobileView(); // TODO: desktop
   }
 
   @override

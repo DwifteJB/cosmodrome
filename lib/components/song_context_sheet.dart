@@ -78,8 +78,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                         width: 48,
                         height: 48,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            _artPlaceholder(colors, 48),
+                        errorBuilder: (_, _, _) => _artPlaceholder(colors, 48),
                       ),
                     )
                   else
@@ -128,8 +127,10 @@ class _SongContextSheetState extends State<_SongContextSheet> {
               },
             ),
             ListTile(
-              leading:
-                  Icon(Icons.queue_music_rounded, color: colors.foreground),
+              leading: Icon(
+                Icons.queue_music_rounded,
+                color: colors.foreground,
+              ),
               title: Text(
                 'Add to queue',
                 style: TextStyle(color: colors.foreground),
@@ -327,7 +328,10 @@ class _SongContextSheetState extends State<_SongContextSheet> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -378,7 +382,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
   );
 
   Widget _handle(FColors colors) => Center(
-    child: Container( 
+    child: Container(
       width: 32,
       height: 4,
       decoration: BoxDecoration(

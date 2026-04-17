@@ -1,3 +1,5 @@
+import 'package:cosmodrome/components/desktop_song_popover.dart';
+import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -37,13 +39,15 @@ class _AlbumHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
+        mainAxisSize: MainAxisSize.max,
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // move to bottom, use spacer
-          Text(
-            album.name,
-            style: context.theme.typography.xl2.copyWith(
-              fontWeight: FontWeight.w400,
+          ScrollingText(
+            text: album.name,
+            maxWidth: 600,
+            style: context.theme.typography.xl4.copyWith(
+              fontWeight: FontWeight.w500,
               color: context.theme.colors.foreground,
               letterSpacing: 1,
               height: 0,
@@ -52,16 +56,59 @@ class _AlbumHeader extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             album.artist,
-            style: context.theme.typography.sm.copyWith(
-              color: context.theme.colors.mutedForeground,
+            style: context.theme.typography.xl.copyWith(
+              color: Colors.white,
+              height: 0,
+              fontWeight: FontWeight.w400
             ),
           ),
           const SizedBox(height: 4),
           Text(
             parts.join(' • '),
-            style: context.theme.typography.sm.copyWith(
+            style: context.theme.typography.md.copyWith(
               color: context.theme.colors.mutedForeground,
+              height: 0,
+              fontWeight: FontWeight.w400
             ),
+          ),
+
+          // at bottom Spacer()
+          Spacer(),
+          Row(
+            children: [
+              Expanded(
+                child: FButton(
+                  onPress: () =>
+                      context.read<PlayerProvider>().playAlbum(album.songs),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.play_arrow_rounded, size: 20),
+                      SizedBox(width: 6),
+                      Text('Play'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FButton(
+                  variant: FButtonVariant.outline,
+                  onPress: () => context.read<PlayerProvider>().playAlbum(
+                    album.songs,
+                    shuffle: true,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.shuffle_rounded, size: 20),
+                      SizedBox(width: 6),
+                      Text('Shuffle'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -139,6 +186,107 @@ class _AlbumPageState extends State<AlbumPage> {
     }
   }
 
+  Widget _compactHeader(AlbumDetail album, String? coverUrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: coverUrl != null
+                ? Image.network(
+                    coverUrl,
+                    width: 220,
+                    height: 220,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    width: 220,
+                    height: 220,
+                    color: context.theme.colors.muted,
+                  ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // reuse header but center it
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Column(
+            children: [
+              Text(
+                album.name,
+                textAlign: TextAlign.center,
+                style: context.theme.typography.xl2.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                album.artist,
+                textAlign: TextAlign.center,
+                style: context.theme.typography.sm.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                [
+                  if (album.year != null) album.year.toString(),
+                  '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
+                  _AlbumHeader._formatDuration(album.duration),
+                ].join(' • '),
+                textAlign: TextAlign.center,
+                style: context.theme.typography.sm.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: FButton(
+                      onPress: () =>
+                          context.read<PlayerProvider>().playAlbum(album.songs),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.play_arrow_rounded, size: 20),
+                          SizedBox(width: 6),
+                          Text('Play'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FButton(
+                      variant: FButtonVariant.outline,
+                      onPress: () => context.read<PlayerProvider>().playAlbum(
+                        album.songs,
+                        shuffle: true,
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shuffle_rounded, size: 20),
+                          SizedBox(width: 6),
+                          Text('Shuffle'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _coverPlaceholder(double size) {
     return Container(
       width: size,
@@ -156,63 +304,36 @@ class _AlbumPageState extends State<AlbumPage> {
     final album = _album!;
     final coverUrl = _coverUrl;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 700;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: coverUrl != null
-                    ? Image.network(
-                        coverUrl,
-                        width: 280,
-                        height: 280,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, stack) => Container(
-                          width: 280,
-                          height: 280,
-                          color: context.theme.colors.muted,
-                          child: Icon(
-                            Icons.album,
-                            color: context.theme.colors.mutedForeground,
-                            size: 80,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        width: 280,
-                        height: 280,
-                        decoration: BoxDecoration(
-                          color: context.theme.colors.muted,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.album,
-                          color: context.theme.colors.mutedForeground,
-                          size: 80,
-                        ),
-                      ),
+              if (isCompact)
+                _compactHeader(album, coverUrl)
+              else
+                _wideHeader(album, coverUrl),
+
+              const SizedBox(height: 20),
+
+              ...album.songs.map(
+                (s) => _DesktopTrackTile(
+                  song: s,
+                  albumArtist: album.artist,
+                  onTap: () => onClickSong(s),
+                  accentColor: accentColorNotifier.value ?? _localCoverColor,
+                ),
               ),
-              Expanded(child: _AlbumHeader(album: album)),
             ],
           ),
-          const SizedBox(height: 20),
-          ...album.songs.map(
-            (s) => _DesktopTrackTile(
-              song: s,
-              albumArtist: album.artist,
-              onTap: () => onClickSong(s),
-              accentColor: accentColorNotifier.value ?? _localCoverColor,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
-  }
+}
 
   void _extractAccentColor() async {
     if (_coverUrl == null) return;
@@ -425,6 +546,32 @@ class _AlbumPageState extends State<AlbumPage> {
       ],
     );
   }
+
+  Widget _wideHeader(AlbumDetail album, String? coverUrl) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: coverUrl != null
+                ? Image.network(
+                    coverUrl,
+                    width: 280,
+                    height: 280,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    width: 280,
+                    height: 280,
+                    color: context.theme.colors.muted,
+                  ),
+          ),
+          Expanded(child: _AlbumHeader(album: album)),
+        ],
+      ),
+    );
+  }
 }
 
 class _DesktopTrackTile extends StatefulWidget {
@@ -446,9 +593,6 @@ class _DesktopTrackTile extends StatefulWidget {
 
 class _DesktopTrackTileState extends State<_DesktopTrackTile> {
   bool _isHovered = false;
-  bool _showPopover = false;
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlayEntry;
 
   bool get isPlaying {
     final player = context.watch<PlayerProvider>();
@@ -459,15 +603,11 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
   Widget build(BuildContext context) {
     final song = widget.song;
     final trackNumber = song.track;
-    final showArtist =
-        song.artist != null &&
-        song.artist!.isNotEmpty &&
-        song.artist != widget.albumArtist;
+
     final hoverBg = context.theme.colors.secondary.withValues(alpha: 0.2);
 
     return GestureDetector(
       onTap: widget.onTap ?? () => context.read<PlayerProvider>().playNow(song),
-      onSecondaryTap: () => _showContextMenu(context),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
@@ -510,16 +650,15 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       // artist
-                      if (showArtist)
-                        Text(
-                          song.artist!,
-                          style: context.theme.typography.xs.copyWith(
-                            color: AppColors.trackNumber,
-                            letterSpacing: -0.05,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        song.artist ?? widget.albumArtist,
+                        style: context.theme.typography.xs.copyWith(
+                          color: AppColors.trackNumber,
+                          letterSpacing: -0.05,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -533,10 +672,10 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
                   ),
                 const SizedBox(width: 8),
                 // ... elpisis button
-                CompositedTransformTarget(
-                  link: _layerLink,
-                  child: AnimatedOpacity(
-                    opacity: _isHovered || _showPopover ? 1.0 : 0.0,
+                DesktopSongPopover(
+                  song: song,
+                  builder: (context, controller) => AnimatedOpacity(
+                    opacity: _isHovered ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 150),
                     child: IconButton(
                       icon: Icon(
@@ -544,7 +683,7 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
                         size: 16,
                         color: context.theme.colors.mutedForeground,
                       ),
-                      onPressed: () => _showContextMenu(context),
+                      onPressed: controller.toggle,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 28,
@@ -552,7 +691,8 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
                       ),
                     ),
                   ),
-                ),
+                )
+                
               ],
             ),
           ),
@@ -563,71 +703,7 @@ class _DesktopTrackTileState extends State<_DesktopTrackTile> {
 
   @override
   void dispose() {
-    _removeOverlay();
     super.dispose();
-  }
-
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-    if (mounted) setState(() => _showPopover = false);
-  }
-
-  // TODO: fix
-  void _showContextMenu(BuildContext context) {
-    _removeOverlay();
-    final overlay = Overlay.of(context);
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-    final offset = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-
-    _overlayEntry = OverlayEntry(
-      builder: (_) => Stack(
-        children: [
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _removeOverlay,
-            ),
-          ),
-          Positioned(
-            left: offset.dx + size.width - 160,
-            top: offset.dy + size.height / 2,
-            child: Material(
-              color: AppColors.sidebarSelected,
-              borderRadius: BorderRadius.circular(8),
-              elevation: 8,
-              child: IntrinsicWidth(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _PopoverItem(
-                      label: 'Play now',
-                      icon: Icons.play_arrow_rounded,
-                      onTap: () {
-                        _removeOverlay();
-                        context.read<PlayerProvider>().playNow(widget.song);
-                      },
-                    ),
-                    _PopoverItem(
-                      label: 'Add to queue',
-                      icon: Icons.queue_music_rounded,
-                      onTap: () {
-                        _removeOverlay();
-                        context.read<PlayerProvider>().addToQueue(widget.song);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    overlay.insert(_overlayEntry!);
-    setState(() => _showPopover = true);
   }
 
   static String _formatDuration(int seconds) {

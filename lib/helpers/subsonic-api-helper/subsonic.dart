@@ -146,7 +146,9 @@ class Subsonic {
     final root = body['subsonic-response'] as Map<String, dynamic>;
     if (root['status'] == 'failed') {
       final err = root['error'] as Map<String, dynamic>;
-      final SubsonicError error = getErrorFromCode((err['code'] as num).toInt());
+      final SubsonicError error = getErrorFromCode(
+        (err['code'] as num).toInt(),
+      );
       throw Exception(
         'Subsonic API error from $endpoint: ${errorToSensibleNames(error)}',
       );
