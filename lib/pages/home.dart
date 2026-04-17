@@ -212,6 +212,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+// ignore: must_be_immutable
 class _HorizontalCarousel extends StatelessWidget {
   final String title;
   List<Album> albums = const [];

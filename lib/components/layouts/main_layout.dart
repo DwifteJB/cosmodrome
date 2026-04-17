@@ -8,6 +8,8 @@ import 'package:cosmodrome/components/music_player/desktop_player_bar.dart';
 import 'package:cosmodrome/components/music_player/desktop_queue_panel.dart';
 import 'package:cosmodrome/components/music_player/mini_player.dart';
 import 'package:cosmodrome/components/profile_sheet.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/theme/sidebar_item_style.dart';
@@ -22,10 +24,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
-const _navItems = [
+const _mobilenavItems = [
   _NavItem(label: 'Home', route: '/home', icon: FIcons.house),
   _NavItem(label: 'Library', route: '/library', icon: FIcons.library),
-  _NavItem(label: 'Example', route: '/example1', icon: FIcons.headphones),
   _NavItem(label: 'Search', route: '/search', icon: FIcons.search),
 ];
 
@@ -36,8 +37,8 @@ String uriToTitle(String uri) {
     case '/library':
       return 'your library';
     default:
-      // try get from _navItems
-      final item = _navItems.firstWhere(
+      // try get from _mobilenavItems
+      final item = _mobilenavItems.firstWhere(
         (item) => uri.startsWith(item.route),
         orElse: () => _NavItem(label: '', route: '', icon: FIcons.qrCode),
       );
@@ -57,24 +58,49 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   final _searchController = TextEditingController();
+  final Map<String, bool> _desktopMenuExpanded = {};
+  final Map<String, bool> _desktopMenuHovered = {};
 
   final _mobileScrollController = ScrollController();
   final _desktopScrollController = ScrollController();
   bool _queueOpen = false;
+  Future<List<Album>>? _starredAlbumsFuture;
+  String? _starredAccountId;
+  bool _isRefreshingStarred = false;
+  Future<List<Playlist>>? _playlistsFuture;
+  String? _playlistsAccountId;
+  bool _isRefreshingPlaylists = false;
 
   LayoutConfig _layoutConfig = LayoutConfig.empty;
 
   Color? _accentColor;
   bool _accentVisible = false;
 
+  String? _coverUrl;
+  bool _coverVisible = false;
+
   late AnimationController aniu;
+
+  final List<_NavMenu> _navMenus = [
+    _NavMenu(
+      label: "Cosmodrome",
+      builder: null,
+      items: [
+        _NavItem(label: 'Home', route: '/home', icon: FIcons.house),
+        _NavItem(label: 'Library', route: '/library', icon: FIcons.library),
+      ],
+    ),
+
+    _NavMenu(label: "Starred", builder: null),
+    _NavMenu(label: "Playlists", builder: null),
+  ];
 
   bool get _isDesktop =>
       !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
 
   bool get _isSubPage =>
       widget.selectedRoute != null &&
-      !_navItems.any((item) => widget.selectedRoute == item.route);
+      !_mobilenavItems.any((item) => widget.selectedRoute == item.route);
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +135,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
     layoutConfig.removeListener(_onLayoutConfigChanged);
     accentColorNotifier.removeListener(_onAccentChanged);
+    coverUrlNotifier.removeListener(_onCoverUrlChanged);
     aniu.dispose();
     super.dispose();
   }
@@ -125,6 +152,31 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
     layoutConfig.addListener(_onLayoutConfigChanged);
     accentColorNotifier.addListener(_onAccentChanged);
+    coverUrlNotifier.addListener(_onCoverUrlChanged);
+
+    for (final menu in _navMenus) {
+      _desktopMenuExpanded[menu.label] = true;
+      _desktopMenuHovered[menu.label] = false;
+    }
+  }
+
+  Widget _buildAlbumCoverPrefix(Album album) {
+    final url = album.cachedCoverUrl;
+    if (url == null || url.isEmpty) {
+      return const Icon(FIcons.disc3, size: 20, color: AppColors.auraColor);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Image.network(
+        url,
+        width: 20,
+        height: 20,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) =>
+            const Icon(FIcons.disc3, size: 20, color: AppColors.auraColor),
+      ),
+    );
   }
 
   Widget _buildDesktopLayout(BuildContext context) {
@@ -148,7 +200,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               child: FSidebar(
                 style: .delta(
                   contentPadding: .add(
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                   ),
                   footerPadding: .add(
                     const EdgeInsets.symmetric(horizontal: 12),
@@ -196,22 +248,148 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                   ],
                 ),
                 footer: const DesktopProfilePopover(),
-                children: _navItems
+                // DESKTOP nav menus
+                children: _navMenus
                     .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 1),
-                        child: FSidebarItem(
-                          label: Text(item.label),
-                          icon: Icon(item.icon, size: 20),
-                          selected: _isSelected(item),
-                          onPress: () => _navigateTo(item.route),
-                          style: desktopSidebarItem(
-                            colors: colors,
-                            typography: context.theme.typography,
-                            style: context.theme.style,
-                            touch: false,
+                      (menu) => FSidebarGroup(
+                        key: ValueKey('desktop-group-${menu.label}'),
+                        label: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          onEnter: (_) =>
+                              _setDesktopMenuHovered(menu.label, value: true),
+                          onExit: (_) =>
+                              _setDesktopMenuHovered(menu.label, value: false),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _toggleDesktopMenu(menu.label),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 140),
+                              curve: Curves.easeOut,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _isDesktopMenuHovered(menu.label)
+                                    ? AppColors.sidebarSelected
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(child: Text(menu.label)),
+                                  AnimatedRotation(
+                                    turns: _isDesktopMenuExpanded(menu.label)
+                                        ? 0.0
+                                        : -0.25,
+                                    duration: const Duration(milliseconds: 180),
+                                    child: const Icon(
+                                      FIcons.chevronDown,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
+                        style: .delta(padding: .delta(left: 0, right: 0)),
+                        action:
+                            (menu.label == 'Starred' ||
+                                menu.label == 'Playlists')
+                            ? Tooltip(
+                                message: menu.label == 'Starred'
+                                    ? 'Refresh starred'
+                                    : 'Refresh playlists',
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child:
+                                      (menu.label == 'Starred'
+                                          ? _isRefreshingStarred
+                                          : _isRefreshingPlaylists)
+                                      ? const Padding(
+                                          padding: EdgeInsets.all(2),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.refresh, size: 16),
+                                ),
+                              )
+                            : null,
+                        onActionPress: menu.label == 'Starred'
+                            ? () => _refreshStarredAlbums(context)
+                            : menu.label == 'Playlists'
+                            ? () => _refreshPlaylists(context)
+                            : null,
+                        children: [
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            alignment: Alignment.topCenter,
+                            child: ClipRect(
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 170),
+                                curve: Curves.easeOut,
+                                opacity: _isDesktopMenuExpanded(menu.label)
+                                    ? 1
+                                    : 0,
+                                child: IgnorePointer(
+                                  ignoring: !_isDesktopMenuExpanded(menu.label),
+                                  child: _isDesktopMenuExpanded(menu.label)
+                                      ? Column(
+                                          children: [
+                                            ...menu.items.map(
+                                              (item) => Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 2,
+                                                    ),
+                                                child: FSidebarItem(
+                                                  label: Text(item.label),
+                                                  icon: Icon(
+                                                    item.icon,
+                                                    size: 20,
+
+                                                    color: AppColors.auraColor,
+                                                  ),
+                                                  selected: _isSelected(item),
+                                                  onPress: () =>
+                                                      _navigateTo(item.route),
+                                                  style: desktopSidebarItem(
+                                                    selectedBackgroundColor:
+                                                        AppColors.auraColor
+                                                            .withValues(
+                                                              alpha: 0.16,
+                                                            ),
+                                                    colors: colors,
+                                                    typography: context
+                                                        .theme
+                                                        .typography,
+                                                    style: context.theme.style,
+                                                    touch: false,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            if (menu.label == 'Starred')
+                                              _buildStarredMenuContent(context),
+                                            if (menu.label == 'Playlists')
+                                              _buildPlaylistsMenuContent(
+                                                context,
+                                              ),
+                                            if (menu.builder != null)
+                                              menu.builder!(context),
+                                          ],
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     )
                     .toList(),
@@ -236,34 +414,50 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                               left: 0,
                               right: 0,
                               height:
-                                  MediaQuery.of(context).size.height * 0.38 +
-                                  32,
+                                  MediaQuery.of(context).size.height * 1 + 32,
                               child: IgnorePointer(
                                 child: AnimatedOpacity(
-                                  opacity: _accentVisible ? 1.0 : 0.0,
+                                  opacity: _coverVisible ? 1.0 : 0.0,
                                   duration: const Duration(milliseconds: 700),
                                   curve: Curves.easeIn,
-                                  child: _accentColor == null
+                                  child: _coverUrl == null
                                       ? const SizedBox.expand()
-                                      : Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                              colors: [
-                                                _accentColor!.withValues(
-                                                  alpha: 0.55,
-                                                ),
-                                                _accentColor!.withValues(
-                                                  alpha: 0.30,
-                                                ),
-                                                colors.background.withValues(
-                                                  alpha: 0.0,
-                                                ),
-                                              ],
-                                              stops: const [0.0, 0.15, 1.0],
+                                      : Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            ImageFiltered(
+                                              imageFilter: ImageFilter.blur(
+                                                sigmaX: 100,
+                                                sigmaY: 100,
+                                                tileMode: TileMode.clamp,
+                                              ),
+                                              child: Image.network(
+                                                _coverUrl!,
+                                                fit: BoxFit.cover,
+                                                colorBlendMode:
+                                                    BlendMode.overlay,
+                                              ),
                                             ),
-                                          ),
+                                            DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.center,
+                                                  colors: [
+                                                    colors.background
+                                                        .withValues(
+                                                          alpha: 0.42,
+                                                        ),
+                                                    colors.background
+                                                        .withValues(
+                                                          alpha: 0.16,
+                                                        ),
+                                                  ],
+                                                  stops: const [0.0, 0.62],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                 ),
                               ),
@@ -342,7 +536,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildNavButton(context, _navItems[0], showLabel: false),
+                _buildNavButton(context, _mobilenavItems[0], showLabel: false),
                 AnimatedSize(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
@@ -356,12 +550,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                             children: [
                               _buildNavButton(
                                 context,
-                                _navItems[1],
-                                showLabel: false,
-                              ),
-                              _buildNavButton(
-                                context,
-                                _navItems[2],
+                                _mobilenavItems[1],
                                 showLabel: false,
                               ),
                             ],
@@ -706,6 +895,128 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildPlaylistCoverPrefix(
+    Playlist playlist,
+    SubsonicProvider subsonic,
+  ) {
+    if (playlist.coverArt == null || playlist.coverArt!.isEmpty) {
+      return const Icon(FIcons.listMusic, size: 20, color: AppColors.auraColor);
+    }
+
+    String url;
+    try {
+      url = subsonic.subsonic.cachedCoverArtUrl(playlist.coverArt!, size: 80);
+    } catch (_) {
+      return const Icon(FIcons.listMusic, size: 20, color: AppColors.auraColor);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Image.network(
+        url,
+        width: 20,
+        height: 20,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) =>
+            const Icon(FIcons.listMusic, size: 20, color: AppColors.auraColor),
+      ),
+    );
+  }
+
+  Widget _buildPlaylistsMenuContent(BuildContext context) {
+    final colors = context.theme.colors;
+    return Consumer<SubsonicProvider>(
+      builder: (_, subsonic, _) {
+        final active = subsonic.activeAccount;
+        if (active == null) return const SizedBox.shrink();
+
+        if (_playlistsFuture == null || _playlistsAccountId != active.id) {
+          _playlistsAccountId = active.id;
+          _playlistsFuture = _loadPlaylists(subsonic);
+        }
+
+        return FutureBuilder<List<Playlist>>(
+          future: _playlistsFuture,
+          builder: (_, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Text(
+                  'Could not load playlists',
+                  style: context.theme.typography.xs.copyWith(
+                    color: colors.mutedForeground,
+                  ),
+                ),
+              );
+            }
+
+            final playlists = snapshot.data ?? const <Playlist>[];
+            if (playlists.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Text(
+                  'No playlists found',
+                  style: context.theme.typography.xs.copyWith(
+                    color: colors.mutedForeground,
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: playlists
+                  .map(
+                    (playlist) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 2,
+                      ),
+                      child: FSidebarItem(
+                        label: Text(
+                          playlist.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        icon: _buildPlaylistCoverPrefix(playlist, subsonic),
+                        selected: _isPlaylistSelected(playlist.id),
+                        onPress: () =>
+                            _navigateTo('/library/playlist/${playlist.id}'),
+                        style: desktopSidebarItem(
+                          selectedBackgroundColor: AppColors.auraColor
+                              .withValues(alpha: 0.16),
+                          colors: colors,
+                          typography: context.theme.typography,
+                          style: context.theme.style,
+                          touch: false,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildSearchPill(BuildContext context) {
     final colors = context.theme.colors;
 
@@ -721,10 +1032,109 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: _buildNavButton(context, _navItems[3], showLabel: false),
+            // search
+            child: _buildNavButton(
+              context,
+              _mobilenavItems.where((item) => item.label == 'Search').first,
+              showLabel: false,
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStarredMenuContent(BuildContext context) {
+    final colors = context.theme.colors;
+    return Consumer<SubsonicProvider>(
+      builder: (_, subsonic, _) {
+        final active = subsonic.activeAccount;
+        if (active == null) return const SizedBox.shrink();
+
+        if (_starredAlbumsFuture == null || _starredAccountId != active.id) {
+          _starredAccountId = active.id;
+          _starredAlbumsFuture = _loadStarredAlbums(subsonic);
+        }
+
+        return FutureBuilder<List<Album>>(
+          future: _starredAlbumsFuture,
+          builder: (_, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Text(
+                  'Could not load starred albums',
+                  style: context.theme.typography.xs.copyWith(
+                    color: colors.mutedForeground,
+                  ),
+                ),
+              );
+            }
+
+            final albums = snapshot.data ?? const <Album>[];
+            if (albums.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
+                child: Text(
+                  'No starred albums yet',
+                  style: context.theme.typography.xs.copyWith(
+                    color: colors.mutedForeground,
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: albums
+                  .map(
+                    (album) => Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 2,
+                      ),
+                      child: FSidebarItem(
+                        label: Text(
+                          album.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        icon: _buildAlbumCoverPrefix(album),
+                        selected: _isAlbumSelected(album.id),
+                        onPress: () =>
+                            _navigateTo('/library/album/${album.id}'),
+                        style: desktopSidebarItem(
+                          selectedBackgroundColor: AppColors.auraColor
+                              .withValues(alpha: 0.16),
+                          colors: colors,
+                          typography: context.theme.typography,
+                          style: context.theme.style,
+                          touch: false,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -733,10 +1143,50 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     return uriToTitle(widget.selectedRoute ?? '/home');
   }
 
+  bool _isAlbumSelected(String albumId) {
+    final route = widget.selectedRoute;
+    if (route == null) return false;
+    final albumRoute = '/library/album/$albumId';
+    return route == albumRoute ||
+        route.startsWith('$albumRoute?') ||
+        route.startsWith('$albumRoute/');
+  }
+
+  bool _isDesktopMenuExpanded(String label) =>
+      _desktopMenuExpanded[label] ?? true;
+
+  bool _isDesktopMenuHovered(String label) =>
+      _desktopMenuHovered[label] ?? false;
+
+  bool _isPlaylistSelected(String playlistId) {
+    final route = widget.selectedRoute;
+    if (route == null) return false;
+    final playlistRoute = '/library/playlist/$playlistId';
+    return route == playlistRoute ||
+        route.startsWith('$playlistRoute?') ||
+        route.startsWith('$playlistRoute/');
+  }
+
   bool _isSelected(_NavItem item) {
     if (widget.selectedRoute == null) return false;
-    return widget.selectedRoute == item.route ||
-        widget.selectedRoute!.startsWith('${item.route}/');
+    return widget.selectedRoute == item.route;
+  }
+
+  Future<List<Playlist>> _loadPlaylists(SubsonicProvider subsonic) async {
+    return subsonic.subsonic.getPlaylists();
+  }
+
+  Future<List<Album>> _loadStarredAlbums(SubsonicProvider subsonic) async {
+    final albums = await subsonic.subsonic.getAlbumList2('starred', size: 40);
+    for (final album in albums) {
+      if (album.coverArt != null) {
+        album.cachedCoverUrl ??= subsonic.subsonic.cachedCoverArtUrl(
+          album.coverArt!,
+          size: 80,
+        );
+      }
+    }
+    return albums;
   }
 
   void _navigateTo(String route) {
@@ -756,6 +1206,23 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       Future.delayed(const Duration(milliseconds: 750), () {
         if (mounted && accentColorNotifier.value == null) {
           setState(() => _accentColor = null);
+        }
+      });
+    }
+  }
+
+  void _onCoverUrlChanged() {
+    final url = coverUrlNotifier.value;
+    if (url != null) {
+      setState(() {
+        _coverUrl = url;
+        _coverVisible = true;
+      });
+    } else {
+      setState(() => _coverVisible = false);
+      Future.delayed(const Duration(milliseconds: 750), () {
+        if (mounted && coverUrlNotifier.value == null) {
+          setState(() => _coverUrl = null);
         }
       });
     }
@@ -790,6 +1257,59 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       });
     }
   }
+
+  Future<void> _refreshPlaylists(BuildContext context) async {
+    final subsonic = context.read<SubsonicProvider>();
+    final active = subsonic.activeAccount;
+    if (active == null) return;
+
+    setState(() {
+      _isRefreshingPlaylists = true;
+      _playlistsAccountId = active.id;
+      _playlistsFuture = _loadPlaylists(subsonic);
+    });
+
+    try {
+      await _playlistsFuture;
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingPlaylists = false);
+      }
+    }
+  }
+
+  Future<void> _refreshStarredAlbums(BuildContext context) async {
+    final subsonic = context.read<SubsonicProvider>();
+    final active = subsonic.activeAccount;
+    if (active == null) return;
+
+    setState(() {
+      _isRefreshingStarred = true;
+      _starredAccountId = active.id;
+      _starredAlbumsFuture = _loadStarredAlbums(subsonic);
+    });
+
+    try {
+      await _starredAlbumsFuture;
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingStarred = false);
+      }
+    }
+  }
+
+  void _setDesktopMenuHovered(String label, {required bool value}) {
+    if (_isDesktopMenuHovered(label) == value) return;
+    setState(() {
+      _desktopMenuHovered[label] = value;
+    });
+  }
+
+  void _toggleDesktopMenu(String label) {
+    setState(() {
+      _desktopMenuExpanded[label] = !_isDesktopMenuExpanded(label);
+    });
+  }
 }
 
 class _NavItem {
@@ -802,4 +1322,15 @@ class _NavItem {
     required this.route,
     required this.icon,
   });
+}
+
+class _NavMenu {
+  final String label;
+  final List<_NavItem> items;
+
+  // optional custom widget builder
+  // so you can show playlists, starred etc
+  final Widget Function(BuildContext context)? builder;
+
+  const _NavMenu({required this.label, this.items = const [], this.builder});
 }

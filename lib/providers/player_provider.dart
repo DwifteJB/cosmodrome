@@ -73,7 +73,10 @@ class PlayerProvider extends ChangeNotifier {
   String? coverArtUrlForSong(Song song) {
     if (song.coverArt == null || _subsonicProvider == null) return null;
     try {
-      return _subsonicProvider!.subsonic.cachedCoverArtUrl(song.coverArt!, size: 300);
+      return _subsonicProvider!.subsonic.cachedCoverArtUrl(
+        song.coverArt!,
+        size: 300,
+      );
     } catch (_) {
       return null;
     }

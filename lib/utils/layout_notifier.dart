@@ -5,7 +5,11 @@ class TopbarButton {
   final VoidCallback onPressed;
   final Color? color;
 
-  const TopbarButton({required this.onPressed, required this.icon, this.color = Colors.white});
+  const TopbarButton({
+    required this.onPressed,
+    required this.icon,
+    this.color = Colors.white,
+  });
 }
 
 class LayoutConfig {

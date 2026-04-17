@@ -10,7 +10,7 @@ class LibraryGridItem extends StatelessWidget {
   final VoidCallback? onTap;
 
   const LibraryGridItem({
-    super.key, 
+    super.key,
     required this.title,
     this.subtitle,
     this.imageUrl,
@@ -33,21 +33,22 @@ class LibraryGridItem extends StatelessWidget {
                   ? Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      frameBuilder: (ctx, child, frame, wasSynchronouslyLoaded) {
-                        if (wasSynchronouslyLoaded) return child;
-                        return AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: frame != null
-                              ? KeyedSubtree(
-                                  key: const ValueKey('img'),
-                                  child: child,
-                                )
-                              : Container(
-                                  key: const ValueKey('placeholder'),
-                                  color: ctx.theme.colors.muted,
-                                ),
-                        );
-                      },
+                      frameBuilder:
+                          (ctx, child, frame, wasSynchronouslyLoaded) {
+                            if (wasSynchronouslyLoaded) return child;
+                            return AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              child: frame != null
+                                  ? KeyedSubtree(
+                                      key: const ValueKey('img'),
+                                      child: child,
+                                    )
+                                  : Container(
+                                      key: const ValueKey('placeholder'),
+                                      color: ctx.theme.colors.muted,
+                                    ),
+                            );
+                          },
                       errorBuilder: (ctx, e, s) => _placeholder(ctx),
                     )
                   : _placeholder(context),

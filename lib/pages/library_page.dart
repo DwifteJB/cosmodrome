@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 enum CurrentMobileView { albums, artists, playlists, songs }
+
 class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
 
@@ -130,6 +131,8 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   }
 
   Widget _buildEmptyState() {
+    var gridDelegate = _gridDelegate(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Stack(
@@ -137,8 +140,8 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: _gridDelegate(context),
-            itemCount: 15,
+            gridDelegate: gridDelegate,
+            itemCount: gridDelegate.crossAxisCount * 2,
             itemBuilder: (_, i) => Container(
               decoration: BoxDecoration(
                 color: AppColors.sidebar,

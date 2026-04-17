@@ -96,9 +96,9 @@ class _PlaylistHeader extends StatelessWidget {
                   onPress: songs.isEmpty
                       ? null
                       : () => context.read<PlayerProvider>().playAlbum(
-                            songs,
-                            shuffle: true,
-                          ),
+                          songs,
+                          shuffle: true,
+                        ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -206,6 +206,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   @override
   void dispose() {
     accentColorNotifier.value = null;
+    coverUrlNotifier.value = null;
     super.dispose();
   }
 
@@ -289,9 +290,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                       child: FButton(
                         onPress: _songs.isEmpty
                             ? null
-                            : () => context
-                                  .read<PlayerProvider>()
-                                  .playAlbum(_songs),
+                            : () => context.read<PlayerProvider>().playAlbum(
+                                _songs,
+                              ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -309,9 +310,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                         onPress: _songs.isEmpty
                             ? null
                             : () => context.read<PlayerProvider>().playAlbum(
-                                  _songs,
-                                  shuffle: true,
-                                ),
+                                _songs,
+                                shuffle: true,
+                              ),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -350,9 +351,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           onReorder: _onReorder,
         ),
 
-        SliverToBoxAdapter(
-          child: SizedBox(height: bottomPadding + 100),
-        ),
+        SliverToBoxAdapter(child: SizedBox(height: bottomPadding + 100)),
       ],
     );
   }
@@ -487,9 +486,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                     child: FButton(
                       onPress: _songs.isEmpty
                           ? null
-                          : () => context
-                                .read<PlayerProvider>()
-                                .playAlbum(_songs),
+                          : () => context.read<PlayerProvider>().playAlbum(
+                              _songs,
+                            ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -507,9 +506,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                       onPress: _songs.isEmpty
                           ? null
                           : () => context.read<PlayerProvider>().playAlbum(
-                                _songs,
-                                shuffle: true,
-                              ),
+                              _songs,
+                              shuffle: true,
+                            ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -597,10 +596,16 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
       final playlist = await provider.subsonic.getPlaylist(widget.playlistId);
       if (mounted) {
         final coverUrl = playlist?.coverArt != null
-            ? provider.subsonic.cachedCoverArtUrl(playlist!.coverArt!, size: 600)
+            ? provider.subsonic.cachedCoverArtUrl(
+                playlist!.coverArt!,
+                size: 600,
+              )
             : null;
         if (coverUrl != null) {
-          await precacheImage(NetworkImage(coverUrl), context).catchError((_) {});
+          await precacheImage(
+            NetworkImage(coverUrl),
+            context,
+          ).catchError((_) {});
         }
         if (!mounted) return;
         setState(() {
@@ -610,6 +615,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           _error = playlist == null ? 'Playlist not found' : null;
           _loading = false;
         });
+        coverUrlNotifier.value = coverUrl;
 
         layoutConfig.value = LayoutConfig(
           title: playlist?.name ?? 'Playlist',
@@ -868,8 +874,7 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                 decoration: InputDecoration(
                   hintText: 'Search songs…',
                   hintStyle: TextStyle(color: colors.mutedForeground),
-                  prefixIcon:
-                      Icon(Icons.search, color: colors.mutedForeground),
+                  prefixIcon: Icon(Icons.search, color: colors.mutedForeground),
                   filled: true,
                   fillColor: colors.muted,
                   border: OutlineInputBorder(
@@ -915,16 +920,22 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                                   width: 44,
                                   height: 44,
                                   color: colors.muted,
-                                  child: Icon(Icons.music_note,
-                                      color: colors.mutedForeground, size: 20),
+                                  child: Icon(
+                                    Icons.music_note,
+                                    color: colors.mutedForeground,
+                                    size: 20,
+                                  ),
                                 ),
                               )
                             : Container(
                                 width: 44,
                                 height: 44,
                                 color: colors.muted,
-                                child: Icon(Icons.music_note,
-                                    color: colors.mutedForeground, size: 20),
+                                child: Icon(
+                                  Icons.music_note,
+                                  color: colors.mutedForeground,
+                                  size: 20,
+                                ),
                               ),
                       ),
                       title: Text(
@@ -968,8 +979,7 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
 
   void _onQueryChanged(String query) {
     _debounce?.cancel();
-    _debounce =
-        Timer(const Duration(milliseconds: 300), () => _search(query));
+    _debounce = Timer(const Duration(milliseconds: 300), () => _search(query));
   }
 
   Future<void> _search(String query) async {
@@ -977,14 +987,18 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
     setState(() => _searching = true);
     try {
       final provider = context.read<SubsonicProvider>();
-      final results =
-          await provider.subsonic.searchThreeSongs(q: query, count: 50);
+      final results = await provider.subsonic.searchThreeSongs(
+        q: query,
+        count: 50,
+      );
       if (mounted) {
         final cache = <String, String>{};
         for (final song in results) {
           if (song.coverArt != null) {
-            cache[song.id] = provider.subsonic
-                .cachedCoverArtUrl(song.coverArt!, size: 100);
+            cache[song.id] = provider.subsonic.cachedCoverArtUrl(
+              song.coverArt!,
+              size: 100,
+            );
           }
         }
         setState(() {

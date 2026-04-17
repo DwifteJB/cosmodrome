@@ -33,8 +33,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    // Read directly from the FlutterView so the sheet's MediaQuery override
-    // (useSafeArea: false zeros out padding.top) doesn't affect us.
     final view = View.of(context);
     final topPadding = view.padding.top / view.devicePixelRatio;
     final screenHeight = MediaQuery.of(context).size.height;
@@ -51,30 +49,35 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
             right: 0,
             height: screenHeight * 0.7,
             child: IgnorePointer(
-              child: TweenAnimationBuilder<Color?>(
-                tween: ColorTween(begin: _prevAccentColor, end: _accentColor),
-                duration: _prevAccentColor != null
-                    ? const Duration(milliseconds: 700)
-                    : Duration.zero,
-                curve: Curves.easeIn,
-                builder: (context, color, _) {
-                  if (color == null) return const SizedBox.expand();
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          color.withValues(alpha: 0.55),
-                          color.withValues(alpha: 0.30),
-                          AppColors.background.withValues(alpha: 0.0),
-                        ],
-                        stops: const [0.0, 0.15, 1.0],
+              child: _accentColor == null
+                  ? const SizedBox.expand()
+                  : TweenAnimationBuilder<Color?>(
+                      tween: ColorTween(
+                        begin: _prevAccentColor ?? _accentColor!,
+                        end: _accentColor!,
                       ),
+                      duration: _prevAccentColor != null
+                          ? const Duration(milliseconds: 700)
+                          : Duration.zero,
+                      curve: Curves.easeIn,
+                      builder: (context, color, _) {
+                        if (color == null) return const SizedBox.expand();
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                color.withValues(alpha: 0.55),
+                                color.withValues(alpha: 0.30),
+                                AppColors.background.withValues(alpha: 0.0),
+                              ],
+                              stops: const [0.0, 0.15, 1.0],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ),
 
@@ -159,17 +162,35 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  ScrollingText(
-                                    text: song.title,
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width - 48,
-                                    style: context.theme.typography.lg.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      height: 1.2,
+                                  // check if the text will be over the limit
+                                  if (song.title.length * 20 >
+                                      MediaQuery.of(context).size.width - 48)
+                                    ScrollingText(
+                                      text: song.title,
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width -
+                                          48,
+                                      style: context.theme.typography.lg
+                                          .copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            height: 1.2,
+                                          ),
+                                      duration: 5,
+                                    )
+                                  else
+                                    Text(
+                                      song.title,
+                                      style: context.theme.typography.lg
+                                          .copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            height: 1.2,
+                                          ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
                                     ),
-                                    duration: 5,
-                                  ),
                                   if (song.artist != null &&
                                       song.artist!.isNotEmpty)
                                     Text(
@@ -355,7 +376,10 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     if (_accentColor != null && _cacheId == song.id) return _accentColor!;
 
     if (song.coverArt == null) return AppColors.background;
-    final saveCoverArtURL = sp.subsonic.cachedCoverArtUrl(song.coverArt!, size: 300);
+    final saveCoverArtURL = sp.subsonic.cachedCoverArtUrl(
+      song.coverArt!,
+      size: 300,
+    );
     try {
       final generator = await PaletteGenerator.fromImageProvider(
         NetworkImage(saveCoverArtURL),

@@ -165,7 +165,6 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
 
   @override
   Widget build(BuildContext context) {
-
     if (_loading) {
       return const SizedBox(
         height: 200,
@@ -198,6 +197,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   @override
   void dispose() {
     accentColorNotifier.value = null;
+    coverUrlNotifier.value = null;
     super.dispose();
   }
 
@@ -462,7 +462,10 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             ? provider.subsonic.cachedCoverArtUrl(album!.coverArt!, size: 600)
             : null;
         if (coverUrl != null) {
-          await precacheImage(NetworkImage(coverUrl), context).catchError((_) {});
+          await precacheImage(
+            NetworkImage(coverUrl),
+            context,
+          ).catchError((_) {});
         }
         if (!mounted) return;
         setState(() {
@@ -472,6 +475,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           _error = album == null ? 'Album not found' : null;
           _loading = false;
         });
+        coverUrlNotifier.value = coverUrl;
         _pushPageButtons();
         _extractAccentColor();
       }

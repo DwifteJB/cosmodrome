@@ -9,9 +9,8 @@ class SongGridItem extends StatelessWidget {
   final VoidCallback? onPlay;
   final VoidCallback? onLongPress;
 
-
   const SongGridItem({
-    super.key, 
+    super.key,
     required this.title,
     required this.subtitle,
     this.imageUrl,
@@ -38,25 +37,29 @@ class SongGridItem extends StatelessWidget {
                       ? Image.network(
                           imageUrl!,
                           fit: BoxFit.cover,
-                          frameBuilder: (ctx, child, frame, wasSynchronouslyLoaded) {
-                            if (wasSynchronouslyLoaded) return child;
-                            return AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 250),
-                              child: frame != null
-                                  ? KeyedSubtree(
-                                      key: const ValueKey('img'),
-                                      child: child,
-                                    )
-                                  : Container(
-                                      key: const ValueKey('placeholder'),
-                                      color: ctx.theme.colors.muted,
-                                      child: Icon(
-                                        Icons.music_note,
-                                        color: ctx.theme.colors.mutedForeground,
-                                      ),
-                                    ),
-                            );
-                          },
+                          frameBuilder:
+                              (ctx, child, frame, wasSynchronouslyLoaded) {
+                                if (wasSynchronouslyLoaded) return child;
+                                return AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  child: frame != null
+                                      ? KeyedSubtree(
+                                          key: const ValueKey('img'),
+                                          child: child,
+                                        )
+                                      : Container(
+                                          key: const ValueKey('placeholder'),
+                                          color: ctx.theme.colors.muted,
+                                          child: Icon(
+                                            Icons.music_note,
+                                            color: ctx
+                                                .theme
+                                                .colors
+                                                .mutedForeground,
+                                          ),
+                                        ),
+                                );
+                              },
                           errorBuilder: (ctx, e, s) => Container(
                             color: ctx.theme.colors.muted,
                             child: Icon(

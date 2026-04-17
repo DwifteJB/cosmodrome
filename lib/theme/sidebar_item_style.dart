@@ -57,6 +57,7 @@ FSidebarItemStyle desktopSidebarItem({
   required FTypography typography,
   required FStyle style,
   required bool touch,
+  Color selectedBackgroundColor = AppColors.sidebarSelected,
 }) {
   EdgeInsetsGeometry padding;
   if (touch) {
@@ -90,7 +91,8 @@ FSidebarItemStyle desktopSidebarItem({
     backgroundColor: FVariants(
       AppColors.sidebar,
       variants: {
-        [.selected, .hovered, .pressed]: AppColors.sidebarSelected,
+        [.selected]: selectedBackgroundColor,
+        [.hovered, .pressed]: AppColors.sidebarSelected,
         [.disabled]: AppColors.sidebar.withValues(alpha: 0.5),
       },
     ),
