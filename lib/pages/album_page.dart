@@ -9,6 +9,8 @@ import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/is_colour_too_dark.dart';
+import 'package:cosmodrome/utils/layout_notifier.dart';
+import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -114,16 +116,56 @@ class _AlbumHeader extends StatelessWidget {
   }
 }
 
-class _AlbumPageState extends State<AlbumPage> {
+class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   AlbumDetail? _album;
   String? _coverUrl;
   bool _loading = true;
   String? _error;
+  bool _starred = false;
 
   Color _localCoverColor = AppColors.auraColor;
 
+  // mobile topbarbutton
+  @override
+  List<TopbarButton> get pageButtons => [
+    TopbarButton(
+      onPressed: _starAlbum,
+      icon: Icons.star,
+      color: _starred ? Colors.yellow[700] : Colors.white,
+    ),
+  ];
+
+  void _pushPageButtons() {
+    final cur = layoutConfig.value;
+    layoutConfig.value = LayoutConfig(
+      title: cur.title,
+      buttons: pageButtons,
+      topBarBuilder: cur.topBarBuilder,
+      mainPillBuilder: cur.mainPillBuilder,
+      searchPillBuilder: cur.searchPillBuilder,
+      hidePill: cur.hidePill,
+      isScrollable: cur.isScrollable,
+    );
+  }
+
+  Future<void> _starAlbum() async {
+    if (_album == null) return;
+    final provider = context.read<SubsonicProvider>();
+    final nowStarred = !_starred;
+    setState(() => _starred = nowStarred);
+    _pushPageButtons();
+    final ok = nowStarred
+        ? await provider.subsonic.starAlbum(_album!.id)
+        : await provider.subsonic.unstarAlbum(_album!.id);
+    if (!ok && mounted) {
+      setState(() => _starred = !nowStarred);
+      _pushPageButtons();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+
     if (_loading) {
       return const SizedBox(
         height: 200,
@@ -416,14 +458,21 @@ class _AlbumPageState extends State<AlbumPage> {
     try {
       final album = await provider.subsonic.getAlbum(widget.albumId);
       if (mounted) {
+        final coverUrl = album?.coverArt != null
+            ? provider.subsonic.cachedCoverArtUrl(album!.coverArt!, size: 600)
+            : null;
+        if (coverUrl != null) {
+          await precacheImage(NetworkImage(coverUrl), context).catchError((_) {});
+        }
+        if (!mounted) return;
         setState(() {
           _album = album;
-          _coverUrl = album?.coverArt != null
-              ? provider.subsonic.cachedCoverArtUrl(album!.coverArt!, size: 600)
-              : null;
+          _starred = album?.starred != null;
+          _coverUrl = coverUrl;
           _error = album == null ? 'Album not found' : null;
           _loading = false;
         });
+        _pushPageButtons();
         _extractAccentColor();
       }
     } catch (e) {

@@ -21,6 +21,18 @@ final fakeAlbums = List.generate(
   ),
 );
 
+final fakePlaylists = List.generate(
+  10,
+  (index) => Playlist(
+    id: 'fake_$index',
+    name: 'Playlist $index',
+    coverArt: null,
+    songCount: 0,
+    duration: 0,
+    owner: "you!",
+  ),
+);
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -31,7 +43,6 @@ class HomePage extends StatefulWidget {
 class _AlbumCard extends StatefulWidget {
   final Album album;
   final Subsonic subsonic;
-  final String type = 'album';
 
   const _AlbumCard({required this.album, required this.subsonic});
 
@@ -203,13 +214,13 @@ class _HomePageState extends State<HomePage> {
 
 class _HorizontalCarousel extends StatelessWidget {
   final String title;
-  final List<Album> albums;
+  List<Album> albums = const [];
   final Subsonic subsonic;
   final bool isLoading;
 
-  const _HorizontalCarousel({
+  _HorizontalCarousel({
     required this.title,
-    required this.albums,
+    this.albums = const [],
     required this.subsonic,
     this.isLoading = false,
   });
@@ -320,5 +331,95 @@ class _NoAccountView extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _PlaylistCard extends StatefulWidget {
+  final Playlist playlist;
+  final Subsonic subsonic;
+  final String type = 'playlist';
+
+  const _PlaylistCard({required this.playlist, required this.subsonic});
+
+  @override
+  State<_PlaylistCard> createState() => _PlaylistCardState();
+}
+
+class _PlaylistCardState extends State<_PlaylistCard> {
+  static const double _cardWidth = 150.0;
+  late final String? _coverUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    const cardWidth = _cardWidth;
+
+    return GestureDetector(
+      onTap: () => context.push('/library/playlist/${widget.playlist.id}'),
+      child: SizedBox(
+        width: cardWidth,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: _coverUrl != null
+                  ? Image.network(
+                      _coverUrl,
+                      width: cardWidth,
+                      height: cardWidth,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (ctx, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          width: cardWidth,
+                          height: cardWidth,
+                          decoration: BoxDecoration(
+                            color: context.theme.colors.muted,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        );
+                      },
+                      errorBuilder: (ctx, err, stack) => Container(
+                        width: cardWidth,
+                        height: cardWidth,
+                        color: context.theme.colors.muted,
+                        child: Icon(
+                          Icons.playlist_play,
+                          color: context.theme.colors.mutedForeground,
+                          size: 40,
+                        ),
+                      ),
+                    )
+                  : Container(
+                      width: cardWidth,
+                      height: cardWidth,
+                      color: context.theme.colors.muted,
+                    ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              widget.playlist.name,
+              style: context.theme.typography.sm.copyWith(
+                fontWeight: FontWeight.bold,
+                color: context.theme.colors.foreground,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _coverUrl = widget.playlist.coverArt != null
+        ? widget.subsonic.cachedCoverArtUrl(
+            widget.playlist.coverArt!,
+            size: 300,
+          )
+        : null;
   }
 }

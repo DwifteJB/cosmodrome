@@ -33,9 +33,21 @@ class LibraryGridItem extends StatelessWidget {
                   ? Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      loadingBuilder: (ctx, child, progress) => progress == null
-                          ? child
-                          : Container(color: ctx.theme.colors.muted),
+                      frameBuilder: (ctx, child, frame, wasSynchronouslyLoaded) {
+                        if (wasSynchronouslyLoaded) return child;
+                        return AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          child: frame != null
+                              ? KeyedSubtree(
+                                  key: const ValueKey('img'),
+                                  child: child,
+                                )
+                              : Container(
+                                  key: const ValueKey('placeholder'),
+                                  color: ctx.theme.colors.muted,
+                                ),
+                        );
+                      },
                       errorBuilder: (ctx, e, s) => _placeholder(ctx),
                     )
                   : _placeholder(context),

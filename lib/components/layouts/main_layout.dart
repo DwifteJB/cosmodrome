@@ -90,6 +90,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     if (oldWidget.selectedRoute != widget.selectedRoute) {
       // reset immediately to prevent showing wrong title/buttons during transition, then clear after animations complete
       _layoutConfig = LayoutConfig.empty;
+      aniu.value = 0;
       if (_mobileScrollController.hasClients) _mobileScrollController.jumpTo(0);
       if (_desktopScrollController.hasClients) {
         _desktopScrollController.jumpTo(0);
@@ -552,7 +553,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   Widget _buildMobileTopBar(BuildContext context) {
     // mixin allows pages to fully replace the top bar if they want, so check for that first
     if (_layoutConfig.topBarBuilder != null) {
-      return _layoutConfig.topBarBuilder!(context);
+      return FadeTransition(
+        opacity: aniu.drive(
+          Tween(begin: 1.0, end: 0.0).chain(
+            CurveTween(curve: const Interval(0.0, 0.3, curve: Curves.easeOut)),
+          ),
+        ),
+        child: _layoutConfig.topBarBuilder!(context),
+      );
     }
 
     final colors = context.theme.colors;
@@ -629,7 +637,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                child: Icon(button.icon, size: 24, color: Colors.white),
+                child: Icon(
+                  button.icon,
+                  size: 24,
+                  color: button.color ?? Colors.white,
+                ),
               ),
             ),
 
@@ -753,23 +765,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onScroll() {
-    // const maxScroll = 250;
-    // final scrollOffset = _mobileScrollController.offset.clamp(0.0, maxScroll);
-    // final opacity = scrollOffset / maxScroll;
+    ScrollController? activeController;
 
-    // if (opacity != aniu.value) {
-    //   setState(() {
-    //     aniu.value = opacity;
-    //   });
-    // }
-
-    var activeController = _desktopScrollController;
-
-    // figure out what scroll controller is active    ScrollController? activeController;
+    if (_desktopScrollController.hasClients) {
+      activeController = _desktopScrollController;
+    }
     if (_mobileScrollController.hasClients &&
         _mobileScrollController.offset > 0) {
       activeController = _mobileScrollController;
     }
+
+    if (activeController == null) return;
 
     final maxScroll = 250.0;
     final scrollOffset = activeController.offset.clamp(0.0, maxScroll);

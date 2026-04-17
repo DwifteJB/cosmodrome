@@ -596,12 +596,17 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     try {
       final playlist = await provider.subsonic.getPlaylist(widget.playlistId);
       if (mounted) {
+        final coverUrl = playlist?.coverArt != null
+            ? provider.subsonic.cachedCoverArtUrl(playlist!.coverArt!, size: 600)
+            : null;
+        if (coverUrl != null) {
+          await precacheImage(NetworkImage(coverUrl), context).catchError((_) {});
+        }
+        if (!mounted) return;
         setState(() {
           _playlist = playlist;
           _songs = List.of(playlist?.songs ?? []);
-          _coverUrl = playlist?.coverArt != null
-              ? provider.subsonic.cachedCoverArtUrl(playlist!.coverArt!, size: 600)
-              : null;
+          _coverUrl = coverUrl;
           _error = playlist == null ? 'Playlist not found' : null;
           _loading = false;
         });
@@ -820,6 +825,7 @@ class _AddSongsSheet extends StatefulWidget {
 class _AddSongsSheetState extends State<_AddSongsSheet> {
   final _controller = TextEditingController();
   List<Song> _results = [];
+  final Map<String, String> _coverUrlCache = {};
   bool _searching = false;
   Timer? _debounce;
 
@@ -895,7 +901,32 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                   itemCount: _results.length,
                   itemBuilder: (ctx, i) {
                     final song = _results[i];
+                    final coverUrl = _coverUrlCache[song.id];
                     return ListTile(
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: coverUrl != null
+                            ? Image.network(
+                                coverUrl,
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, e, s) => Container(
+                                  width: 44,
+                                  height: 44,
+                                  color: colors.muted,
+                                  child: Icon(Icons.music_note,
+                                      color: colors.mutedForeground, size: 20),
+                                ),
+                              )
+                            : Container(
+                                width: 44,
+                                height: 44,
+                                color: colors.muted,
+                                child: Icon(Icons.music_note,
+                                    color: colors.mutedForeground, size: 20),
+                              ),
+                      ),
                       title: Text(
                         song.title,
                         style: TextStyle(color: colors.foreground),
@@ -948,7 +979,21 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
       final provider = context.read<SubsonicProvider>();
       final results =
           await provider.subsonic.searchThreeSongs(q: query, count: 50);
-      if (mounted) setState(() => _results = results);
+      if (mounted) {
+        final cache = <String, String>{};
+        for (final song in results) {
+          if (song.coverArt != null) {
+            cache[song.id] = provider.subsonic
+                .cachedCoverArtUrl(song.coverArt!, size: 100);
+          }
+        }
+        setState(() {
+          _results = results;
+          _coverUrlCache
+            ..clear()
+            ..addAll(cache);
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _results = []);
     } finally {

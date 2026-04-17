@@ -17,16 +17,16 @@ Current support for the client is as following:
  - [ ] MacOS (unknown)
 
 ## TODO list
-- create installers for windows & linux
-- discord rich presence via golang sub-process using ipcs
-- ability to refresh subsonic songs
+- [ ] create installers for windows & linux
+- [ ] discord rich presence via golang sub-process using ipcs
+- [ ] ability to refresh subsonic songs
 - [X] playlists yes
 - [X] library view
-- searching
-- bookmarks
-- starring
-- support for jellyfin
-- support for flexx
+- [ ] searching
+- [ ] bookmarks
+- [X] starring
+- [ ] support for jellyfin
+- [ ] support for flexx
 
 ## Contributions
 To contribute, create a fork and create a pull request whenever ready

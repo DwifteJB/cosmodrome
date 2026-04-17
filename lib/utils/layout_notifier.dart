@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 class TopbarButton {
   final IconData icon;
   final VoidCallback onPressed;
+  final Color? color;
 
-  const TopbarButton({required this.onPressed, required this.icon});
+  const TopbarButton({required this.onPressed, required this.icon, this.color = Colors.white});
 }
 
 class LayoutConfig {

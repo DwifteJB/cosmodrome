@@ -36,6 +36,28 @@ extension SubsonicBrowsingApi on Subsonic {
     );
   }
 
+  // https://www.subsonic.org/pages/api.jsp#star
+  Future<bool> starAlbum(String albumId) async {
+    try {
+      await apiRequest('star', params: {'albumId': albumId});
+      return true;
+    } catch (e) {
+      loggerPrint('Error starring album $albumId: $e');
+      return false;
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#unstar
+  Future<bool> unstarAlbum(String albumId) async {
+    try {
+      await apiRequest('unstar', params: {'albumId': albumId});
+      return true;
+    } catch (e) {
+      loggerPrint('Error unstarring album $albumId: $e');
+      return false;
+    }
+  }
+
   // https://www.subsonic.org/pages/api.jsp#getAlbum
   Future<AlbumDetail?> getAlbum(String id) async {
     try {
