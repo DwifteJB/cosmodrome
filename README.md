@@ -10,11 +10,11 @@ As of right now, there are no downloads, you can go and compile this yourself if
 Current support for the client is as following:
 
  - [X] Linux
+ - [X] MacOS 
  - [X] iOS
  - [X] Android
- - [ ] Windows (unknown)
+ - [ ] Windows (unknown, probably yes lol)
  - [ ] Web (unknown)
- - [ ] MacOS (unknown)
 
 ## TODO list
 - [ ] create installers for windows & linux

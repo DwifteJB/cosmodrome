@@ -3,6 +3,7 @@ import 'package:cosmodrome/components/library/song_grid_item.dart';
 import 'package:cosmodrome/components/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/main.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
@@ -38,6 +39,13 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
 
   @override
   Widget build(BuildContext context) {
+    final ss = context.watch<SubsonicProvider>();
+
+    // user is not logged in or has no active account, show empty state
+    if (ss.activeAccount == null) {
+      return _buildEmptyState();
+    }
+
     // if (isMobile(context)) return _buildMobileView();
     // return const SizedBox.shrink();
     return _buildMobileView(); // TODO: desktop
@@ -129,12 +137,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1,
-            ),
+            gridDelegate: _gridDelegate(context),
             itemCount: 15,
             itemBuilder: (_, i) => Container(
               decoration: BoxDecoration(
@@ -151,6 +154,16 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
                   "It's kinda empty here",
                   style: context.theme.typography.lg.copyWith(
                     fontWeight: FontWeight.bold,
+                    color: context.theme.colors.foreground,
+                  ),
+                ),
+
+                Text(
+                  subsonicProvider.activeAccount == null
+                      ? 'are you sure your logged in?'
+                      : 'its time to add some music!',
+                  style: context.theme.typography.md.copyWith(
+                    fontWeight: FontWeight.w400,
                     color: context.theme.colors.foreground,
                   ),
                 ),
@@ -174,12 +187,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         shrinkWrap: true,
         padding: EdgeInsets.only(top: 12),
         physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 0.72,
-        ),
+        gridDelegate: _gridDelegate(context),
         itemCount: items.length,
         itemBuilder: (ctx, i) => itemBuilder(ctx, items[i], i),
       ),
@@ -346,6 +354,36 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     } finally {
       if (mounted) setState(() => _loading.remove(view));
     }
+  }
+
+  // SliverGridDelegateWithFixedCrossAxisCount based on screen width
+  SliverGridDelegateWithFixedCrossAxisCount _gridDelegate(
+    BuildContext context,
+  ) {
+    final width = MediaQuery.sizeOf(context).width;
+    int crossAxisCount = 3;
+    // use the tailscale sorta rules so
+    // <600 = 2
+    // 600-900 = 3
+    // 900-1200 = 4
+    // >1200 = 5
+    if (width < 600) {
+      crossAxisCount = 2;
+    } else if (width < 900) {
+      crossAxisCount = 3;
+    } else if (width < 1200) {
+      crossAxisCount = 4;
+    } else {
+      // use formula to calculate more than this for ultrawide
+      crossAxisCount = (width / 250).floor();
+    }
+
+    return SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: crossAxisCount,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 0.72,
+    );
   }
 
   Future<void> _showCreatePlaylistDialog() async {

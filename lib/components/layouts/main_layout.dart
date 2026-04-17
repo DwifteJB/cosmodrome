@@ -158,6 +158,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                 header: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // on macOS the native traffic-light buttons sit in the top-left
+                    // of the window, so push the search field down to avoid overlap
+                    if (!kIsWeb && Platform.isMacOS) const SizedBox(height: 28),
                     GestureDetector(
                       behavior: HitTestBehavior.translucent,
                       onPanStart: _isDesktop
