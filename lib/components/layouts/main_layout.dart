@@ -406,26 +406,29 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             ),
           ),
           // actual content
-          Positioned.fill(
-            child: SingleChildScrollView(
-              controller: _mobileScrollController,
-              child: Column(
-                children: [
-                  SizedBox(height: topPadding + 20),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight:
-                          MediaQuery.of(context).size.height -
-                          (topPadding + 20) -
-                          (navHeight + bottomPadding),
+          if (_layoutConfig.isScrollable)
+            Positioned.fill(
+              child: SingleChildScrollView(
+                controller: _mobileScrollController,
+                child: Column(
+                  children: [
+                    SizedBox(height: topPadding + 20),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight:
+                            MediaQuery.of(context).size.height -
+                            (topPadding + 20) -
+                            (navHeight + bottomPadding),
+                      ),
+                      child: widget.child,
                     ),
-                    child: widget.child,
-                  ),
-                  SizedBox(height: navHeight + bottomPadding),
-                ],
+                    SizedBox(height: navHeight + bottomPadding),
+                  ],
+                ),
               ),
-            ),
-          ),
+            )
+          else
+            Positioned.fill(child: widget.child),
           // bottom gradient (always visible, beneath the floating nav)
           Positioned(
             left: 0,

@@ -7,6 +7,7 @@ import 'package:cosmodrome/components/layouts/main_layout.dart';
 import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/album_page.dart';
+import 'package:cosmodrome/pages/playlist_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
 //
@@ -108,6 +109,13 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           path: '/library/album/:id',
           pageBuilder: (context, state) => NoTransitionPage(
             child: AlbumPage(albumId: state.pathParameters['id']!),
+          ),
+        ),
+
+        GoRoute(
+          path: '/library/playlist/:id',
+          pageBuilder: (context, state) => NoTransitionPage(
+            child: PlaylistPage(playlistId: state.pathParameters['id']!),
           ),
         ),
       ],

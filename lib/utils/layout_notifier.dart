@@ -14,6 +14,8 @@ class LayoutConfig {
   final Widget Function(BuildContext)? mainPillBuilder;
   final Widget Function(BuildContext)? searchPillBuilder;
   final bool hidePill;
+  // whether the main content should be wrapped in a scroll view (with padding) or not. if false, the page is responsible for its own scrolling and padding.
+  final bool isScrollable;
 
   const LayoutConfig({
     this.title,
@@ -22,6 +24,7 @@ class LayoutConfig {
     this.mainPillBuilder,
     this.searchPillBuilder,
     this.hidePill = false,
+    this.isScrollable = true,
   });
 
   static const empty = LayoutConfig();

@@ -114,6 +114,46 @@ class Subsonic {
     return response.bodyBytes;
   }
 
+  Future<Map<String, dynamic>> multiParamRequest(
+    String endpoint, {
+    Map<String, dynamic> params = const {},
+    int timeoutSeconds = 5,
+  }) async {
+    final tok = auth.generateToken();
+    final query = <String, dynamic>{
+      'u': auth.username,
+      't': tok.token,
+      's': tok.salt,
+      'v': _apiVersion,
+      'c': _clientName,
+      'f': 'json',
+      ...params,
+    };
+    final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
+    loggerPrint('Making multi-param API request to $uri');
+    final response = await http
+        .get(uri, headers: {'timeout': timeoutSeconds.toString()})
+        .timeout(
+          Duration(seconds: timeoutSeconds),
+          onTimeout: () {
+            throw Exception('API request to $endpoint timed out');
+          },
+        );
+    if (response.statusCode != 200) {
+      throw Exception('HTTP ${response.statusCode} from $endpoint');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final root = body['subsonic-response'] as Map<String, dynamic>;
+    if (root['status'] == 'failed') {
+      final err = root['error'] as Map<String, dynamic>;
+      final SubsonicError error = getErrorFromCode((err['code'] as num).toInt());
+      throw Exception(
+        'Subsonic API error from $endpoint: ${errorToSensibleNames(error)}',
+      );
+    }
+    return root;
+  }
+
   /// Builds a stream URL without making an HTTP request.
   /// Safe to use directly in just_audio's setUrl().
   String streamUrl(String id) {

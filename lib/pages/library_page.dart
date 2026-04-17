@@ -1,4 +1,5 @@
 import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:cosmodrome/components/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -20,7 +21,6 @@ class LibraryPage extends StatefulWidget {
   @override
   State<LibraryPage> createState() => _LibraryPageState();
 }
-
 
 class _LibraryGridItem extends StatelessWidget {
   final String? imageUrl;
@@ -61,14 +61,13 @@ class _LibraryGridItem extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 5),
-          Text(
-            title,
+          ScrollingText(
+            text: title,
             style: context.theme.typography.xs.copyWith(
               fontWeight: FontWeight.w600,
               color: context.theme.colors.foreground,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxWidth: 200,
           ),
           if (subtitle != null)
             Text(
@@ -105,13 +104,9 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   final Set<CurrentMobileView> _loading = {};
   final Set<CurrentMobileView> _fetched = {};
 
+  // Custom top bar with scrollable view switcher tabs.
   @override
-  List<TopbarButton> get pageButtons => [
-    TopbarButton(onPressed: _cycleView, icon: FIcons.listMusic),
-  ];
-
-  @override
-  String? get pageTitle => _currentView.title;
+  Widget Function(BuildContext)? get topBarBuilder => _buildLibraryTopBar;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +172,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
             subtitle:
                 '${playlist.songCount} song${playlist.songCount == 1 ? '' : 's'}',
             placeholderIcon: Icons.queue_music,
+            onTap: () => ctx.push('/library/playlist/${playlist.id}'),
           ),
         );
 
@@ -190,13 +186,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
             title: song.title,
             subtitle: '${song.artist} • ${song.album}',
             onPlay: () => context.read<PlayerProvider>().playNow(song),
-            onAddToQueue: () => context.read<PlayerProvider>().addToQueue(song),
-            onLongPress: () => showFSheet(
-              context: context,
-              side: FLayout.btt,
-              builder: (sheetCtx) => _SongContextMenu(song: song),
-              useRootNavigator: true,
-            ),
+            onLongPress: () => showSongContextSheet(context, song),
           ),
         );
     }
@@ -253,6 +243,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GridView.builder(
         shrinkWrap: true,
+        padding: EdgeInsets.only(top: 12),
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
@@ -266,6 +257,35 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     );
   }
 
+  Widget _buildLibraryTopBar(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    final colors = context.theme.colors;
+
+    return Container(
+      height: 56 + topPadding,
+      padding: EdgeInsets.only(top: topPadding, left: 20, right: 8),
+      color: Colors.transparent,
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                _currentView.title,
+                style: context.theme.typography.xl2.copyWith(
+                  fontWeight: FontWeight.bold,
+                  height: 0,
+                  color: colors.foreground,
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildList<T>(
     List<T> items,
     Widget Function(BuildContext ctx, T item, int index) itemBuilder,
@@ -275,8 +295,8 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ListView.separated(
+        padding: EdgeInsets.only(top: 12),
         shrinkWrap: true,
-        // listView inside Column, so disable scrolling and let outer SingleChildScrollView handle it
         physics: const NeverScrollableScrollPhysics(),
         itemCount: items.length,
         separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -289,14 +309,83 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 8),
+        SizedBox(height: 30),
+        // view switcher
+        Center(
+          child: SizedBox(
+            height: 30,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ...CurrentMobileView.values.map((view) {
+                    final isActive = _currentView == view;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        onTap: () => _switchView(view),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? context.theme.colors.primary
+                                : AppColors.mutedButtonColor,
+                            borderRadius: BorderRadius.circular(40),
+                            border: Border.all(
+                              color: context.theme.colors.border,
+                            ),
+                          ),
+                          child: Text(
+                            view.tabLabel,
+                            style: context.theme.typography.xs.copyWith(
+                              color: isActive
+                                  ? context.theme.colors.primaryForeground
+                                  : context.theme.colors.foreground,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  // "+" to create a playlist (only shown for playlists tab)
+                  if (_currentView == CurrentMobileView.playlists)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: GestureDetector(
+                        onTap: _showCreatePlaylistDialog,
+                        child: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: AppColors.mutedButtonColor,
+                            borderRadius: BorderRadius.circular(40),
+                            border: Border.all(
+                              color: context.theme.colors.border,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.add,
+                            size: 18,
+                            color: context.theme.colors.foreground,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+            ),
+          ),
+        ),
         _buildCurrentView(),
         const SizedBox(height: 32),
       ],
     );
   }
-
-  void _cycleView() => _switchView(_currentView.next);
 
   Future<void> _fetchView(CurrentMobileView view) async {
     if (_loading.contains(view) || _fetched.contains(view)) return;
@@ -330,76 +419,67 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     }
   }
 
+  Future<void> _showCreatePlaylistDialog() async {
+    String name = '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: const Text(
+          'New playlist',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Playlist name',
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white30),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.white),
+            ),
+          ),
+          onChanged: (v) => name = v,
+          onSubmitted: (_) => Navigator.pop(ctx, true),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Create', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || name.trim().isEmpty || !mounted) return;
+
+    final provider = context.read<SubsonicProvider>();
+    final id = await provider.subsonic.createNewPlaylist(name.trim());
+
+    if (id != null && mounted) {
+      // nav immediately to new playliust
+      context.push('/library/playlist/$id');
+      // invalidate cache, so the new playlist appears in the list when they navigate back
+      _fetched.remove(CurrentMobileView.playlists);
+    }
+  }
+
   void _switchView(CurrentMobileView view) {
     if (_currentView == view) return;
     setState(() => _currentView = view);
-    // manually push layout once we switch view
-    layoutConfig.value = LayoutConfig(
-      title: view.title,
-      buttons: [TopbarButton(onPressed: _cycleView, icon: FIcons.listMusic)],
-    );
+    // Push updated layout config so the main layout rebuilds the top bar
+    layoutConfig.value = LayoutConfig(topBarBuilder: topBarBuilder);
     _fetchView(view);
-  }
-}
-
-class _SongContextMenu extends StatelessWidget {
-  final Song song;
-
-  const _SongContextMenu({required this.song});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.theme.colors;
-    return Material(
-      color: const Color(0xFF111111),
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: Icon(Icons.play_arrow_rounded, color: colors.foreground),
-              title: Text(
-                'Play now',
-                style: TextStyle(color: colors.foreground),
-              ),
-              onTap: () {
-                context.read<PlayerProvider>().playNow(song);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.queue_music_rounded,
-                color: colors.foreground,
-              ),
-              title: Text(
-                'Add to queue',
-                style: TextStyle(color: colors.foreground),
-              ),
-              onTap: () {
-                context.read<PlayerProvider>().addToQueue(song);
-                Navigator.pop(context);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -407,7 +487,6 @@ class _SongGridItem extends StatelessWidget {
   final String? imageUrl;
   final String title;
   final String subtitle;
-  final VoidCallback? onAddToQueue;
   final VoidCallback? onPlay;
   final VoidCallback? onLongPress;
 
@@ -415,24 +494,21 @@ class _SongGridItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.imageUrl,
-    this.onAddToQueue,
     this.onPlay,
     this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
-    // is inside list view, so constrain height and let width be infinite
     return InkWell(
       onTap: onPlay,
       onLongPress: onLongPress,
       child: Padding(
-        padding: EdgeInsetsGeometry.all(4),
+        padding: const EdgeInsets.all(4),
         child: SizedBox(
           height: 60,
           child: Row(
             children: [
-              // Album art, then title/artist in the same column
               AspectRatio(
                 aspectRatio: 1,
                 child: ClipRRect(
@@ -485,17 +561,18 @@ class _SongGridItem extends StatelessWidget {
             ],
           ),
         ),
-      )
+      ),
     );
-
   }
 }
 
 extension on CurrentMobileView {
-  CurrentMobileView get next {
-    final all = CurrentMobileView.values;
-    return all[(index + 1) % all.length];
-  }
+  String get tabLabel => switch (this) {
+    CurrentMobileView.albums => 'Albums',
+    CurrentMobileView.artists => 'Artists',
+    CurrentMobileView.playlists => 'Playlists',
+    CurrentMobileView.songs => 'Songs',
+  };
 
   String get title => switch (this) {
     CurrentMobileView.albums => 'your albums',

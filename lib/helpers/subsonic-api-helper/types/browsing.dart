@@ -227,6 +227,40 @@ class Playlist {
   }
 }
 
+class PlaylistDetail extends Playlist {
+  final List<Song> songs;
+
+  PlaylistDetail({
+    required super.id,
+    required super.name,
+    super.comment,
+    required super.songCount,
+    required super.duration,
+    super.coverArt,
+    required super.owner,
+    super.public,
+    required this.songs,
+  });
+
+  factory PlaylistDetail.fromJson(Map<String, dynamic> json) {
+    final songsJson = json['entry'] as List<dynamic>? ?? [];
+    final songs = songsJson
+        .map((s) => Song.fromJson(s as Map<String, dynamic>))
+        .toList();
+    return PlaylistDetail(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      comment: json['comment'] as String?,
+      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      coverArt: json['coverArt'] as String?,
+      owner: json['owner'] as String? ?? '',
+      public: json['public'] as bool? ?? false,
+      songs: songs,
+    );
+  }
+}
+
 class AlbumDetail extends Album {
   final List<Song> songs;
 

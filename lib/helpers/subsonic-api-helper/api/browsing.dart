@@ -156,6 +156,71 @@ extension SubsonicBrowsingApi on Subsonic {
     }
   }
 
+  // https://www.subsonic.org/pages/api.jsp#getPlaylist
+  Future<PlaylistDetail?> getPlaylist(String id) async {
+    try {
+      final response = await apiRequest('getPlaylist', params: {'id': id});
+      final json = response['playlist'] as Map<String, dynamic>?;
+      if (json == null) return null;
+      return PlaylistDetail.fromJson(json);
+    } catch (e) {
+      loggerPrint('Error fetching playlist $id: $e');
+      return null;
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#updatePlaylist
+  Future<void> updatePlaylist({
+    required String playlistId,
+    String? name,
+    String? songIdToAdd,
+    int? songIndexToRemove,
+  }) async {
+    try {
+      await apiRequest('updatePlaylist', params: {
+        'playlistId': playlistId,
+        if (name != null) 'name': name,
+        if (songIdToAdd != null) 'songIdToAdd': songIdToAdd,
+        if (songIndexToRemove != null)
+          'songIndexToRemove': '$songIndexToRemove',
+      });
+    } catch (e) {
+      loggerPrint('Error updating playlist $playlistId: $e');
+      rethrow;
+    }
+  }
+
+  // creates a new empty playlist and returns the new playlist id.
+  Future<String?> createNewPlaylist(String name) async {
+    try {
+      final response = await apiRequest(
+        'createPlaylist',
+        params: {'name': name},
+      );
+      final playlist = response['playlist'] as Map<String, dynamic>?;
+      return playlist?['id'] as String?;
+    } catch (e) {
+      loggerPrint('Error creating playlist: $e');
+      return null;
+    }
+  }
+
+  // replaces all songs with a given list
+  Future<void> replacePlaylistSongs(
+    String playlistId,
+    List<String> songIds,
+  ) async {
+    try {
+      await multiParamRequest('createPlaylist', params: {
+        'playlistId': playlistId,
+        'songId': songIds,
+      });
+    } catch (e) {
+      loggerPrint('Error replacing playlist songs $playlistId: $e');
+      rethrow;
+    }
+  }
+
   // https://www.subsonic.org/pages/api.jsp#getRandomSongs
   Future<List<Song>> getRandomSongs({int count = 10}) async {
     try {
