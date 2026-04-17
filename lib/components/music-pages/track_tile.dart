@@ -1,3 +1,4 @@
+import 'package:cosmodrome/components/desktop_song_popover.dart';
 import 'package:cosmodrome/components/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -44,14 +45,6 @@ class _MusicPageDesktopTrackTileState
     return player.currentSong?.id == widget.song.id;
   }
 
-  void _openContextMenu() {
-    showSongContextSheet(
-      context,
-      widget.song,
-      onRemoveFromPlaylist: widget.onRemove,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final song = widget.song;
@@ -64,7 +57,6 @@ class _MusicPageDesktopTrackTileState
 
     return GestureDetector(
       onTap: widget.onTap ?? () => context.read<PlayerProvider>().playNow(song),
-      onSecondaryTap: _openContextMenu,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _isHovered = true),
@@ -125,20 +117,24 @@ class _MusicPageDesktopTrackTileState
                     ),
                   ),
                 const SizedBox(width: 8),
-                AnimatedOpacity(
-                  opacity: _isHovered ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.more_horiz,
-                      size: 16,
-                      color: context.theme.colors.mutedForeground,
-                    ),
-                    onPressed: _openContextMenu,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 28,
-                      minHeight: 28,
+                DesktopSongPopover(
+                  song: song,
+                  onRemoveFromPlaylist: widget.onRemove,
+                  builder: (context, controller) => AnimatedOpacity(
+                    opacity: _isHovered ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.more_horiz,
+                        size: 16,
+                        color: context.theme.colors.mutedForeground,
+                      ),
+                      onPressed: controller.toggle,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
                     ),
                   ),
                 ),
