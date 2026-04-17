@@ -595,7 +595,6 @@ class _MobileTrackTile extends StatefulWidget {
     required this.accentColor,
     this.onTap,
     this.onRemove,
-    super.key,
   });
 
   @override
@@ -713,7 +712,6 @@ class _DesktopTrackTile extends StatefulWidget {
     this.accentColor,
     this.onTap,
     this.onRemove,
-    super.key,
   });
 
   @override

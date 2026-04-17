@@ -23,7 +23,7 @@ class AlbumPage extends StatefulWidget {
 class _AlbumHeader extends StatelessWidget {
   final AlbumDetail album;
 
-  const _AlbumHeader({required this.album, super.key});
+  const _AlbumHeader({required this.album});
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +438,6 @@ class _DesktopTrackTile extends StatefulWidget {
     required this.albumArtist,
     this.onTap,
     this.accentColor,
-    super.key,
   });
 
   @override
@@ -649,7 +648,6 @@ class _MobileTrackTile extends StatefulWidget {
     required this.albumArtist,
     required this.accentColor,
     this.onTap,
-    super.key,
   });
 
   @override

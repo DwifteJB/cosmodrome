@@ -11,7 +11,6 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';

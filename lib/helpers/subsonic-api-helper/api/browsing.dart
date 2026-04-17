@@ -179,8 +179,8 @@ extension SubsonicBrowsingApi on Subsonic {
     try {
       await apiRequest('updatePlaylist', params: {
         'playlistId': playlistId,
-        if (name != null) 'name': name,
-        if (songIdToAdd != null) 'songIdToAdd': songIdToAdd,
+        'name': ?name,
+        'songIdToAdd': ?songIdToAdd,
         if (songIndexToRemove != null)
           'songIndexToRemove': '$songIndexToRemove',
       });

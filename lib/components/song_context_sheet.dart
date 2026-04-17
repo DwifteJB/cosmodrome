@@ -78,7 +78,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                         width: 48,
                         height: 48,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
+                        errorBuilder: (_, _, _) =>
                             _artPlaceholder(colors, 48),
                       ),
                     )
@@ -259,7 +259,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                                 width: 40,
                                 height: 40,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
+                                errorBuilder: (_, _, _) =>
                                     _artPlaceholder(colors, 40),
                               )
                             : _artPlaceholder(colors, 40),
