@@ -274,7 +274,13 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                                       canGoBack:
                                           widget.selectedRoute != '/home' &&
                                           widget.selectedRoute != null,
-                                      onBack: () => context.pop(),
+                                      onBack: () {
+                                        if (context.canPop()) {
+                                          context.pop();
+                                        } else {
+                                          context.go('/home');
+                                        }
+                                      },
                                       queueOpen: _queueOpen,
                                       onToggleQueue: () => setState(
                                         () => _queueOpen = !_queueOpen,
@@ -747,8 +753,26 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onScroll() {
-    const maxScroll = 250;
-    final scrollOffset = _mobileScrollController.offset.clamp(0.0, maxScroll);
+    // const maxScroll = 250;
+    // final scrollOffset = _mobileScrollController.offset.clamp(0.0, maxScroll);
+    // final opacity = scrollOffset / maxScroll;
+
+    // if (opacity != aniu.value) {
+    //   setState(() {
+    //     aniu.value = opacity;
+    //   });
+    // }
+
+    var activeController = _desktopScrollController;
+
+    // figure out what scroll controller is active    ScrollController? activeController;
+    if (_mobileScrollController.hasClients &&
+        _mobileScrollController.offset > 0) {
+      activeController = _mobileScrollController;
+    }
+
+    final maxScroll = 250.0;
+    final scrollOffset = activeController.offset.clamp(0.0, maxScroll);
     final opacity = scrollOffset / maxScroll;
 
     if (opacity != aniu.value) {

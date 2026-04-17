@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
+import 'package:window_manager/window_manager.dart';
 
 class DesktopQueuePanel extends StatelessWidget {
   final VoidCallback onClose;
@@ -53,19 +54,25 @@ class DesktopQueuePanel extends StatelessWidget {
                     DesktopWindowButton(
                       icon: FIcons.minus,
                       iconSize: 16,
-                      onPressed: () {},
+                      onPressed: () {
+                        windowManager.minimize();
+                      },
                       hoverColor: colors.secondary,
                     ),
                     DesktopWindowButton(
                       icon: FIcons.square,
                       iconSize: 14,
-                      onPressed: () {},
+                      onPressed: () {
+                        windowManager.maximize();
+                      },
                       hoverColor: colors.secondary,
                     ),
                     DesktopWindowButton(
                       icon: FIcons.x,
                       iconSize: 16,
-                      onPressed: () {},
+                      onPressed: () {
+                        windowManager.close();
+                      },
                       hoverColor: colors.destructive,
                       hoverIconColor: Colors.white,
                     ),

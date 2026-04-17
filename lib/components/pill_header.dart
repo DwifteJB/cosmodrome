@@ -32,7 +32,16 @@ class PillHeader extends StatelessWidget {
           Positioned(
             left: 16,
             child: GestureDetector(
-              onTap: onBack ?? () => context.pop(),
+              onTap:
+                  onBack ??
+                  () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      // go home
+                      context.go('/');
+                    }
+                  },
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
