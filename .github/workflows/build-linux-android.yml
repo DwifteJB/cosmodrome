@@ -37,9 +37,10 @@ jobs:
                 name: cosmodrome-linux
                 path: |
                     output/cosmodrome_installer
-                    output/app-android.zip
+                    output/app.zip
             # upload app-android.zip
             - name: Upload Android artifact
               uses: actions/upload-artifact@v6
               with:
                 name: cosmodrome-android
+                path: output/app-android.zip
