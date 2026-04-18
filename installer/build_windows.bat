@@ -1,0 +1,1 @@
+fyne package -os windows -icon .\assets\logo.png -app-id me.rmfosho.cosmodromeinstaller

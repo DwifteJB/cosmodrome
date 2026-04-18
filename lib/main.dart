@@ -7,14 +7,16 @@ import 'package:cosmodrome/components/layouts/main_layout.dart';
 import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/album_page.dart';
-import 'package:cosmodrome/pages/playlist_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
+import 'package:cosmodrome/pages/playlist_page.dart';
 //
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -67,6 +69,8 @@ void main() async {
       await windowManager.show();
       await windowManager.focus();
     });
+    // Intercept close so we can shut down the RPC bridge before exiting.
+    await windowManager.setPreventClose(true);
   }
 
   await subsonicProvider.tryRestoreSession();
@@ -141,8 +145,15 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
   ],
 );
 
-class Application extends StatelessWidget {
+class Application extends StatefulWidget {
   const Application({super.key});
+
+  @override
+  State<Application> createState() => _ApplicationState();
+}
+
+class _ApplicationState extends State<Application> with WindowListener {
+  RpcBridge? _rpcBridge;
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +172,12 @@ class Application extends StatelessWidget {
           create: (_) => PlayerProvider(),
           update: (_, sub, player) => player!..update(sub),
         ),
+        if (isDesktop && _rpcBridge != null)
+          ChangeNotifierProxyProvider<PlayerProvider, RpcBridge>(
+            lazy: false,
+            create: (_) => _rpcBridge!,
+            update: (_, player, rpc) => rpc!..update(player),
+          ),
       ],
       child: MaterialApp.router(
         supportedLocales: FLocalizations.supportedLocales,
@@ -198,6 +215,28 @@ class Application extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    if (isDesktop) windowManager.removeListener(this);
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (isDesktop) {
+      windowManager.addListener(this);
+      _rpcBridge = RpcBridge()..init();
+    }
+  }
+
+  @override
+  Future<void> onWindowClose() async {
+    await windowManager.hide();
+    await _rpcBridge?.shutdown();
+    await windowManager.destroy();
   }
 }
 

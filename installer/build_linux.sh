@@ -1,0 +1,1 @@
+fyne package -os linux -icon ./assets/logo.png 

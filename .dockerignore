@@ -1,0 +1,7 @@
+.github/
+.vscode/
+build/
+docker-data/
+.dart_tool/
+Dockerfile
+.flutter-plugin-dependencies
