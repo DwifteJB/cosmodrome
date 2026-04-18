@@ -21,63 +21,130 @@ class AddUserForm extends StatefulWidget {
   State<AddUserForm> createState() => _AddUserFormState();
 }
 
-class _AddUserFormState extends State<AddUserForm> {
+class _AddUserFormState extends State<AddUserForm>
+    with TickerProviderStateMixin {
   SubsonicServer? _selectedServer;
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _isLoading = false;
   String? _error;
+  late final FPopoverController _serverPopoverCtrl;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final provider = context.watch<SubsonicProvider>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GestureDetector(
-          onTap: () => _openServerPicker(context, provider),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: colors.border),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+    final serverContainer = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Server',
-                        style: context.theme.typography.xs.copyWith(
-                          color: colors.mutedForeground,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _selectedServer?.name ?? 'Select a server',
-                        style: context.theme.typography.sm.copyWith(
-                          color: _selectedServer != null
-                              ? colors.foreground
-                              : colors.mutedForeground,
-                        ),
-                      ),
-                    ],
+                Text(
+                  'Server',
+                  style: context.theme.typography.xs.copyWith(
+                    color: colors.mutedForeground,
                   ),
                 ),
-                Icon(
-                  FIcons.chevronRight,
-                  size: 18,
-                  color: colors.mutedForeground,
+                const SizedBox(height: 2),
+                Text(
+                  _selectedServer?.name ?? 'Select a server',
+                  style: context.theme.typography.sm.copyWith(
+                    color: _selectedServer != null
+                        ? colors.foreground
+                        : colors.mutedForeground,
+                  ),
                 ),
               ],
             ),
           ),
-        ),
+          Icon(
+            FIcons.chevronDown, size: 18, color: colors.mutedForeground),
+        ],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isMobile(context))
+          GestureDetector(
+            onTap: () => _openServerPicker(context, provider),
+            child: serverContainer,
+          )
+        else
+          FPopover(
+            control: FPopoverControl.managed(controller: _serverPopoverCtrl),
+            childAnchor: Alignment.bottomLeft,
+            popoverAnchor: Alignment.topLeft,
+            popoverBuilder: (ctx, ctrl) => ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 300, maxHeight: 280),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (provider.knownServers.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'No servers added yet.',
+                          style: context.theme.typography.sm.copyWith(
+                            color: colors.mutedForeground,
+                          ),
+                        ),
+                      )
+                    else
+                      ...provider.knownServers.map(
+                        (server) => ListTile(
+                          title: Text(
+                            server.name,
+                            style: context.theme.typography.sm.copyWith(
+                              color: colors.foreground,
+                            ),
+                          ),
+                          subtitle: server.name != server.baseUrl
+                              ? Text(
+                                  server.baseUrl,
+                                  style: context.theme.typography.xs.copyWith(
+                                    color: colors.mutedForeground,
+                                  ),
+                                )
+                              : null,
+                          onTap: () {
+                            setState(() => _selectedServer = server);
+                            ctrl.hide();
+                          },
+                        ),
+                      ),
+                    if (widget.onAddServerPressed != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: FButton(
+                          variant: FButtonVariant.outline,
+                          onPress: () {
+                            ctrl.hide();
+                            widget.onAddServerPressed!();
+                          },
+                          child: const Text('+ Add New Server'),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            child: GestureDetector(
+              onTap: () => _serverPopoverCtrl.toggle(),
+              child: serverContainer,
+            ),
+          ),
         const SizedBox(height: 16),
         FTextField(
           label: const Text('Username'),
@@ -124,45 +191,35 @@ class _AddUserFormState extends State<AddUserForm> {
   void dispose() {
     _usernameCtrl.dispose();
     _passwordCtrl.dispose();
+    _serverPopoverCtrl.dispose();
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _serverPopoverCtrl = FPopoverController(vsync: this);
+  }
+
   void _openServerPicker(BuildContext context, SubsonicProvider provider) {
-    if (isMobile(context)) {
-      showFSheet(
-        context: context,
-        side: FLayout.btt,
-        mainAxisMaxRatio: 0.5,
-        builder: (sheetCtx) => _ServerPickerSheet(
-          knownServers: List.unmodifiable(provider.knownServers),
-          onSelected: (server) {
-            setState(() => _selectedServer = server);
-            Navigator.pop(sheetCtx);
-          },
-          onAddNew: widget.onAddServerPressed == null
-              ? null
-              : () {
-                  Navigator.pop(sheetCtx);
-                  widget.onAddServerPressed!();
-                },
-        ),
-      );
-    } else {
-      // TODO: change to dropdown
-      showMenu(
-        context: context,
-        position: RelativeRect.fill
-            .deflate(40)
-            .shift(Offset(0, 40)), // TODO: calculate based on button position
-        items: provider.knownServers.map((server) {
-          return PopupMenuItem(value: server, child: Text(server.name));
-        }).toList(),
-      ).then((selected) {
-        if (selected != null) {
-          setState(() => _selectedServer = selected);
-        }
-      });
-    }
+    showFSheet(
+      context: context,
+      side: FLayout.btt,
+      mainAxisMaxRatio: 0.5,
+      builder: (sheetCtx) => _ServerPickerSheet(
+        knownServers: List.unmodifiable(provider.knownServers),
+        onSelected: (server) {
+          setState(() => _selectedServer = server);
+          Navigator.pop(sheetCtx);
+        },
+        onAddNew: widget.onAddServerPressed == null
+            ? null
+            : () {
+                Navigator.pop(sheetCtx);
+                widget.onAddServerPressed!();
+              },
+      ),
+    );
   }
 
   Future<void> _submit() async {

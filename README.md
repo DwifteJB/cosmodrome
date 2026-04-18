@@ -38,7 +38,7 @@ Discord rich presences work, they do require an external server for images that 
 You can get android and linux builds in the artifacts sections. Testflight will be coming soon & MacOS builds will be periodically added.
 
 ## Platform Support
-Current support for the client is as following:
+Current support for the client is as following (order of what is focused):
 
  - [X] Linux
  - [X] MacOS 
@@ -47,7 +47,7 @@ Current support for the client is as following:
  - [X] Android
  - [ ] Android Auto
  - [ ] Windows (unknown, probably yes lol)
- - [ ] Web (unknown)
+ - [X] Web
 
 ## TODO list
 - [X] create installers for windows & linux

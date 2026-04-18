@@ -18,6 +18,7 @@ import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
+import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -489,7 +490,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                                       onToggleQueue: () => setState(
                                         () => _queueOpen = !_queueOpen,
                                       ),
-                                    ),
+                                    )
+                                  else if (kIsWeb)
+                                    const SizedBox(height: 32),
                                   Expanded(
                                     child: SingleChildScrollView(
                                       controller: _desktopScrollController,
@@ -514,7 +517,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                   ),
                 ),
                 // plr bar
-                const DesktopPlayerBar(),
+                DesktopPlayerBar(
+                  onQueueToggle: kIsWeb
+                      ? () => setState(() => _queueOpen = !_queueOpen)
+                      : null,
+                ),
               ],
             ),
           ),
@@ -1252,16 +1259,18 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       activeController = _desktopScrollController;
     }
     if (_mobileScrollController.hasClients &&
-        _mobileScrollController.offset > 0) {
+        _mobileScrollController.offset >= 0) {
       activeController = _mobileScrollController;
     }
 
     if (activeController == null) return;
 
     final maxScroll = 250.0;
-    final scrollOffset = activeController.offset.clamp(0.0, maxScroll);
+    var scrollOffset = activeController.offset.clamp(0.0, maxScroll);
     final opacity = scrollOffset / maxScroll;
 
+    loggerPrint("Scroll offset: ${activeController.offset}, opacity: $opacity");
+ 
     if (opacity != aniu.value) {
       setState(() {
         aniu.value = opacity;

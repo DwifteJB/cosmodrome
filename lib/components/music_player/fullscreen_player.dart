@@ -11,6 +11,8 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/isMobileView.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -26,6 +28,9 @@ class FullscreenPlayer extends StatefulWidget {
 class _FullscreenPlayerState extends State<FullscreenPlayer> {
   bool _seeking = false;
   double _seekValue = 0.0;
+  bool _dismissScheduled = false;
+  bool _closing = false;
+  String? _lastAccentSongId;
 
   Color? _accentColor;
   Color? _prevAccentColor;
@@ -106,6 +111,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                       builder: (context, player, _) {
                         final song = player.currentSong;
                         if (song == null) return const SizedBox.shrink();
+                        _maybeExtractAccentColor(song);
 
                         final coverUrl = player.currentCoverArtUrl;
 
@@ -123,7 +129,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                           children: [
                             // padding above album art
                             const SizedBox(height: 12),
-                            // cover art — square constrained by width, no Expanded
                             Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 32,
@@ -132,8 +137,10 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                 borderRadius: BorderRadius.circular(12),
                                 child: AspectRatio(
                                   aspectRatio: 1,
+                                  
                                   child: coverUrl != null
                                       ? Image.network(
+                                          // limit max size to 600
                                           coverUrl,
                                           fit: BoxFit.cover,
                                           errorBuilder: (ctx, err, stack) {
@@ -163,8 +170,10 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   // check if the text will be over the limit
-                                  if (song.title.length * 20 >
-                                      MediaQuery.of(context).size.width - 48)
+                                  if (!kIsWeb &&
+                                      song.title.length * 24 >
+                                          MediaQuery.of(context).size.width -
+                                              48)
                                     ScrollingText(
                                       text: song.title,
                                       maxWidth:
@@ -233,14 +242,18 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                   activeColor: Colors.white,
                                   inactiveColor: Colors.white24,
                                   onChangeStart: (v) {
+                                    if (_closing || !mounted) return;
                                     setState(() {
                                       _seeking = true;
                                       _seekValue = v;
                                     });
                                   },
-                                  onChanged: (v) =>
-                                      setState(() => _seekValue = v),
+                                  onChanged: (v) {
+                                    if (_closing || !mounted) return;
+                                    setState(() => _seekValue = v);
+                                  },
                                   onChangeEnd: (v) {
+                                    if (_closing || !mounted) return;
                                     setState(() => _seeking = false);
                                     final seekMs = (v * totalMs).round();
                                     player.seekTo(
@@ -350,16 +363,22 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final player = Provider.of<PlayerProvider>(context);
-    _extractAccentColor(player.currentSong ?? Song(id: '', title: ''));
+    if (isMobileView(context)) {
+      _dismissScheduled = false;
+      return;
+    }
+
+    // _scheduleDismiss();
   }
 
   @override
   void initState() {
-    // if current song changes then we want to extract the accent color from the new song's cover art, so we listen to the player provider for changes and update the accent color accordingly
     super.initState();
     final player = Provider.of<PlayerProvider>(context, listen: false);
-    _extractAccentColor(player.currentSong ?? Song(id: '', title: ''));
+    final song = player.currentSong;
+    if (song != null) {
+      _maybeExtractAccentColor(song);
+    }
   }
 
   Widget _coverPlaceholder(double size) {
@@ -372,10 +391,21 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
   }
 
   Future<Color?> _extractAccentColor(Song song) async {
+    if (_closing) return _accentColor ?? AppColors.background;
     final sp = Provider.of<SubsonicProvider>(context, listen: false);
     if (_accentColor != null && _cacheId == song.id) return _accentColor!;
 
-    if (song.coverArt == null) return AppColors.background;
+    if (song.coverArt == null) {
+      if (mounted && !_closing) {
+        final prev = _accentColor;
+        setState(() {
+          _prevAccentColor = prev;
+          _accentColor = AppColors.background;
+          _cacheId = song.id;
+        });
+      }
+      return AppColors.background;
+    }
     final saveCoverArtURL = sp.subsonic.cachedCoverArtUrl(
       song.coverArt!,
       size: 300,
@@ -400,7 +430,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
         color = hsl.lightness < 0.25 ? hsl.withLightness(0.35).toColor() : raw;
       }
 
-      if (mounted) {
+      if (mounted && !_closing && _lastAccentSongId == song.id) {
         final prev = _accentColor;
         setState(() {
           _prevAccentColor = prev;
@@ -413,6 +443,35 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     } catch (_) {}
 
     return AppColors.background;
+  }
+
+  void _maybeExtractAccentColor(Song song) {
+    if (_closing) return;
+    if (_lastAccentSongId == song.id) return;
+    _lastAccentSongId = song.id;
+    _extractAccentColor(song);
+  }
+
+  void _scheduleDismiss() {
+    if (_dismissScheduled || _closing) return;
+    _dismissScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (isMobileView(context)) {
+        _dismissScheduled = false;
+        return;
+      }
+
+      final navigator = Navigator.of(context);
+      if (!navigator.canPop()) {
+        _dismissScheduled = false;
+        return;
+      }
+
+      _closing = true;
+      navigator.maybePop();
+    });
   }
 
   static String _fmt(Duration d) {

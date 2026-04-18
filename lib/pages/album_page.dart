@@ -27,8 +27,10 @@ class AlbumPage extends StatefulWidget {
 
 class _AlbumHeader extends StatelessWidget {
   final AlbumDetail album;
+  final bool isStarred;
+  final void Function()? onStarToggle;
 
-  const _AlbumHeader({required this.album});
+  const _AlbumHeader({required this.album, this.onStarToggle, required this.isStarred});
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +47,10 @@ class _AlbumHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          ScrollingText(
+          Row(
+            children: [
+              Expanded(
+                child: ScrollingText(
             text: album.name,
             maxWidth: 600,
             style: context.theme.typography.xl4.copyWith(
@@ -54,6 +59,19 @@ class _AlbumHeader extends StatelessWidget {
               letterSpacing: 1,
               height: 0,
             ),
+                ),
+              ),
+              FButton(
+                onPress: onStarToggle,
+                variant: FButtonVariant.ghost,
+                child: Icon(
+                  Icons.star,
+                  color: isStarred
+                      ? Colors.yellow[700]
+                      : context.theme.colors.foreground,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
@@ -134,34 +152,6 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
       color: _starred ? Colors.yellow[700] : Colors.white,
     ),
   ];
-
-  void _pushPageButtons() {
-    final cur = layoutConfig.value;
-    layoutConfig.value = LayoutConfig(
-      title: cur.title,
-      buttons: pageButtons,
-      topBarBuilder: cur.topBarBuilder,
-      mainPillBuilder: cur.mainPillBuilder,
-      searchPillBuilder: cur.searchPillBuilder,
-      hidePill: cur.hidePill,
-      isScrollable: cur.isScrollable,
-    );
-  }
-
-  Future<void> _starAlbum() async {
-    if (_album == null) return;
-    final provider = context.read<SubsonicProvider>();
-    final nowStarred = !_starred;
-    setState(() => _starred = nowStarred);
-    _pushPageButtons();
-    final ok = nowStarred
-        ? await provider.subsonic.starAlbum(_album!.id)
-        : await provider.subsonic.unstarAlbum(_album!.id);
-    if (!ok && mounted) {
-      setState(() => _starred = !nowStarred);
-      _pushPageButtons();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -374,47 +364,6 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           ),
         );
       },
-    );
-  }
-
-  Widget _wideHeader(AlbumDetail album, String? coverUrl) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: coverUrl != null
-                ? Image.network(
-                    coverUrl,
-                    width: 280,
-                    height: 280,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 280,
-                      height: 280,
-                      color: context.theme.colors.muted,
-                      child: Icon(
-                        Icons.album,
-                        color: context.theme.colors.mutedForeground,
-                        size: 80,
-                      ),
-                    ),
-                  )
-                : Container(
-                    width: 280,
-                    height: 280,
-                    color: context.theme.colors.muted,
-                    child: Icon(
-                      Icons.album,
-                      color: context.theme.colors.mutedForeground,
-                      size: 80,
-                    ),
-                  ),
-          ),
-          Expanded(child: _AlbumHeader(album: album)),
-        ],
-      ),
     );
   }
 
@@ -634,6 +583,75 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
 
         const SizedBox(height: 32),
       ],
+    );
+  }
+
+  void _pushPageButtons() {
+    final cur = layoutConfig.value;
+    layoutConfig.value = LayoutConfig(
+      title: cur.title,
+      buttons: pageButtons,
+      topBarBuilder: cur.topBarBuilder,
+      mainPillBuilder: cur.mainPillBuilder,
+      searchPillBuilder: cur.searchPillBuilder,
+      hidePill: cur.hidePill,
+      isScrollable: cur.isScrollable,
+    );
+  }
+
+  Future<void> _starAlbum() async {
+    if (_album == null) return;
+    final provider = context.read<SubsonicProvider>();
+    final nowStarred = !_starred;
+    setState(() => _starred = nowStarred);
+    _pushPageButtons();
+    final ok = nowStarred
+        ? await provider.subsonic.starAlbum(_album!.id)
+        : await provider.subsonic.unstarAlbum(_album!.id);
+    if (!ok && mounted) {
+      setState(() => _starred = !nowStarred);
+      _pushPageButtons();
+    }
+  }
+
+  Widget _wideHeader(AlbumDetail album, String? coverUrl) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: coverUrl != null
+                ? Image.network(
+                    coverUrl,
+                    width: 280,
+                    height: 280,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      width: 280,
+                      height: 280,
+                      color: context.theme.colors.muted,
+                      child: Icon(
+                        Icons.album,
+                        color: context.theme.colors.mutedForeground,
+                        size: 80,
+                      ),
+                    ),
+                  )
+                : Container(
+                    width: 280,
+                    height: 280,
+                    color: context.theme.colors.muted,
+                    child: Icon(
+                      Icons.album,
+                      color: context.theme.colors.mutedForeground,
+                      size: 80,
+                    ),
+                  ),
+          ),
+          Expanded(child: _AlbumHeader(album: album, isStarred: _starred, onStarToggle: _starAlbum)),
+        ],
+      ),
     );
   }
 }

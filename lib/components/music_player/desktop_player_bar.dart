@@ -5,7 +5,9 @@ import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 
 class DesktopPlayerBar extends StatefulWidget {
-  const DesktopPlayerBar({super.key});
+  final VoidCallback? onQueueToggle;
+
+  const DesktopPlayerBar({super.key, this.onQueueToggle});
 
   @override
   State<DesktopPlayerBar> createState() => _DesktopPlayerBarState();
@@ -246,6 +248,11 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
                           children: [
+                            if (widget.onQueueToggle != null)
+                              _CtrlBtn(
+                                icon: FIcons.listMusic,
+                                onTap: widget.onQueueToggle,
+                              ),
                             Icon(
                               Icons.volume_up_rounded,
                               size: 16,
