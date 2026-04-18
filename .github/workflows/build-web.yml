@@ -1,6 +1,7 @@
 name: Build Web
 
 on:
+    workflow_dispatch:
     push:
         branches: [main]
         paths:
@@ -8,6 +9,7 @@ on:
             - 'assets/**'
             - 'pubspec.yaml'
             - 'web/**'
+            - '.github/workflows/build-web.yml'
     pull_request:
         branches: [main]
         paths:
@@ -15,7 +17,7 @@ on:
             - 'assets/**'
             - 'pubspec.yaml'
             - 'web/**'
-
+            - '.github/workflows/build-web.yml'
 jobs:
     build:
         runs-on: ubuntu-latest
