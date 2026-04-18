@@ -18,6 +18,7 @@ import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+// ignore: depend_on_referenced_packages
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
@@ -56,7 +57,7 @@ void main() async {
 
     WindowOptions windowOptions = const WindowOptions(
       size: Size(900, 900),
-      minimumSize: Size(800, 800), 
+      minimumSize: Size(800, 800),
       center: true,
       title: 'Cosmodrome',
       skipTaskbar: false,
@@ -230,7 +231,6 @@ class _ApplicationState extends State<Application> with WindowListener {
       windowManager.setMinimumSize(const Size(800, 800)); // ensure!!!
     }
   }
-
 
   @override
   Future<void> onWindowClose() async {

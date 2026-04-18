@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -15,6 +16,7 @@ type Client struct {
 	conn      net.Conn
 	connected bool
 	user      string
+	mu        sync.Mutex
 }
 
 func NewClient(clientID string) *Client {
@@ -22,6 +24,9 @@ func NewClient(clientID string) *Client {
 }
 
 func (c *Client) Connect() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.conn != nil {
 		c.conn.Close()
 		c.conn = nil
@@ -64,30 +69,69 @@ func (c *Client) Connect() error {
 }
 
 func (c *Client) Close() {
-	if c.conn != nil {
-		c.writeFrame(OpClose, []byte(`{}`))
-		c.conn.Close()
-		c.conn = nil
-	}
-	c.connected = false
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.closeLocked()
 }
 
 // Shutdown clears the Discord activity then closes the connection cleanly.
 // It caps the total time at 700ms so callers don't block indefinitely.
 func (c *Client) Shutdown() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.conn == nil {
 		return
 	}
 	c.conn.SetDeadline(time.Now().Add(700 * time.Millisecond))
-	c.ClearActivity()
-	c.Close()
+	c.setActivityLocked(nil) //nolint:errcheck
+	c.closeLocked()
 }
 
-func (c *Client) IsConnected() bool { return c.connected }
-func (c *Client) User() string      { return c.user }
+func (c *Client) IsConnected() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.connected
+}
 
-// update discord rpc
+func (c *Client) User() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.user
+}
+
+// returns nil if thhe connection is alive, or an error if the peer has closed it.
+func (c *Client) CheckAlive() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.connected || c.conn == nil {
+		return fmt.Errorf("not connected")
+	}
+	c.conn.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+	defer c.conn.SetReadDeadline(time.Time{})
+	_, _, err := c.readFrame()
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return nil // alive, just no pending data
+		}
+		c.connected = false
+		return err
+	}
+	return nil
+}
+
 func (c *Client) SetActivity(activity *Activity) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.setActivityLocked(activity)
+}
+
+func (c *Client) ClearActivity() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.setActivityLocked(nil)
+}
+
+func (c *Client) setActivityLocked(activity *Activity) error {
 	if !c.connected {
 		return fmt.Errorf("not connected")
 	}
@@ -119,8 +163,13 @@ func (c *Client) SetActivity(activity *Activity) error {
 	return nil
 }
 
-func (c *Client) ClearActivity() error {
-	return c.SetActivity(nil)
+func (c *Client) closeLocked() {
+	if c.conn != nil {
+		c.writeFrame(OpClose, []byte(`{}`)) //nolint:errcheck
+		c.conn.Close()
+		c.conn = nil
+	}
+	c.connected = false
 }
 
 func (c *Client) sendHandshake() error {

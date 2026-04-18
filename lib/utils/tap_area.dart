@@ -20,6 +20,7 @@ class TapArea extends StatefulWidget {
   });
 
   @override
+  // ignore: no_logic_in_create_state
   State<TapArea> createState() => defaultTargetPlatform == TargetPlatform.iOS
       ? _TapAreaIosState()
       : _TapAreaAndroidState();
@@ -80,10 +81,7 @@ class _TapAreaIosState extends State<TapArea> {
       },
       onLongPress: widget.onLongTap,
       child: Focus(
-        child: Opacity(
-          opacity: _isDown ? 0.7 : 1.0,
-          child: content,
-        ),
+        child: Opacity(opacity: _isDown ? 0.7 : 1.0, child: content),
       ),
     );
   }

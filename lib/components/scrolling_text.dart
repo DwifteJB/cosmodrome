@@ -52,8 +52,9 @@ class _ScrollingTextState extends State<ScrollingText>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text == widget.text &&
         oldWidget.style == widget.style &&
-        oldWidget.maxWidth == widget.maxWidth)
+        oldWidget.maxWidth == widget.maxWidth) {
       return;
+    }
 
     // reset anim before measuring
     _animationController.stop();

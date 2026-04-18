@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 
 // form for adding a new server
 class AddServerForm extends StatefulWidget {
-  final VoidCallback onSuccess;
+  final ValueChanged<SubsonicServer> onSuccess;
   final VoidCallback? onCancel;
 
   const AddServerForm({super.key, required this.onSuccess, this.onCancel});
@@ -98,7 +98,8 @@ class _AddServerFormState extends State<AddServerForm> {
     });
 
     final name = _nameController.text.trim();
-    final success = await context.read<SubsonicProvider>().addKnownServer(
+    final provider = context.read<SubsonicProvider>();
+    final success = await provider.addKnownServer(
       url,
       name: name.isEmpty ? null : name,
     );
@@ -106,7 +107,8 @@ class _AddServerFormState extends State<AddServerForm> {
     if (!mounted) return;
 
     if (success) {
-      widget.onSuccess();
+      final server = provider.knownServers.firstWhere((s) => s.baseUrl == url);
+      widget.onSuccess(server);
     } else {
       setState(() {
         _error = 'Could not connect to server. Check the URL and try again.';

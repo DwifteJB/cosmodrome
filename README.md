@@ -1,4 +1,8 @@
 # Cosmodrome
+
+[![Build Linux and Android](https://github.com/DwifteJB/cosmodrome/actions/workflows/build-linux-android.yml/badge.svg)](https://github.com/DwifteJB/cosmodrome/actions/workflows/build-linux-android.yml)
+[![Build Web](https://github.com/DwifteJB/cosmodrome/actions/workflows/build-web.yml/badge.svg)](https://github.com/DwifteJB/cosmodrome/actions/workflows/build-web.yml)
+
 A cross-platform subsonic (specifically navidrome) music client built within Flutter.
 
 You can test with the web app at [https://cosmodrome.rmfosho.me/](https://cosmodrome.rmfosho.me/home)

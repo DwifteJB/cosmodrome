@@ -21,7 +21,9 @@ class AddServerPage extends StatelessWidget {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                child: AddServerForm(onSuccess: () => context.pop()),
+                child: AddServerForm(
+                  onSuccess: (server) => context.pop(server),
+                ),
               ),
             ),
           ],

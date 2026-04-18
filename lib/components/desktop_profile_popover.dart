@@ -232,7 +232,7 @@ class _DesktopAccountPopoverContentState
               ],
             ),
           ),
-          _buildRefreshButton(context, account)
+          _buildRefreshButton(context, account),
         ],
       ),
     );
@@ -646,10 +646,6 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
                 AddUserForm(
                   onSuccess: () => Navigator.pop(dialogCtx),
                   onCancel: () => Navigator.pop(dialogCtx),
-                  // DESKTOP!!! -->
-                  // Opens a stacked Add Server dialog without closing this one.
-                  // After the server is added, the user returns here and the
-                  // server picker refreshes automatically from the provider.
                   onAddServerPressed: () => _showAddServerDialog(ctx),
                 ),
               ],
@@ -660,8 +656,9 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
     );
   }
 
-  void _showAddServerDialog(BuildContext ctx) {
-    showFDialog(
+  Future<SubsonicServer?> _showAddServerDialog(BuildContext ctx) async {
+    SubsonicServer? result;
+    await showFDialog(
       context: ctx,
       builder: (dialogCtx, _, animation) => FDialog.raw(
         animation: animation,
@@ -681,7 +678,10 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
                 ),
                 const SizedBox(height: 20),
                 AddServerForm(
-                  onSuccess: () => Navigator.pop(dialogCtx),
+                  onSuccess: (server) {
+                    result = server;
+                    Navigator.pop(dialogCtx);
+                  },
                   onCancel: () => Navigator.pop(dialogCtx),
                 ),
               ],
@@ -690,5 +690,6 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
         ),
       ),
     );
+    return result;
   }
 }

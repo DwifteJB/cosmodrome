@@ -248,7 +248,11 @@ class _ProfileSheetState extends State<ProfileSheet> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(FIcons.refreshCw, size: 18, color: colors.mutedForeground),
+                : Icon(
+                    FIcons.refreshCw,
+                    size: 18,
+                    color: colors.mutedForeground,
+                  ),
           ),
         ],
       ),

@@ -31,7 +31,11 @@ class _AlbumHeader extends StatelessWidget {
   final bool isStarred;
   final void Function()? onStarToggle;
 
-  const _AlbumHeader({required this.album, this.onStarToggle, required this.isStarred});
+  const _AlbumHeader({
+    required this.album,
+    this.onStarToggle,
+    required this.isStarred,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,14 +56,14 @@ class _AlbumHeader extends StatelessWidget {
             children: [
               Expanded(
                 child: ScrollingText(
-            text: album.name,
-            maxWidth: 600,
-            style: context.theme.typography.xl4.copyWith(
-              fontWeight: FontWeight.w500,
-              color: context.theme.colors.foreground,
-              letterSpacing: 1,
-              height: 0,
-            ),
+                  text: album.name,
+                  maxWidth: 600,
+                  style: context.theme.typography.xl4.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: context.theme.colors.foreground,
+                    letterSpacing: 1,
+                    height: 0,
+                  ),
                 ),
               ),
               FButton(
@@ -667,7 +671,13 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
                     ),
                   ),
           ),
-          Expanded(child: _AlbumHeader(album: album, isStarred: _starred, onStarToggle: _starAlbum)),
+          Expanded(
+            child: _AlbumHeader(
+              album: album,
+              isStarred: _starred,
+              onStarToggle: _starAlbum,
+            ),
+          ),
         ],
       ),
     );

@@ -7,6 +7,8 @@ import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+// desktop platforms only, bundled in
+// ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
 
 class RpcBridge extends ChangeNotifier {
@@ -99,15 +101,6 @@ class RpcBridge extends ChangeNotifier {
     if (songChanged || stateChanged || durationReady) {
       _debounce?.cancel();
       _doSend(song, player, playing);
-    } else {
-      // only the position seems to have changed so we can just debounce :P
-      // _debounce?.cancel();
-      // _debounce = Timer(
-      //   const Duration(seconds: 3),
-      //   () => _doSend(player.currentSong, player, player.isPlaying),
-      // );
-
-      // orrr. hear me out. do nothing
     }
   }
 
@@ -211,6 +204,10 @@ class RpcBridge extends ChangeNotifier {
         case 'RECONNECTED':
           _connected = true;
           _connectedUser = data['user'] as String?;
+          notifyListeners();
+        case 'DISCONNECTED':
+          _connected = false;
+          _connectedUser = null;
           notifyListeners();
         case 'ERROR':
           _connected = false;

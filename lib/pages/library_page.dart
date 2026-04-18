@@ -232,25 +232,6 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     );
   }
 
-  Widget _buildList<T>(
-    List<T> items,
-    Widget Function(BuildContext ctx, T item, int index) itemBuilder,
-  ) {
-    if (items.isEmpty) return _buildEmptyState();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.separated(
-        padding: EdgeInsets.only(top: 12),
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (ctx, i) => itemBuilder(ctx, items[i], i),
-      ),
-    );
-  }
-
   Widget _buildMobileView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 class AddUserForm extends StatefulWidget {
   final VoidCallback onSuccess;
   final VoidCallback? onCancel;
-  final VoidCallback? onAddServerPressed;
+  final Future<SubsonicServer?> Function()? onAddServerPressed;
 
   const AddUserForm({
     super.key,
@@ -65,8 +65,7 @@ class _AddUserFormState extends State<AddUserForm>
               ],
             ),
           ),
-          Icon(
-            FIcons.chevronDown, size: 18, color: colors.mutedForeground),
+          Icon(FIcons.chevronDown, size: 18, color: colors.mutedForeground),
         ],
       ),
     );
@@ -129,9 +128,12 @@ class _AddUserFormState extends State<AddUserForm>
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                         child: FButton(
                           variant: FButtonVariant.outline,
-                          onPress: () {
+                          onPress: () async {
                             ctrl.hide();
-                            widget.onAddServerPressed!();
+                            final server = await widget.onAddServerPressed!();
+                            if (mounted && server != null) {
+                              setState(() => _selectedServer = server);
+                            }
                           },
                           child: const Text('+ Add New Server'),
                         ),
@@ -216,7 +218,11 @@ class _AddUserFormState extends State<AddUserForm>
             ? null
             : () {
                 Navigator.pop(sheetCtx);
-                widget.onAddServerPressed!();
+                widget.onAddServerPressed!().then((server) {
+                  if (mounted && server != null) {
+                    setState(() => _selectedServer = server);
+                  }
+                });
               },
       ),
     );

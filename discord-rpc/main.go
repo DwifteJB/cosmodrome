@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -51,15 +52,6 @@ func fetchServerTTL() {
 func emit(msg rpc.StatusMessage) {
 	b, _ := json.Marshal(msg)
 	fmt.Fprintln(os.Stdout, string(b))
-}
-
-func connectWithRetry(client *rpc.Client) bool {
-	for {
-		if err := client.Connect(); err == nil {
-			return true
-		}
-		time.Sleep(5 * time.Second)
-	}
 }
 
 // fetchChallenge retrieves a single-use PoW challenge from the image server.
@@ -203,11 +195,24 @@ func main() {
 	fetchServerTTL()
 
 	client := rpc.NewClient(clientID)
-	if !connectWithRetry(client) {
-		emit(rpc.StatusMessage{Type: "ERROR", Message: "could not connect to Discord"})
-		os.Exit(1)
+
+	// tracks whether we've ever successfully connected (CONNECTED vs RECONNECTED)
+	var everConnected atomic.Bool
+
+	connectAndEmit := func() bool {
+		if err := client.Connect(); err != nil {
+			return false
+		}
+		msgType := "RECONNECTED"
+		if everConnected.CompareAndSwap(false, true) {
+			msgType = "CONNECTED"
+		}
+		emit(rpc.StatusMessage{Type: msgType, User: client.User()})
+		return true
 	}
-	emit(rpc.StatusMessage{Type: "CONNECTED", User: client.User()})
+
+	// try initial connection immediately
+	connectAndEmit()
 
 	// catch SIGTERM (sent by Flutter's Process.kill()) so we can clear activity
 	// even if the STOP message never arrives
@@ -217,6 +222,32 @@ func main() {
 		<-sig
 		client.Shutdown()
 		os.Exit(0)
+	}()
+
+	// detect disconnects and reconnect automatically
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		disconnectedEmitted := false
+		for range ticker.C {
+			if client.IsConnected() {
+				if err := client.CheckAlive(); err != nil {
+					emit(rpc.StatusMessage{Type: "DISCONNECTED"})
+					disconnectedEmitted = true
+				} else {
+					disconnectedEmitted = false
+				}
+			} else {
+				if !disconnectedEmitted {
+					emit(rpc.StatusMessage{Type: "DISCONNECTED"})
+					disconnectedEmitted = true
+				}
+				connectAndEmit()
+				if client.IsConnected() {
+					disconnectedEmitted = false
+				}
+			}
+		}
 	}()
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -232,11 +263,10 @@ func main() {
 		case "SET_ACTIVITY":
 			activity := buildActivity(msg)
 			if err := client.SetActivity(activity); err != nil {
-				if client.Connect() == nil {
-					emit(rpc.StatusMessage{Type: "RECONNECTED", User: client.User()})
-					client.SetActivity(activity)
-				} else {
-					emit(rpc.StatusMessage{Type: "ERROR", Message: err.Error()})
+				emit(rpc.StatusMessage{Type: "DISCONNECTED"})
+				// try inline reconnect so the current activity is re-sent immediately
+				if connectAndEmit() {
+					client.SetActivity(activity) //nolint:errcheck
 				}
 			}
 

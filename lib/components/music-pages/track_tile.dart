@@ -230,6 +230,7 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
         await context.read<PlayerProvider>().addToQueue(song);
         if (!mounted) return false;
 
+        // ignore: use_build_context_synchronously
         final messenger = ScaffoldMessenger.maybeOf(context);
         messenger?.hideCurrentSnackBar();
         messenger?.showSnackBar(
