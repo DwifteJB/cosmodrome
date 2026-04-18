@@ -60,7 +60,6 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Progress bar with timestamps
               Padding(
                 padding: const EdgeInsets.only(
                   left: 12,
@@ -139,13 +138,11 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                 ),
               ),
 
-              // Controls row
               SizedBox(
                 height: 60,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // LEFT: playback controls
                     SizedBox(
                       width: 220,
                       child: Opacity(

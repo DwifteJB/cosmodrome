@@ -63,9 +63,11 @@ Current support for the client is as following (order of what is focused):
 - [X] library view
 - [ ] searching
 - [ ] bookmarks
+- [X] shuffling
+- [X] repeating
 - [X] starring
-- [ ] support for jellyfin
-- [ ] support for flexx
+- [X] downloads
+- [ ] settings page
 
 ## Contributions
 To contribute, create a fork and create a pull request whenever ready for it to be reviewed!

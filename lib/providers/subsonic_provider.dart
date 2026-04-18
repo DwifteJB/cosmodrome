@@ -24,6 +24,7 @@ class SubsonicProvider extends ChangeNotifier {
 
   String? _activeId;
   String? _errorMessage;
+  bool _isOffline = false;
 
   List<SubsonicAccount> get accounts => List.unmodifiable(_accounts);
   SubsonicAccount? get activeAccount => _activeId == null
@@ -34,11 +35,31 @@ class SubsonicProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   bool get isAuthenticated => _authState == AuthState.authenticated;
+  bool get isOffline => _isOffline;
 
   /// The current subsonic istance for the active account. Will throw if not authenticated.
   Subsonic get subsonic {
     assert(activeAccount != null, 'SubsonicProvider: no active account');
     return activeAccount!.subsonic;
+  }
+
+  /// Pings the active server and updates [isOffline]
+  Future<void> checkConnectivity() async {
+    final account = activeAccount;
+    if (account == null) return;
+    try {
+      final result = await account.subsonic.ping(timeoutSeconds: 3);
+      final offline = !result.success && result.errorCode == null;
+      if (offline != _isOffline) {
+        _isOffline = offline;
+        notifyListeners();
+      }
+    } catch (_) {
+      if (!_isOffline) {
+        _isOffline = true;
+        notifyListeners();
+      }
+    }
   }
 
   /// Adds a new account and makes it active. If an account with the same id
@@ -87,6 +108,7 @@ class SubsonicProvider extends ChangeNotifier {
       }
 
       _activeId = account.id;
+      _isOffline = false;
       await _persist();
       _setState(AuthState.authenticated);
       return null;
@@ -177,9 +199,11 @@ class SubsonicProvider extends ChangeNotifier {
   void switchAccount(String id) {
     assert(_accounts.any((a) => a.id == id), 'switchAccount: unknown id $id');
     _activeId = id;
+    _isOffline = false;
     loggerPrint('SubsonicProvider: switched to $id');
 
     _getAvatarsForActiveAccount();
+    checkConnectivity();
 
     _storage.write(key: _keyActiveId, value: id);
     notifyListeners();
@@ -227,6 +251,7 @@ class SubsonicProvider extends ChangeNotifier {
     _getAvatarsForActiveAccount();
     loggerPrint('SubsonicProvider: active account is $_activeId');
     _setState(AuthState.authenticated);
+    checkConnectivity();
   }
 
   Future<void> _getAvatarsForActiveAccount() async {

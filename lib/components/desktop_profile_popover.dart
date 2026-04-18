@@ -63,7 +63,7 @@ class _DesktopAccountPopoverContentState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
+            // header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
               child: Row(

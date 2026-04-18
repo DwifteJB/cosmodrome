@@ -7,7 +7,6 @@ int _layoutGeneration = 0;
 mixin LayoutPageMixin<T extends StatefulWidget> on State<T> {
   String? get pageTitle => null;
   List<TopbarButton> get pageButtons => const [];
-  Widget Function(BuildContext)? get topBarBuilder => null;
   Widget Function(BuildContext)? get mainPillBuilder => null;
   Widget Function(BuildContext)? get searchPillBuilder => null;
   bool get hidePill => false;
@@ -24,7 +23,6 @@ mixin LayoutPageMixin<T extends StatefulWidget> on State<T> {
       layoutConfig.value = LayoutConfig(
         title: pageTitle,
         buttons: pageButtons,
-        topBarBuilder: topBarBuilder,
         mainPillBuilder: mainPillBuilder,
         searchPillBuilder: searchPillBuilder,
         hidePill: hidePill,

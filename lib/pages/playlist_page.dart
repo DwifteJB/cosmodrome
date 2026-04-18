@@ -748,12 +748,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
       );
       final color =
           generator.vibrantColor?.color ?? generator.dominantColor?.color;
-      final tooDark = isColourTooDark(color ?? AppColors.auraColor);
-      if (tooDark) {
-        if (mounted) accentColorNotifier.value = AppColors.auraColor;
-        setState(() => _localCoverColor = AppColors.auraColor);
-        return;
-      }
+  
       if (mounted) accentColorNotifier.value = color;
       setState(() => _localCoverColor = color ?? AppColors.auraColor);
     } catch (_) {}

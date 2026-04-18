@@ -1,11 +1,12 @@
 import 'package:cosmodrome/components/library/library_grid_item.dart';
-import 'package:cosmodrome/components/music-pages/track_tile.dart';
+import 'package:cosmodrome/components/library/song_grid_item.dart';
+import 'package:cosmodrome/components/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/main.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/utils/accent_notifier.dart';
+import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
@@ -33,10 +34,6 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
 
   final Set<CurrentMobileView> _loading = {};
   final Set<CurrentMobileView> _fetched = {};
-
-  // use this to switch topbar layout on mobile
-  @override
-  Widget Function(BuildContext)? get topBarBuilder => _buildLibraryTopBar;
 
   @override
   Widget build(BuildContext context) {
@@ -115,22 +112,17 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         );
 
       case CurrentMobileView.songs:
-        if (_songs.isEmpty) return _buildEmptyState();
-        return ListView.builder(
-          shrinkWrap: true,
-          padding: const EdgeInsets.only(top: 12),
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _songs.length,
-          itemBuilder: (ctx, i) {
-            final song = _songs[i];
-            return MusicPageDesktopTrackTile(
-              song: song,
-              trackNumber: i + 1,
-              index: i,
-              accentColor: accentColorNotifier.value,
-              onTap: () => context.read<PlayerProvider>().playNow(song),
-            );
-          },
+        return _buildList(
+          _songs,
+          (ctx, song, _) => SongGridItem(
+            imageUrl: song.coverArt != null
+                ? subsonic.cachedCoverArtUrl(song.coverArt!, size: 200)
+                : null,
+            title: song.title,
+            subtitle: '${song.artist} • ${song.album}',
+            onPlay: () => context.read<PlayerProvider>().playNow(song),
+            onLongPress: () => showSongContextSheet(context, song),
+          ),
         );
     }
   }
@@ -211,7 +203,6 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       padding: EdgeInsets.only(top: topPadding, left: 20, right: 8),
       color: Colors.transparent,
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -232,11 +223,36 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     );
   }
 
+  Widget _buildList<T>(
+    List<T> items,
+    Widget Function(BuildContext ctx, T item, int index) itemBuilder,
+  ) {
+    if (items.isEmpty) return _buildEmptyState();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ListView.separated(
+        padding: EdgeInsets.only(top: 12),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (ctx, i) => itemBuilder(ctx, items[i], i),
+      ),
+    );
+  }
+
   Widget _buildMobileView() {
+    final isOffline = context.watch<SubsonicProvider>().isOffline;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: 30),
+        SizedBox(height: 40),
+        if (isOffline)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: _OfflineBanner(),
+          ),
         // view switcher
         Center(
           child: SizedBox(
@@ -318,7 +334,8 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     if (_loading.contains(view) || _fetched.contains(view)) return;
 
     final provider = context.read<SubsonicProvider>();
-    if (provider.activeAccount == null) return;
+    final accountId = provider.activeAccount?.id;
+    if (accountId == null) return;
 
     setState(() => _loading.add(view));
 
@@ -328,19 +345,38 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         case CurrentMobileView.albums:
           final data = await s.getAlbumList2('alphabeticalByName', size: 500);
           if (mounted) setState(() => _albums = data);
+          await offlineCacheService.saveAlbums(accountId, data);
         case CurrentMobileView.artists:
           final data = await s.getArtists();
           if (mounted) setState(() => _artists = data);
+          await offlineCacheService.saveArtists(accountId, data);
         case CurrentMobileView.playlists:
           final data = await s.getPlaylists();
           if (mounted) setState(() => _playlists = data);
+          await offlineCacheService.savePlaylists(accountId, data);
         case CurrentMobileView.songs:
           final data = await s.searchThreeSongs(count: 500);
           if (mounted) setState(() => _songs = data);
+          await offlineCacheService.saveSongs(accountId, data);
       }
       if (mounted) setState(() => _fetched.add(view));
     } catch (_) {
-      // leave _fetched empty so next visit retries
+      // Fall back to cached data when offline
+      switch (view) {
+        case CurrentMobileView.albums:
+          final cached = await offlineCacheService.loadAlbums(accountId);
+          if (mounted && cached != null) setState(() => _albums = cached);
+        case CurrentMobileView.artists:
+          final cached = await offlineCacheService.loadArtists(accountId);
+          if (mounted && cached != null) setState(() => _artists = cached);
+        case CurrentMobileView.playlists:
+          final cached = await offlineCacheService.loadPlaylists(accountId);
+          if (mounted && cached != null) setState(() => _playlists = cached);
+        case CurrentMobileView.songs:
+          final cached = await offlineCacheService.loadSongs(accountId);
+          if (mounted && cached != null) setState(() => _songs = cached);
+      }
+      if (mounted) provider.checkConnectivity();
     } finally {
       if (mounted) setState(() => _loading.remove(view));
     }
@@ -434,9 +470,37 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   void _switchView(CurrentMobileView view) {
     if (_currentView == view) return;
     setState(() => _currentView = view);
-    // Push updated layout config so the main layout rebuilds the top bar
-    layoutConfig.value = LayoutConfig(topBarBuilder: topBarBuilder);
+    // Push updated layout config with title
+    layoutConfig.value = LayoutConfig(title: _currentView.title);
     _fetchView(view);
+  }
+}
+
+class _OfflineBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A1F00),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF5A3F00), width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 14, color: Color(0xFFFFB300)),
+          const SizedBox(width: 8),
+          Text(
+            'You are currently offline. Some features may be unavailable.',
+            style: TextStyle(
+              color: const Color(0xFFFFB300),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

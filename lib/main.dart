@@ -11,9 +11,11 @@ import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
 import 'package:cosmodrome/pages/playlist_page.dart';
 //
+import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
+import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/foundation.dart';
@@ -72,7 +74,16 @@ void main() async {
     await windowManager.setPreventClose(true);
   }
 
+  await LocalStorageService.init();
   await subsonicProvider.tryRestoreSession();
+
+  // load the new download manifest for when the user changes account
+  subsonicProvider.addListener(() {
+    final id = subsonicProvider.activeAccount?.id;
+    if (id != null) downloadProvider.loadForAccount(id);
+  });
+  final initialId = subsonicProvider.activeAccount?.id;
+  if (initialId != null) await downloadProvider.loadForAccount(initialId);
 
   router = _buildRouter('/home');
 
@@ -84,6 +95,7 @@ final isDesktop =
 
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
+final downloadProvider = DownloadProvider();
 
 // go router
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -167,8 +179,9 @@ class _ApplicationState extends State<Application> with WindowListener {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: subsonicProvider),
+        ChangeNotifierProvider.value(value: downloadProvider),
         ChangeNotifierProxyProvider<SubsonicProvider, PlayerProvider>(
-          create: (_) => PlayerProvider(),
+          create: (_) => PlayerProvider()..setDownloadProvider(downloadProvider),
           update: (_, sub, player) => player!..update(sub),
         ),
         if (isDesktop && _rpcBridge != null)
