@@ -1,4 +1,3 @@
-import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -84,7 +83,15 @@ class SongGridItem extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ScrollingText(text: title, maxWidth: 500),
+                    Text(
+                      title,
+                      style: context.theme.typography.sm.copyWith(
+                        color: context.theme.colors.foreground,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,

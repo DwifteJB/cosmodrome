@@ -1,11 +1,11 @@
 import 'package:cosmodrome/components/library/library_grid_item.dart';
-import 'package:cosmodrome/components/library/song_grid_item.dart';
-import 'package:cosmodrome/components/song_context_sheet.dart';
+import 'package:cosmodrome/components/music-pages/track_tile.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/main.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
@@ -115,17 +115,22 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         );
 
       case CurrentMobileView.songs:
-        return _buildList(
-          _songs,
-          (ctx, song, _) => SongGridItem(
-            imageUrl: song.coverArt != null
-                ? subsonic.cachedCoverArtUrl(song.coverArt!, size: 200)
-                : null,
-            title: song.title,
-            subtitle: '${song.artist} • ${song.album}',
-            onPlay: () => context.read<PlayerProvider>().playNow(song),
-            onLongPress: () => showSongContextSheet(context, song),
-          ),
+        if (_songs.isEmpty) return _buildEmptyState();
+        return ListView.builder(
+          shrinkWrap: true,
+          padding: const EdgeInsets.only(top: 12),
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _songs.length,
+          itemBuilder: (ctx, i) {
+            final song = _songs[i];
+            return MusicPageDesktopTrackTile(
+              song: song,
+              trackNumber: i + 1,
+              index: i,
+              accentColor: accentColorNotifier.value,
+              onTap: () => context.read<PlayerProvider>().playNow(song),
+            );
+          },
         );
     }
   }
@@ -206,6 +211,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       padding: EdgeInsets.only(top: topPadding, left: 20, right: 8),
       color: Colors.transparent,
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,

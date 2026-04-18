@@ -50,7 +50,9 @@ class DesktopQueuePanel extends StatelessWidget {
                   const Spacer(),
 
                   // window controls if open
-                  if (!isMacOS) ...[
+                  // macos has on left
+                  // web does not have window controls (shocker)
+                  if (!kIsWeb && !isMacOS) ...[
                     DesktopWindowButton(
                       icon: FIcons.minus,
                       iconSize: 16,
