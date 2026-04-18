@@ -1,0 +1,43 @@
+name: Build Web
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - 'lib/**'
+            - 'assets/**'
+            - 'pubspec.yaml'
+            - 'web/**'
+    pull_request:
+        branches: [main]
+        paths:
+            - 'lib/**'
+            - 'assets/**'
+            - 'pubspec.yaml'
+            - 'web/**'
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            deployments: write
+        steps:
+            - uses: actions/checkout@v6
+            - uses: subosito/flutter-action@v2
+              with:
+                channel: 'stable'
+        
+            - name: Install dependencies
+              run: flutter pub get
+            - name: Build web
+              run: flutter build web --release --wasm
+            - if: github.ref == 'refs/heads/main'
+              name: Deploy to Cloudflare
+              uses: cloudflare/wrangler-action@v3
+              with:
+                apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+                accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+                command: pages deploy frontend/build/web --project-name=cosmodrome
+                gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+            

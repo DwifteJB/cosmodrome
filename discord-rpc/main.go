@@ -24,7 +24,7 @@ type cacheEntry struct {
 }
 
 var (
-	imageServerURL = "https://cosmodrome.rmfosho.me"
+	imageServerURL = "https://api-cosmodrome.rmfosho.me"
 	cacheEntryTTL  = 50 * time.Minute // updated at startup from GET /ttl
 	coverCache     = map[string]cacheEntry{}
 	coverCacheMu   sync.Mutex

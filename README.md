@@ -1,6 +1,8 @@
 # Cosmodrome
 A cross-platform subsonic (specifically navidrome) music client built within Flutter.
 
+You can test with the web app at [https://cosmodrome.rmfosho.me/](https://cosmodrome.rmfosho.me/home)
+
 This project is under the [GPL-2.0 License](https://github.com/DwifteJB/cosmodrome/blob/main/LICENSE). Feel free to fork & add changes, just check out the [Contributions](https://github.com/DwifteJB/cosmodrome/blob/main/README.md#contributions) sections below.
 
 | iOS | Mac |
