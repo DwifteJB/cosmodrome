@@ -21,3 +21,18 @@ linux-local:
 	rm -rf ./installer/cosmodrome_installer.tar.xz
 
 	mv ./app.zip ./output/app.zip
+
+# bundle the discord rpc binary for macos
+# https://artyom.dev/notarizing-go-binaries-for-macos.md
+macos-local:
+	rm -rf ./output
+	mkdir -p ./output
+	flutter precache --macos
+	flutter pub get
+	flutter build macos --release
+	cd ./discord-rpc && go build -o rpc main.go
+# macos development signature for this
+	codesign --sign "tba" ./discord-rpc/rpc
+	mv ./discord-rpc/rpc ./build/macos/Build/Products/Release/cosmodrome.app/Contents/MacOS/cosmodrome-rpc
+	cd ./build/macos/Build/Products/Release/ && zip -r ../../../../../app.zip cosmodrome.app
+	cp ./app.zip ./installer/app.zip
