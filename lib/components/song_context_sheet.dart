@@ -2,6 +2,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -45,6 +46,28 @@ class _SongContextSheetState extends State<_SongContextSheet> {
         ? _buildMain(context)
         : _buildPlaylistPicker(context);
   }
+
+  Future<void> _addToPlaylist(Playlist playlist) async {
+    final provider = context.read<SubsonicProvider>();
+    try {
+      await provider.subsonic.updatePlaylist(
+        playlistId: playlist.id,
+        songIdToAdd: widget.song.id,
+      );
+    } catch (_) {}
+    if (mounted) Navigator.pop(context);
+  }
+
+  Widget _artPlaceholder(FColors colors, double size) => Container(
+    width: size,
+    height: size,
+    color: colors.muted,
+    child: Icon(
+      Icons.music_note,
+      color: colors.mutedForeground,
+      size: size * 0.5,
+    ),
+  );
 
   Widget _buildMain(BuildContext context) {
     final colors = context.theme.colors;
@@ -287,17 +310,6 @@ class _SongContextSheetState extends State<_SongContextSheet> {
     );
   }
 
-  Future<void> _addToPlaylist(Playlist playlist) async {
-    final provider = context.read<SubsonicProvider>();
-    try {
-      await provider.subsonic.updatePlaylist(
-        playlistId: playlist.id,
-        songIdToAdd: widget.song.id,
-      );
-    } catch (_) {}
-    if (mounted) Navigator.pop(context);
-  }
-
   Future<void> _createAndAddToPlaylist() async {
     String newName = '';
     final confirmed = await showDialog<bool>(
@@ -348,6 +360,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
           playlistId: id,
           songIdToAdd: widget.song.id,
         );
+        notifyPlaylistsChanged();
       }
     } catch (_) {}
     if (mounted) Navigator.pop(context);
@@ -368,17 +381,6 @@ class _SongContextSheetState extends State<_SongContextSheet> {
       if (mounted) setState(() => _loadingPlaylists = false);
     }
   }
-
-  Widget _artPlaceholder(FColors colors, double size) => Container(
-    width: size,
-    height: size,
-    color: colors.muted,
-    child: Icon(
-      Icons.music_note,
-      color: colors.mutedForeground,
-      size: size * 0.5,
-    ),
-  );
 
   Widget _handle(FColors colors) => Center(
     child: Container(

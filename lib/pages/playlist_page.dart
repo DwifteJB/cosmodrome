@@ -13,6 +13,7 @@ import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/is_colour_too_dark.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
+import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -888,6 +889,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           buttons: pageButtons,
           isScrollable: false,
         );
+        notifyPlaylistsChanged();
       }
     } catch (_) {}
   }

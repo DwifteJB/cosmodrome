@@ -16,7 +16,6 @@ import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -57,7 +56,7 @@ void main() async {
 
     WindowOptions windowOptions = const WindowOptions(
       size: Size(900, 900),
-      minimumSize: Size(800, 800), // x never below 768
+      minimumSize: Size(800, 800), 
       center: true,
       title: 'Cosmodrome',
       skipTaskbar: false,
@@ -69,7 +68,6 @@ void main() async {
       await windowManager.show();
       await windowManager.focus();
     });
-    // Intercept close so we can shut down the RPC bridge before exiting.
     await windowManager.setPreventClose(true);
   }
 
@@ -229,8 +227,10 @@ class _ApplicationState extends State<Application> with WindowListener {
     if (isDesktop) {
       windowManager.addListener(this);
       _rpcBridge = RpcBridge()..init();
+      windowManager.setMinimumSize(const Size(800, 800)); // ensure!!!
     }
   }
+
 
   @override
   Future<void> onWindowClose() async {

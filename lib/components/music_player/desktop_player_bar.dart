@@ -1,5 +1,6 @@
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -331,8 +332,8 @@ class _PlayPauseBtn extends StatelessWidget {
         child: Material(
           color: Colors.white,
           shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
+          child: TapArea(
+            borderRadius: 17,
             onTap: onTap,
             child: Center(
               child: Icon(

@@ -3,6 +3,7 @@ import 'package:cosmodrome/components/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -16,6 +17,7 @@ String formatTrackDuration(int seconds) {
 class MusicPageDesktopTrackTile extends StatefulWidget {
   final Song song;
   final int trackNumber;
+  final int? index;
   final String? albumArtist;
   final Color? accentColor;
   final VoidCallback? onTap;
@@ -25,6 +27,7 @@ class MusicPageDesktopTrackTile extends StatefulWidget {
     super.key,
     required this.song,
     required this.trackNumber,
+    this.index,
     this.albumArtist,
     this.accentColor,
     this.onTap,
@@ -39,6 +42,7 @@ class MusicPageDesktopTrackTile extends StatefulWidget {
 class MusicPageMobileTrackTile extends StatefulWidget {
   final Song song;
   final int trackNumber;
+  final int? index;
   final Color accentColor;
   final String? albumArtist;
   final VoidCallback? onTap;
@@ -51,6 +55,7 @@ class MusicPageMobileTrackTile extends StatefulWidget {
     required this.song,
     required this.trackNumber,
     required this.accentColor,
+    this.index,
     this.albumArtist,
     this.onTap,
     this.onRemove,
@@ -83,6 +88,8 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
         song.artist!.isNotEmpty &&
         song.artist != widget.albumArtist;
     final hoverBg = context.theme.colors.secondary.withValues(alpha: 0.2);
+    final isOdd = (widget.index ?? widget.trackNumber) % 2 != 0;
+    final rowBg = isOdd ? const Color(0x0DFFFFFF) : Colors.transparent;
 
     return GestureDetector(
       onTap: widget.onTap ?? () => context.read<PlayerProvider>().playNow(song),
@@ -91,7 +98,7 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
         child: Container(
-          color: _isHovered ? hoverBg : Colors.transparent,
+          color: _isHovered ? hoverBg : rowBg,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
@@ -232,13 +239,13 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
           ),
         );
 
-        // Keep the item in the list after queuing.
+        // keep the item in the list after queuing.
         return false;
       },
-      child: InkWell(
+      child: TapArea(
         onTap:
             widget.onTap ?? () => context.read<PlayerProvider>().playNow(song),
-        onLongPress: () => showSongContextSheet(
+        onLongTap: () => showSongContextSheet(
           context,
           song,
           onRemoveFromPlaylist: widget.onRemove,

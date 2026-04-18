@@ -5,6 +5,7 @@ import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/scan_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +37,8 @@ class _DesktopAccountPopoverContentState
     extends State<_DesktopAccountPopoverContent> {
   bool _profilesExpanded = false;
   bool _serversExpanded = false;
+  bool _isScanning = false;
+  bool _wasScanning = false;
   final Set<String> _hoveredItems = {};
 
   @override
@@ -163,8 +166,17 @@ class _DesktopAccountPopoverContentState
   }
 
   @override
+  void dispose() {
+    isScanningNotifier.removeListener(_onScanChanged);
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    _isScanning = isScanningNotifier.value;
+    _wasScanning = _isScanning;
+    isScanningNotifier.addListener(_onScanChanged);
   }
 
   Widget _buildActiveProfileCard(
@@ -220,25 +232,7 @@ class _DesktopAccountPopoverContentState
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildRefreshButton(context, account)
         ],
       ),
     );
@@ -298,6 +292,20 @@ class _DesktopAccountPopoverContentState
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRefreshButton(BuildContext context, SubsonicAccount account) {
+    final provider = context.read<SubsonicProvider>();
+    return GestureDetector(
+      onTap: _isScanning ? null : () => startLibraryScan(provider.subsonic),
+      child: _isScanning
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(FIcons.refreshCw, size: 16),
     );
   }
 
@@ -490,6 +498,20 @@ class _DesktopAccountPopoverContentState
           : Colors.red,
     ),
   );
+
+  void _onScanChanged() {
+    final scanning = isScanningNotifier.value;
+    if (_wasScanning && !scanning && mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Library scan complete'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+    _wasScanning = scanning;
+    if (mounted) setState(() => _isScanning = scanning);
+  }
 
   Color _statusColor(BuildContext context, bool? connected) {
     if (connected == null) return context.theme.colors.mutedForeground;

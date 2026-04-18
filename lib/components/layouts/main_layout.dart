@@ -19,6 +19,7 @@ import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -143,6 +144,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     layoutConfig.removeListener(_onLayoutConfigChanged);
     accentColorNotifier.removeListener(_onAccentChanged);
     coverUrlNotifier.removeListener(_onCoverUrlChanged);
+    starredSidebarVersion.removeListener(_onStarredSidebarChanged);
+    playlistsSidebarVersion.removeListener(_onPlaylistsSidebarChanged);
     aniu.dispose();
     super.dispose();
   }
@@ -160,6 +163,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     layoutConfig.addListener(_onLayoutConfigChanged);
     accentColorNotifier.addListener(_onAccentChanged);
     coverUrlNotifier.addListener(_onCoverUrlChanged);
+    starredSidebarVersion.addListener(_onStarredSidebarChanged);
+    playlistsSidebarVersion.addListener(_onPlaylistsSidebarChanged);
 
     for (final menu in _navMenus) {
       _desktopMenuExpanded[menu.label] = true;
@@ -412,9 +417,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Main content area
+                      // main content area
                       Expanded(
                         child: Stack(
+                          clipBehavior: Clip.hardEdge,
                           children: [
                             Positioned(
                               top: -32,
@@ -443,6 +449,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                                                 fit: BoxFit.cover,
                                                 colorBlendMode:
                                                     BlendMode.overlay,
+                                              ),
+                                            ),
+                                            const DecoratedBox(
+                                              decoration: BoxDecoration(
+                                                color: Color(0x99000000),
                                               ),
                                             ),
                                             DecoratedBox(
@@ -505,17 +516,37 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                                 ],
                               ),
                             ),
+                            IgnorePointer(
+                              ignoring: !_queueOpen,
+                              child: AnimatedOpacity(
+                                opacity: _queueOpen ? 1.0 : 0.0,
+                                duration: const Duration(milliseconds: 220),
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      setState(() => _queueOpen = false),
+                                  behavior: HitTestBehavior.opaque,
+                                  child: const ColoredBox(
+                                    color: Color(0x66000000),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // queue elements
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOutCubic,
+                              top: 0,
+                              right: _queueOpen ? 0 : -280,
+                              bottom: 0,
+                              width: 280,
+                              child: DesktopQueuePanel(
+                                onClose: () =>
+                                    setState(() => _queueOpen = false),
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                      // Queue panel
-                      if (_queueOpen)
-                        SizedBox(
-                          width: 280,
-                          child: DesktopQueuePanel(
-                            onClose: () => setState(() => _queueOpen = false),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -1263,6 +1294,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     });
   }
 
+  void _onPlaylistsSidebarChanged() {
+    if (!mounted || isMobile(context)) return;
+    _refreshPlaylists(context);
+  }
+
   void _onScroll() {
     ScrollController? activeController;
 
@@ -1287,6 +1323,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         aniu.value = opacity;
       });
     }
+  }
+
+  void _onStarredSidebarChanged() {
+    if (!mounted || isMobile(context)) return;
+    _refreshStarredAlbums(context);
   }
 
   Future<void> _refreshPlaylists(BuildContext context) async {

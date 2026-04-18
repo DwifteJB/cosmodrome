@@ -2,6 +2,7 @@
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/scan_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
@@ -17,6 +18,36 @@ class ProfileSheet extends StatefulWidget {
 class _ProfileSheetState extends State<ProfileSheet> {
   bool _profilesExpanded = true;
   bool _serversExpanded = true;
+  bool _isScanning = false;
+  bool _wasScanning = false;
+
+  @override
+  void dispose() {
+    isScanningNotifier.removeListener(_onScanChanged);
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _isScanning = isScanningNotifier.value;
+    _wasScanning = _isScanning;
+    isScanningNotifier.addListener(_onScanChanged);
+  }
+
+  void _onScanChanged() {
+    final scanning = isScanningNotifier.value;
+    if (_wasScanning && !scanning && mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Library scan complete'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+    _wasScanning = scanning;
+    if (mounted) setState(() => _isScanning = scanning);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +194,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
     SubsonicAccount account,
     dynamic colors,
   ) {
-    // get server for account
     final provider = context.read<SubsonicProvider>();
     final server = provider.knownServers.firstWhere(
       (s) => s.baseUrl == account.baseUrl,
@@ -207,6 +237,18 @@ class _ProfileSheetState extends State<ProfileSheet> {
                 ),
               ],
             ),
+          ),
+          GestureDetector(
+            onTap: _isScanning
+                ? null
+                : () => startLibraryScan(provider.subsonic),
+            child: _isScanning
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(FIcons.refreshCw, size: 18, color: colors.mutedForeground),
           ),
         ],
       ),

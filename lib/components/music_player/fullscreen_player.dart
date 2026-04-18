@@ -1,5 +1,5 @@
 /*
-  MOBILE ONLY!! (probably)
+  MOBILE ONLY!! (or web)
 
   since it uses a sheet, looks ass on desktop, and we have enough space to do all this stuff
 */
@@ -12,7 +12,7 @@ import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:flutter/foundation.dart';
+import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -129,33 +129,41 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                           children: [
                             // padding above album art
                             const SizedBox(height: 12),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 32,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: AspectRatio(
-                                  aspectRatio: 1,
-                                  
-                                  child: coverUrl != null
-                                      ? Image.network(
-                                          // limit max size to 600
-                                          coverUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (ctx, err, stack) {
-                                            final size =
-                                                MediaQuery.of(
-                                                  context,
-                                                ).size.width -
-                                                64;
-                                            return _coverPlaceholder(size);
-                                          },
-                                        )
-                                      : _coverPlaceholder(
-                                          MediaQuery.of(context).size.width -
-                                              64,
-                                        ),
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 500,
+                                    maxHeight: 500,
+                                  ),
+                                  child: AspectRatio(
+                                    aspectRatio: 1,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: coverUrl != null
+                                          ? Image.network(
+                                              coverUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (ctx, err, stack) {
+                                                final size =
+                                                    MediaQuery.of(
+                                                      context,
+                                                    ).size.width -
+                                                    64;
+                                                return _coverPlaceholder(size);
+                                              },
+                                            )
+                                          : _coverPlaceholder(
+                                              MediaQuery.of(
+                                                    context,
+                                                  ).size.width -
+                                                  64,
+                                            ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -169,37 +177,17 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  // check if the text will be over the limit
-                                  if (!kIsWeb &&
-                                      song.title.length * 24 >
-                                          MediaQuery.of(context).size.width -
-                                              48)
-                                    ScrollingText(
-                                      text: song.title,
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width -
-                                          48,
-                                      style: context.theme.typography.lg
-                                          .copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                            height: 1.2,
-                                          ),
-                                      duration: 5,
-                                    )
-                                  else
-                                    Text(
-                                      song.title,
-                                      style: context.theme.typography.lg
-                                          .copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                            height: 1.2,
-                                          ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
+                                  ScrollingText(
+                                    text: song.title,
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width - 48,
+                                    style: context.theme.typography.lg.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      height: 1.2,
                                     ),
+                                    duration: 5,
+                                  ),
                                   if (song.artist != null &&
                                       song.artist!.isNotEmpty)
                                     Text(
@@ -304,17 +292,15 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                 ),
                                 const SizedBox(width: 20),
                                 SizedBox(
-                                  child: Material(
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(28),
-                                      onTap: () => player.togglePlay(),
-                                      child: Icon(
-                                        player.isPlaying
-                                            ? Icons.pause_rounded
-                                            : Icons.play_arrow_rounded,
-                                        color: Colors.white,
-                                        size: 60,
-                                      ),
+                                  child: TapArea(
+                                    borderRadius: 28,
+                                    onTap: () => player.togglePlay(),
+                                    child: Icon(
+                                      player.isPlaying
+                                          ? Icons.pause_rounded
+                                          : Icons.play_arrow_rounded,
+                                      color: Colors.white,
+                                      size: 60,
                                     ),
                                   ),
                                 ),
@@ -368,7 +354,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
       return;
     }
 
-    // _scheduleDismiss();
+    _scheduleDismiss();
   }
 
   @override

@@ -10,6 +10,7 @@ import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -68,10 +69,11 @@ class _QueueSheetState extends State<QueueSheet> {
                     onReorder: player.reorderQueue,
                     itemBuilder: (context, index) {
                       final song = queue[index];
-                      return InkWell(
+                      return TapArea(
                         key: ValueKey(
                           '${song.id}_$index.${song.title}.${song.artist}.${DateTime.now().millisecondsSinceEpoch}',
                         ),
+                        onTap: null,
                         child: ListTile(
                           leading: ClipRRect(
                             key: ValueKey('cover_${song.id}'),

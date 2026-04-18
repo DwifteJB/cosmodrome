@@ -11,6 +11,7 @@ import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/is_colour_too_dark.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
+import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -252,16 +253,19 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               Text(
                 album.name,
                 textAlign: TextAlign.center,
-                style: context.theme.typography.xl2.copyWith(
+                style: context.theme.typography.xl4.copyWith(
                   fontWeight: FontWeight.w500,
+                  color: context.theme.colors.foreground,
+                  letterSpacing: 1,
+                  height: 0,
                 ),
               ),
-              const SizedBox(height: 4),
               Text(
                 album.artist,
-                textAlign: TextAlign.center,
-                style: context.theme.typography.sm.copyWith(
-                  color: context.theme.colors.mutedForeground,
+                style: context.theme.typography.xl.copyWith(
+                  color: Colors.white,
+                  height: 0,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
               const SizedBox(height: 4),
@@ -311,6 +315,16 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  FButton(
+                    onPress: _starAlbum,
+                    variant: FButtonVariant.secondary,
+
+                    child: Icon(
+                      Icons.star,
+                      color: _starred ? Colors.yellow[700] : Colors.white,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -351,13 +365,14 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               else
                 _wideHeader(album, coverUrl),
               const SizedBox(height: 20),
-              ...album.songs.map(
-                (s) => MusicPageDesktopTrackTile(
-                  song: s,
-                  trackNumber: s.track ?? 0,
+              ...album.songs.asMap().entries.map(
+                (e) => MusicPageDesktopTrackTile(
+                  song: e.value,
+                  trackNumber: e.value.track ?? 0,
+                  index: e.key,
                   albumArtist: album.artist,
                   accentColor: accentColorNotifier.value ?? _localCoverColor,
-                  onTap: () => onClickSong(s),
+                  onTap: () => onClickSong(e.value),
                 ),
               ),
             ],
@@ -555,13 +570,14 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           ),
         ),
         const SizedBox(height: 24),
-        ...album.songs.map(
-          (s) => MusicPageMobileTrackTile(
-            song: s,
-            trackNumber: s.track ?? 0,
+        ...album.songs.asMap().entries.map(
+          (e) => MusicPageMobileTrackTile(
+            song: e.value,
+            trackNumber: e.value.track ?? 0,
+            index: e.key,
             albumArtist: album.artist,
             accentColor: accentColorNotifier.value ?? AppColors.auraColor,
-            onTap: () => onClickSong(s),
+            onTap: () => onClickSong(e.value),
           ),
         ),
 
@@ -611,6 +627,8 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     if (!ok && mounted) {
       setState(() => _starred = !nowStarred);
       _pushPageButtons();
+    } else if (ok) {
+      notifyStarredChanged();
     }
   }
 

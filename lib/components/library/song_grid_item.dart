@@ -1,4 +1,5 @@
 import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
@@ -20,9 +21,9 @@ class SongGridItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return TapArea(
       onTap: onPlay,
-      onLongPress: onLongPress,
+      onLongTap: onLongPress,
       child: Padding(
         padding: const EdgeInsets.all(4),
         child: SizedBox(

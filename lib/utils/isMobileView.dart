@@ -8,9 +8,20 @@ bool isMobile(BuildContext context) {
 }
 
 bool isMobileView(BuildContext context) {
-  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+  if (!kIsWeb && !_isDevelopment() && (Platform.isAndroid || Platform.isIOS)) {
     return true;
   }
 
+  if (!kIsWeb &&
+      !_isDevelopment() &&
+      (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
+    return false;
+  }
+
   return MediaQuery.of(context).size.width < 768;
+}
+
+bool _isDevelopment() {
+  return false;
+  // return kDebugMode || kProfileMode;
 }

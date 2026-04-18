@@ -52,7 +52,7 @@ Current support for the client is as following (order of what is focused):
 ## TODO list
 - [X] create installers for windows & linux
 - [X] discord rich presence via golang sub-process using ipcs
-- [ ] ability to refresh subsonic songs
+- [X] ability to refresh subsonic songs
 - [X] playlists yes
 - [X] library view
 - [ ] searching

@@ -11,6 +11,23 @@ extension SubsonicBasicApi on Subsonic {
     return license['valid'] as String;
   }
 
+  // https://www.subsonic.org/pages/api.jsp#getScanStatus
+  Future<({bool scanning, int count, String? errorMessage})>
+  getScanStatus() async {
+    try {
+      var res = await apiRequest('getScanStatus');
+      final scanResults = res['scanStatus'] as Map<String, dynamic>;
+
+      return (
+        scanning: scanResults['scanning'] as bool,
+        count: scanResults['count'] as int,
+        errorMessage: null,
+      );
+    } catch (e) {
+      return (scanning: false, count: 0, errorMessage: e.toString());
+    }
+  }
+
   Future<({bool success, int? errorCode, String? errorMessage})> ping({
     int timeoutSeconds = 5,
   }) async {
@@ -20,6 +37,23 @@ extension SubsonicBasicApi on Subsonic {
     } catch (e) {
       loggerPrint('ping failed: $e');
       return (success: false, errorCode: null, errorMessage: e.toString());
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#startScan
+  Future<({bool scanning, int count, String? errorMessage})> startScan() async {
+    try {
+      var res = await apiRequest('startScan');
+      final scanResults = res['scanStatus'] as Map<String, dynamic>;
+
+      return (
+        scanning: scanResults['scanning'] as bool,
+        count: scanResults['count'] as int,
+        errorMessage: null,
+      );
+    } catch (e) {
+      loggerPrint("scan failed $e");
+      return (scanning: false, count: 0, errorMessage: e.toString());
     }
   }
 }
