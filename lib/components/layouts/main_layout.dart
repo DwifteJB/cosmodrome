@@ -496,7 +496,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                                   Expanded(
                                     child: SingleChildScrollView(
                                       controller: _desktopScrollController,
-                                      child: widget.child,
+                                      child: KeyedSubtree(
+                                        key: const ValueKey('desktop-child'),
+                                        child: widget.child,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -632,7 +635,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                             (topPadding + 20) -
                             (navHeight + bottomPadding),
                       ),
-                      child: widget.child,
+                      child: KeyedSubtree(
+                        key: const ValueKey('mobile-child'),
+                        child: widget.child,
+                      ),
                     ),
                     SizedBox(height: navHeight + bottomPadding),
                   ],
@@ -640,7 +646,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               ),
             )
           else
-            Positioned.fill(child: widget.child),
+            Positioned.fill(
+              child: KeyedSubtree(
+                key: const ValueKey('mobile-child'),
+                child: widget.child,
+              ),
+            ),
           // bottom gradient (always visible, beneath the floating nav)
           Positioned(
             left: 0,
