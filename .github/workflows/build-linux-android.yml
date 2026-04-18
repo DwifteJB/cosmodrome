@@ -7,40 +7,89 @@ on:
         branches: [main]
 
 jobs:
-    build:
+    build-linux:
         runs-on: ubuntu-latest
-
         steps:
-            - name: Checkout code
-              uses: actions/checkout@v6
+            - uses: actions/checkout@v4
 
-            - name: Set up QEMU
-              uses: docker/setup-qemu-action@v4
-
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v4
-
-            # build docker image 
-            - name: Build and export Docker image
-              uses: docker/build-push-action@v6
+            - uses: subosito/flutter-action@v2
               with:
-                context: .
-                target: export
-                outputs: type=local,dest=./output
-                cache-from: type=gha
-                cache-to: type=gha,mode=max
+                  channel: stable
+                  cache: true
 
-            # upload cosmodrome_installer, and app.zip as artifacts
-            - name: Upload Linux artifacts
-              uses: actions/upload-artifact@v6
+            - uses: actions/setup-go@v5
               with:
-                name: cosmodrome-linux
-                path: |
-                    output/cosmodrome_installer
-                    output/app.zip
-            # upload app-android.zip
-            - name: Upload Android artifact
-              uses: actions/upload-artifact@v6
+                  go-version-file: discord-rpc/go.mod
+                  cache-dependency-path: |
+                      discord-rpc/go.sum
+                      installer/go.sum
+
+            - name: Install Linux build dependencies
+              run: |
+                  sudo apt-get update -q
+                  sudo apt-get install -yq --no-install-recommends \
+                    clang cmake ninja-build pkg-config \
+                    libgtk-3-dev liblzma-dev libstdc++-12-dev \
+                    libsecret-1-dev libayatana-appindicator3-dev \
+                    libxxf86vm-dev lld
+
+            - run: flutter pub get
+
+            - run: flutter build linux --release
+
+            - name: Build Discord RPC
+              working-directory: discord-rpc
+              run: go build -o ../build/linux/x64/release/bundle/cosmodrome-rpc main.go
+
+            - name: Install fyne
+              run: go install fyne.io/tools/cmd/fyne@latest
+
+            - name: Zip Linux bundle
+              run: |
+                  cd build/linux/x64/release/bundle
+                  zip -r $GITHUB_WORKSPACE/app.zip .
+                  cp $GITHUB_WORKSPACE/app.zip $GITHUB_WORKSPACE/installer/app.zip
+
+            - name: Build installer
+              working-directory: installer
+              run: |
+                  fyne package -os linux -icon ./assets/logo.png
+                  tar -xf cosmodrome_installer.tar.xz -C $GITHUB_WORKSPACE --strip-components=1
+                  mv $GITHUB_WORKSPACE/local/bin/cosmodrome_installer $GITHUB_WORKSPACE/cosmodrome_installer
+
+            - uses: actions/upload-artifact@v4
               with:
-                name: cosmodrome-android
-                path: output/app-android.zip
+                  name: cosmodrome-linux
+                  path: |
+                      cosmodrome_installer
+                      app.zip
+
+    build-android:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-java@v4
+              with:
+                  java-version: '17'
+                  distribution: temurin
+
+            - uses: subosito/flutter-action@v2
+              with:
+                  channel: stable
+                  cache: true
+
+            - name: Accept Android licenses
+              run: yes | flutter doctor --android-licenses || true
+
+            - run: flutter pub get
+
+            - run: flutter build apk --release
+
+            - name: Zip Android APK
+              run: zip -j app-android.zip build/app/outputs/flutter-apk/app-release.apk
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: cosmodrome-android
+                  path: app-android.zip

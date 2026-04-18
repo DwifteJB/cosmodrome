@@ -19,6 +19,7 @@ on:
 jobs:
     build:
         runs-on: ubuntu-latest
+        environment: web-build
         permissions:
             contents: read
             deployments: write
@@ -38,6 +39,6 @@ jobs:
               with:
                 apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                 accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-                command: pages deploy frontend/build/web --project-name=cosmodrome
+                command: pages deploy build/web --project-name=cosmodrome
                 gitHubToken: ${{ secrets.GITHUB_TOKEN }}
             
