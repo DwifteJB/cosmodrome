@@ -156,7 +156,7 @@ jobs:
           uses: actions/upload-artifact@v4
           with:
             name: cosmodrome-windows-installer
-            path: installer/cosmodrome-windows-installer.exe
+            path: installer/cosmodrome_installer.exe
         
         - name: Upload app.zip
           uses: actions/upload-artifact@v4
