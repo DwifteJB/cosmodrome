@@ -1,27 +1,75 @@
+import 'dart:async';
+
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/services/local_storage_service.dart';
+import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/logger.dart';
+import 'package:http/http.dart' as http;
+
+const _coverArtManifestKey = 'cover_art_manifest';
+const _coverArtTTL = Duration(days: 1);
+String? _coverArtActiveAccountId;
+final _coverArtLocalUriCache = <String, _CachedCoverArtLocal>{};
+final _coverArtManifestByAccount = <String, Map<String, dynamic>>{};
 
 // app wide cache for coverUrls, since they are deterministic based on token
 // not good, sicne lot of redraws
 final _coverArtUrlCache = <String, String>{};
+final _coverArtWarmInFlight = <String, Future<void>>{};
 
-/// Call this when the active account changes so stale tokens are cleared.
-void clearCoverArtCache() => _coverArtUrlCache.clear();
+void clearCoverArtCache() {
+  _coverArtUrlCache.clear();
+  _coverArtLocalUriCache.clear();
+  _coverArtWarmInFlight.clear();
+  _coverArtManifestByAccount.clear();
+  _coverArtActiveAccountId = null;
+}
+
+class _CachedCoverArtLocal {
+  final String uri;
+  final int size;
+
+  const _CachedCoverArtLocal({required this.uri, required this.size});
+}
 
 extension SubsonicBrowsingApi on Subsonic {
-  // https://www.subsonic.org/pages/api.jsp#getIndexes
-  /// Returns a cached version of [coverArtUrl]. Safe to use in Image.network() since the URL will never change for a given id and size, but must be cleared when the active account changes.
+  String get _accountId => '${auth.username}@$baseUrl';
+
+  /// returns a remote URL if no local cache is available, and starts warming the
+  /// local cache in the background for next time. Note that the remote URL is
+  /// deterministic based on token, but the password seems to make it keep
+  /// refreshing, so caching is ESSENTIAL... :)
+
   String cachedCoverArtUrl(String id, {int size = 300}) {
-    final key = '$baseUrl|$id|$size';
-    return _coverArtUrlCache.putIfAbsent(
+    final accountId = _accountId;
+    if (_coverArtActiveAccountId != accountId) {
+      _coverArtUrlCache.clear();
+      _coverArtLocalUriCache.clear();
+      _coverArtActiveAccountId = accountId;
+      unawaited(initCoverArtCacheForAccount());
+    }
+
+    final local = _coverArtLocalUriCache['$accountId|$id'];
+    // try get a local one that is better or the same size, or else we can get shitty looking images
+    if (local != null && local.size >= size) {
+      return local.uri;
+    }
+
+    final key = '$accountId|$id|$size';
+    final remote = _coverArtUrlCache.putIfAbsent(
       key,
       () => coverArtUrl(id, size: size),
     );
+    unawaited(_warmCoverArtCache(id, size: size));
+    return remote;
   }
 
-  /// Builds a cover art URL without making an HTTP request.
-  /// NOT Safe to use directly in Image.network()!!! MAKE SURE TO CACHE!!!
+  // https://www.subsonic.org/pages/api.jsp#getIndexes
+  /// Builds a raw remote cover-art URL without making an HTTP request.
+  ///
+  /// Prefer [cachedCoverArtUrl] in UI paths so offline/local URI fallbacks can
+  /// be used when available.
   String coverArtUrl(String id, {int size = 300}) {
     final tok = auth.generateToken();
     final query = {
@@ -47,7 +95,7 @@ extension SubsonicBrowsingApi on Subsonic {
 
       // created new playlist, so clear anything that gives us playlist
       clearCacheStartingWith("getPlaylists");
-      
+
       return playlist?['id'] as String?;
     } catch (e) {
       loggerPrint('Error creating playlist: $e');
@@ -61,10 +109,12 @@ extension SubsonicBrowsingApi on Subsonic {
       final response = await apiRequest('getAlbum', params: {'id': id});
       final albumJson = response['album'] as Map<String, dynamic>?;
       if (albumJson == null) return null;
-      return AlbumDetail.fromJson(albumJson);
+      final album = AlbumDetail.fromJson(albumJson);
+      await _saveAlbumDetailCache(album);
+      return album;
     } catch (e) {
       loggerPrint('Error fetching album $id: $e');
-      return null;
+      return _loadAlbumDetailFallback(id);
     }
   }
 
@@ -164,10 +214,12 @@ extension SubsonicBrowsingApi on Subsonic {
       final response = await apiRequest('getPlaylist', params: {'id': id});
       final json = response['playlist'] as Map<String, dynamic>?;
       if (json == null) return null;
-      return PlaylistDetail.fromJson(json);
+      final playlist = PlaylistDetail.fromJson(json);
+      await _savePlaylistDetailCache(playlist);
+      return playlist;
     } catch (e) {
       loggerPrint('Error fetching playlist $id: $e');
-      return null;
+      return _loadPlaylistDetailFallback(id);
     }
   }
 
@@ -203,6 +255,55 @@ extension SubsonicBrowsingApi on Subsonic {
       loggerPrint('Error fetching random songs: $e');
       return [];
     }
+  }
+
+  Future<void> initCoverArtCacheForAccount() async {
+    final accountId = _accountId;
+    _coverArtActiveAccountId = accountId;
+    await LocalStorageService.ensureDirs(accountId);
+
+    final raw = await LocalStorageService.readJsonMeta(
+      accountId,
+      _coverArtManifestKey,
+    );
+    final existing =
+        (raw?['data'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final now = DateTime.now();
+    final next = <String, dynamic>{};
+
+    for (final entry in existing.entries) {
+      final item = entry.value as Map<String, dynamic>?;
+      if (item == null) continue;
+      final ref = item['ref'] as String?;
+      final fetchedAt = DateTime.tryParse(item['fetchedAt'] as String? ?? '');
+      final cachedSize = (item['size'] as num?)?.toInt() ?? 0;
+      if (ref == null || fetchedAt == null) continue;
+
+      if (now.difference(fetchedAt) > _coverArtTTL) {
+        await LocalStorageService.deleteCoverImage(ref);
+        continue;
+      }
+
+      if (!await LocalStorageService.coverImageExists(ref)) {
+        continue;
+      }
+
+      final uri = await LocalStorageService.coverImageUriForRef(ref);
+      if (uri != null) {
+        _coverArtLocalUriCache['$accountId|${entry.key}'] =
+            _CachedCoverArtLocal(uri: uri.toString(), size: cachedSize);
+        next[entry.key] = {
+          'ref': ref,
+          'fetchedAt': fetchedAt.toIso8601String(),
+          'size': cachedSize,
+        };
+      }
+    }
+
+    _coverArtManifestByAccount[accountId] = next;
+    await LocalStorageService.writeJsonMeta(accountId, _coverArtManifestKey, {
+      'data': next,
+    });
   }
 
   // replaces all songs with a given list
@@ -327,5 +428,104 @@ extension SubsonicBrowsingApi on Subsonic {
       loggerPrint('Error updating playlist $playlistId: $e');
       rethrow;
     }
+  }
+
+  String _extensionForContentType(String? contentType) {
+    final normalized = (contentType ?? '').toLowerCase();
+    if (normalized.contains('png')) return 'png';
+    if (normalized.contains('webp')) return 'webp';
+    if (normalized.contains('gif')) return 'gif';
+    return 'jpg';
+  }
+
+  Future<AlbumDetail?> _loadAlbumDetailFallback(String id) async {
+    try {
+      return await offlineCacheService.loadAlbumDetail(_accountId, id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<PlaylistDetail?> _loadPlaylistDetailFallback(String id) async {
+    try {
+      return await offlineCacheService.loadPlaylistDetail(_accountId, id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveAlbumDetailCache(AlbumDetail album) async {
+    try {
+      await offlineCacheService.saveAlbumDetail(_accountId, album);
+    } catch (_) {}
+  }
+
+  Future<void> _savePlaylistDetailCache(PlaylistDetail playlist) async {
+    try {
+      await offlineCacheService.savePlaylistDetail(_accountId, playlist);
+    } catch (_) {}
+  }
+
+  Future<void> _warmCoverArtCache(String id, {int size = 300}) async {
+    final accountId = _accountId;
+    final inFlightKey = '$accountId|$id|$size';
+    if (_coverArtWarmInFlight.containsKey(inFlightKey)) return;
+
+    _coverArtWarmInFlight[inFlightKey] = Future<void>(() async {
+      try {
+        await LocalStorageService.ensureDirs(accountId);
+        final response = await http
+            .get(Uri.parse(coverArtUrl(id, size: size)))
+            .timeout(const Duration(seconds: 6));
+        if (response.statusCode != 200 || response.bodyBytes.isEmpty) return;
+
+        final extension = _extensionForContentType(
+          response.headers['content-type'],
+        );
+        final ref = LocalStorageService.coverImagePath(
+          accountId,
+          id,
+          extension,
+        );
+
+        final existingManifest = _coverArtManifestByAccount.putIfAbsent(
+          accountId,
+          () => <String, dynamic>{},
+        );
+        final prior = existingManifest[id] as Map<String, dynamic>?;
+        final priorRef = prior?['ref'] as String?;
+        final priorSize = (prior?['size'] as num?)?.toInt() ?? 0;
+
+        if (priorRef != null && priorSize >= size) {
+          return;
+        }
+
+        await LocalStorageService.writeCoverImageBytes(ref, response.bodyBytes);
+        final uri = await LocalStorageService.coverImageUriForRef(ref);
+        if (uri == null) return;
+
+        _coverArtLocalUriCache['$accountId|$id'] = _CachedCoverArtLocal(
+          uri: uri.toString(),
+          size: size,
+        );
+        existingManifest[id] = {
+          'ref': ref,
+          'fetchedAt': DateTime.now().toIso8601String(),
+          'size': size,
+        };
+        if (priorRef != null && priorRef != ref) {
+          await LocalStorageService.deleteCoverImage(priorRef);
+        }
+
+        await LocalStorageService.writeJsonMeta(
+          accountId,
+          _coverArtManifestKey,
+          {'data': existingManifest},
+        );
+      } catch (_) {}
+    });
+
+    await _coverArtWarmInFlight[inFlightKey];
+    _coverArtWarmInFlight.remove(inFlightKey);
   }
 }

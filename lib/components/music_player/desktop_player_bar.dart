@@ -1,5 +1,6 @@
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -189,8 +190,10 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(6),
                                   child: player.currentCoverArtUrl != null
-                                      ? Image.network(
-                                          player.currentCoverArtUrl!,
+                                      ? Image(
+                                          image: coverArtProvider(
+                                            player.currentCoverArtUrl!,
+                                          ),
                                           width: 40,
                                           height: 40,
                                           fit: BoxFit.cover,

@@ -3,10 +3,12 @@ import 'package:cosmodrome/components/music-pages/track_tile.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
@@ -159,6 +161,9 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SubsonicProvider>().isOffline;
+    context.watch<DownloadProvider>();
+
     if (_loading) {
       return const SizedBox(
         height: 200,
@@ -202,6 +207,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   }
 
   void onClickSong(Song song) async {
+    if (!_isSongPlayable(song)) return;
     PlayerProvider pp = context.read<PlayerProvider>();
     await pp.resetQueue();
     await pp.playNow(song);
@@ -220,8 +226,8 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: coverUrl != null
-                ? Image.network(
-                    coverUrl,
+                ? Image(
+                    image: coverArtProvider(coverUrl),
                     width: 220,
                     height: 220,
                     fit: BoxFit.cover,
@@ -374,6 +380,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
                   trackNumber: e.value.track ?? 0,
                   index: e.key,
                   albumArtist: album.artist,
+                  enabled: _isSongPlayable(e.value),
                   accentColor: accentColorNotifier.value ?? _localCoverColor,
                   onTap: () => onClickSong(e.value),
                 ),
@@ -389,7 +396,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     if (_coverUrl == null) return;
     try {
       final generator = await PaletteGenerator.fromImageProvider(
-        NetworkImage(_coverUrl!),
+        coverArtProvider(_coverUrl!),
         size: const Size(200, 200),
       );
       final color =
@@ -421,7 +428,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             : null;
         if (coverUrl != null) {
           await precacheImage(
-            NetworkImage(coverUrl),
+            coverArtProvider(coverUrl),
             context,
           ).catchError((_) {});
         }
@@ -445,6 +452,12 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
         });
       }
     }
+  }
+
+  bool _isSongPlayable(Song song) {
+    final subsonic = context.read<SubsonicProvider>();
+    if (!subsonic.isOffline) return true;
+    return context.read<DownloadProvider>().isSongDownloaded(song.id);
   }
 
   Widget _mobileLayout() {
@@ -483,8 +496,8 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: coverUrl != null
-                ? Image.network(
-                    coverUrl,
+                ? Image(
+                    image: coverArtProvider(coverUrl),
                     width: cardWidth,
                     height: cardWidth,
                     fit: BoxFit.cover,
@@ -569,6 +582,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             song: e.value,
             trackNumber: e.value.track ?? 0,
             index: e.key,
+            enabled: _isSongPlayable(e.value),
             albumArtist: album.artist,
             accentColor: accentColorNotifier.value ?? AppColors.auraColor,
             onTap: () => onClickSong(e.value),
@@ -633,8 +647,8 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: coverUrl != null
-                ? Image.network(
-                    coverUrl,
+                ? Image(
+                    image: coverArtProvider(coverUrl),
                     width: 280,
                     height: 280,
                     fit: BoxFit.cover,

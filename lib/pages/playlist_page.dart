@@ -5,12 +5,13 @@ import 'package:cosmodrome/components/music-pages/track_tile.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:cosmodrome/utils/is_colour_too_dark.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:cosmodrome/utils/sidebar_notifier.dart';
@@ -114,8 +115,8 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: coverUrl != null
-                            ? Image.network(
-                                coverUrl,
+                            ? Image(
+                                image: coverArtProvider(coverUrl),
                                 width: 44,
                                 height: 44,
                                 fit: BoxFit.cover,
@@ -412,6 +413,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<SubsonicProvider>().isOffline;
+    context.watch<DownloadProvider>();
+
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
@@ -465,8 +469,8 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: coverUrl != null
-                  ? Image.network(
-                      coverUrl,
+                  ? Image(
+                      image: coverArtProvider(coverUrl),
                       width: cardWidth,
                       height: cardWidth,
                       fit: BoxFit.cover,
@@ -570,6 +574,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
             child: MusicPageMobileTrackTile(
               song: _songs[i],
               trackNumber: i + 1,
+              enabled: _isSongPlayable(_songs[i]),
               accentColor: accentColor,
               onTap: () => _playSongAt(i),
               onRemove: () => _removeAt(i),
@@ -595,8 +600,8 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: coverUrl != null
-                    ? Image.network(
-                        coverUrl,
+                    ? Image(
+                        image: coverArtProvider(coverUrl),
                         width: 220,
                         height: 220,
                         fit: BoxFit.cover,
@@ -727,6 +732,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                 (e) => MusicPageDesktopTrackTile(
                   song: e.value,
                   trackNumber: e.key + 1,
+                  enabled: _isSongPlayable(e.value),
                   accentColor: accentColorNotifier.value ?? _localCoverColor,
                   onTap: () => _playSongAt(e.key),
                   onRemove: () => _removeAt(e.key),
@@ -743,12 +749,12 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     if (_coverUrl == null) return;
     try {
       final generator = await PaletteGenerator.fromImageProvider(
-        NetworkImage(_coverUrl!),
+        coverArtProvider(_coverUrl!),
         size: const Size(200, 200),
       );
       final color =
           generator.vibrantColor?.color ?? generator.dominantColor?.color;
-  
+
       if (mounted) accentColorNotifier.value = color;
       setState(() => _localCoverColor = color ?? AppColors.auraColor);
     } catch (_) {}
@@ -775,7 +781,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
             : null;
         if (coverUrl != null) {
           await precacheImage(
-            NetworkImage(coverUrl),
+            coverArtProvider(coverUrl),
             context,
           ).catchError((_) {});
         }
@@ -806,6 +812,12 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     }
   }
 
+  bool _isSongPlayable(Song song) {
+    final subsonic = context.read<SubsonicProvider>();
+    if (!subsonic.isOffline) return true;
+    return context.read<DownloadProvider>().isSongDownloaded(song.id);
+  }
+
   void _onReorder(int oldIndex, int newIndex) {
     setState(() {
       if (newIndex > oldIndex) newIndex--;
@@ -816,6 +828,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   }
 
   void _playSongAt(int index) async {
+    if (!_isSongPlayable(_songs[index])) return;
     final pp = context.read<PlayerProvider>();
     await pp.resetQueue();
     await pp.playNow(_songs[index]);
@@ -998,8 +1011,8 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: coverUrl != null
-                ? Image.network(
-                    coverUrl,
+                ? Image(
+                    image: coverArtProvider(coverUrl),
                     width: 280,
                     height: 280,
                     fit: BoxFit.cover,

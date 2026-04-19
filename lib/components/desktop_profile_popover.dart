@@ -209,7 +209,7 @@ class _DesktopAccountPopoverContentState
             radius: 20,
             backgroundImage: account.avatar.isNotEmpty
                 ? MemoryImage(account.avatar)
-                : Image.asset("/assets/images/logo.png").image,
+                : Image.asset("assets/logo.png").image,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -643,7 +643,7 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
               radius: 16,
               backgroundImage: activeAccount?.avatar.isNotEmpty == true
                   ? MemoryImage(activeAccount!.avatar)
-                  : Image.asset("/assets/images/logo.png").image,
+                  : Image.asset("assets/logo.png").image,
             ),
             const SizedBox(width: 10),
             Expanded(

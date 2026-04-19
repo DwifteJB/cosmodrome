@@ -1,7 +1,7 @@
 name: cosmodrome
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.1.1+1
+version: 0.1.4+1
 
 environment:
   sdk: ^3.11.0
@@ -50,8 +50,6 @@ flutter:
 
   assets:
     - assets/
-    - assets/images/
-
   fonts:
     - family: "Inter"
       fonts:

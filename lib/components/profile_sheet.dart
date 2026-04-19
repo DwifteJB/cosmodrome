@@ -24,34 +24,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
   bool _wasScanning = false;
 
   @override
-  void dispose() {
-    isScanningNotifier.removeListener(_onScanChanged);
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _isScanning = isScanningNotifier.value;
-    _wasScanning = _isScanning;
-    isScanningNotifier.addListener(_onScanChanged);
-  }
-
-  void _onScanChanged() {
-    final scanning = isScanningNotifier.value;
-    if (_wasScanning && !scanning && mounted) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text('Library scan complete'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-    _wasScanning = scanning;
-    if (mounted) setState(() => _isScanning = scanning);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final provider = context.watch<SubsonicProvider>();
 
@@ -125,7 +97,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
                   padding: const EdgeInsets.only(bottom: 32),
                   children: [
                     Container(height: 1, color: context.theme.colors.border),
-                    // shortcut to the downloads section 
+                    // shortcut to the downloads section
                     Consumer<DownloadProvider>(
                       builder: (ctx, dl, _) {
                         final count = dl.completedDownloads.length;
@@ -241,6 +213,20 @@ class _ProfileSheetState extends State<ProfileSheet> {
     );
   }
 
+  @override
+  void dispose() {
+    isScanningNotifier.removeListener(_onScanChanged);
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _isScanning = isScanningNotifier.value;
+    _wasScanning = _isScanning;
+    isScanningNotifier.addListener(_onScanChanged);
+  }
+
   Widget _buildActiveProfileCard(
     BuildContext context,
     SubsonicAccount account,
@@ -266,7 +252,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
             radius: 20,
             backgroundImage: account.avatar.isNotEmpty
                 ? MemoryImage(account.avatar)
-                : Image.asset("/assets/images/logo.png").image,
+                : Image.asset("assets/logo.png").image,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -554,6 +540,20 @@ class _ProfileSheetState extends State<ProfileSheet> {
           : Colors.red,
     ),
   );
+
+  void _onScanChanged() {
+    final scanning = isScanningNotifier.value;
+    if (_wasScanning && !scanning && mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Library scan complete'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+    _wasScanning = scanning;
+    if (mounted) setState(() => _isScanning = scanning);
+  }
 
   Color _statusColor(BuildContext context, bool? connected) {
     if (connected == null) return context.theme.colors.mutedForeground;

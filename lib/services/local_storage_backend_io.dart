@@ -13,14 +13,39 @@ class IoLocalStorageBackend implements LocalStorageBackend {
 
   @override
   Future<int> accountStorageBytes(String accountId) async {
-    final dir = Directory('$_base/$accountId/songs');
-    if (!await dir.exists()) return 0;
-
     var total = 0;
-    await for (final entity in dir.list(recursive: true)) {
-      if (entity is File) total += await entity.length();
+    final roots = [
+      Directory('$_base/$accountId/songs'),
+      Directory('$_base/$accountId/cached-images'),
+    ];
+    for (final dir in roots) {
+      if (!await dir.exists()) continue;
+      await for (final entity in dir.list(recursive: true)) {
+        if (entity is File) total += await entity.length();
+      }
     }
     return total;
+  }
+
+  @override
+  Future<bool> coverImageExists(String coverRef) => File(coverRef).exists();
+
+  @override
+  String coverImageRef(String accountId, String imageId, String extension) =>
+      '$_base/$accountId/cached-images/$imageId.$extension';
+
+  @override
+  Future<Uri?> coverImageUri(String coverRef) async {
+    if (!await coverImageExists(coverRef)) return null;
+    return Uri.file(coverRef);
+  }
+
+  @override
+  Future<void> deleteCoverImage(String coverRef) async {
+    final file = File(coverRef);
+    if (await file.exists()) {
+      await file.delete();
+    }
   }
 
   @override
@@ -35,6 +60,7 @@ class IoLocalStorageBackend implements LocalStorageBackend {
   Future<void> ensureDirs(String accountId) async {
     await Directory('$_base/$accountId/songs').create(recursive: true);
     await Directory('$_base/$accountId/cache').create(recursive: true);
+    await Directory('$_base/$accountId/cached-images').create(recursive: true);
   }
 
   @override
@@ -64,11 +90,17 @@ class IoLocalStorageBackend implements LocalStorageBackend {
   Future<void> releasePlayableUri(Uri uri) async {}
 
   @override
+  Future<bool> songExists(String songRef) => File(songRef).exists();
+
+  @override
   String songRef(String accountId, String songId, String suffix) =>
       '$_base/$accountId/songs/$songId.$suffix';
 
   @override
-  Future<bool> songExists(String songRef) => File(songRef).exists();
+  Future<void> writeCoverImageBytes(String coverRef, List<int> bytes) async {
+    final file = File(coverRef);
+    await file.writeAsBytes(bytes, flush: true);
+  }
 
   @override
   Future<void> writeMeta(String metaRef, String content) async {

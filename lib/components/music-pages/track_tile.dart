@@ -20,6 +20,7 @@ class MusicPageDesktopTrackTile extends StatefulWidget {
   final int? index;
   final String? albumArtist;
   final Color? accentColor;
+  final bool enabled;
   final VoidCallback? onTap;
   final VoidCallback? onRemove;
 
@@ -30,6 +31,7 @@ class MusicPageDesktopTrackTile extends StatefulWidget {
     this.index,
     this.albumArtist,
     this.accentColor,
+    this.enabled = true,
     this.onTap,
     this.onRemove,
   });
@@ -45,6 +47,7 @@ class MusicPageMobileTrackTile extends StatefulWidget {
   final int? index;
   final Color accentColor;
   final String? albumArtist;
+  final bool enabled;
   final VoidCallback? onTap;
   final VoidCallback? onRemove;
   final bool showDragHandle;
@@ -57,6 +60,7 @@ class MusicPageMobileTrackTile extends StatefulWidget {
     required this.accentColor,
     this.index,
     this.albumArtist,
+    this.enabled = true,
     this.onTap,
     this.onRemove,
     this.showDragHandle = false,
@@ -90,91 +94,112 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
     final hoverBg = context.theme.colors.secondary.withValues(alpha: 0.2);
     final isOdd = (widget.index ?? widget.trackNumber) % 2 != 0;
     final rowBg = isOdd ? const Color(0x0DFFFFFF) : Colors.transparent;
+    final disabledText = context.theme.colors.mutedForeground;
 
     return GestureDetector(
-      onTap: widget.onTap ?? () => context.read<PlayerProvider>().playNow(song),
+      onTap: widget.enabled
+          ? (widget.onTap ?? () => context.read<PlayerProvider>().playNow(song))
+          : null,
       child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        cursor: widget.enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        onEnter: (_) {
+          if (widget.enabled) setState(() => _isHovered = true);
+        },
+        onExit: (_) {
+          if (widget.enabled) setState(() => _isHovered = false);
+        },
         child: Container(
-          color: _isHovered ? hoverBg : rowBg,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    trackLabel,
-                    style: context.theme.typography.xs.copyWith(
-                      color: AppColors.trackNumber,
-                      letterSpacing: -0.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        song.title,
-                        style: context.theme.typography.sm.copyWith(
-                          color: isPlaying
-                              ? widget.accentColor
-                              : context.theme.colors.foreground,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.05,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+          color: widget.enabled && _isHovered ? hoverBg : rowBg,
+          child: Opacity(
+            opacity: widget.enabled ? 1.0 : 0.45,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      trackLabel,
+                      style: context.theme.typography.xs.copyWith(
+                        color: widget.enabled
+                            ? AppColors.trackNumber
+                            : disabledText,
+                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.bold,
                       ),
-                      if (showArtist)
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          song.artist!,
-                          style: context.theme.typography.xs.copyWith(
-                            color: AppColors.trackNumber,
+                          song.title,
+                          style: context.theme.typography.sm.copyWith(
+                            color: !widget.enabled
+                                ? disabledText
+                                : (isPlaying
+                                      ? widget.accentColor
+                                      : context.theme.colors.foreground),
+                            fontWeight: FontWeight.w400,
                             letterSpacing: -0.05,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                    ],
-                  ),
-                ),
-                if (song.duration != null)
-                  Text(
-                    formatTrackDuration(song.duration!),
-                    style: context.theme.typography.sm.copyWith(
-                      color: context.theme.colors.mutedForeground,
+                        if (showArtist)
+                          Text(
+                            song.artist!,
+                            style: context.theme.typography.xs.copyWith(
+                              color: widget.enabled
+                                  ? AppColors.trackNumber
+                                  : disabledText,
+                              letterSpacing: -0.05,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
                   ),
-                const SizedBox(width: 8),
-                DesktopSongPopover(
-                  song: song,
-                  onRemoveFromPlaylist: widget.onRemove,
-                  builder: (context, controller) => AnimatedOpacity(
-                    opacity: _isHovered ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.more_horiz,
-                        size: 16,
-                        color: context.theme.colors.mutedForeground,
-                      ),
-                      onPressed: controller.toggle,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
+                  if (song.duration != null)
+                    Text(
+                      formatTrackDuration(song.duration!),
+                      style: context.theme.typography.sm.copyWith(
+                        color: widget.enabled
+                            ? context.theme.colors.mutedForeground
+                            : disabledText,
                       ),
                     ),
-                  ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  if (widget.enabled)
+                    DesktopSongPopover(
+                      song: song,
+                      onRemoveFromPlaylist: widget.onRemove,
+                      builder: (context, controller) => AnimatedOpacity(
+                        opacity: _isHovered ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 150),
+                        child: IconButton(
+                          icon: Icon(
+                            Icons.more_horiz,
+                            size: 16,
+                            color: context.theme.colors.mutedForeground,
+                          ),
+                          onPressed: controller.toggle,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 28,
+                            minHeight: 28,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -201,7 +226,9 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
       key: ValueKey(
         'mobile-track-${song.id}-${widget.trackNumber}-${widget.reorderIndex ?? 'na'}',
       ),
-      direction: DismissDirection.endToStart,
+      direction: widget.enabled
+          ? DismissDirection.endToStart
+          : DismissDirection.none,
       background: const SizedBox.shrink(),
       secondaryBackground: Container(
         alignment: Alignment.centerRight,
@@ -223,6 +250,7 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
         ),
       ),
       confirmDismiss: (direction) async {
+        if (!widget.enabled) return false;
         if (direction != DismissDirection.endToStart) {
           return false;
         }
@@ -244,13 +272,17 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
         return false;
       },
       child: TapArea(
-        onTap:
-            widget.onTap ?? () => context.read<PlayerProvider>().playNow(song),
-        onLongTap: () => showSongContextSheet(
-          context,
-          song,
-          onRemoveFromPlaylist: widget.onRemove,
-        ),
+        onTap: widget.enabled
+            ? (widget.onTap ??
+                  () => context.read<PlayerProvider>().playNow(song))
+            : null,
+        onLongTap: widget.enabled
+            ? () => showSongContextSheet(
+                context,
+                song,
+                onRemoveFromPlaylist: widget.onRemove,
+              )
+            : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
@@ -260,7 +292,9 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
                 child: Text(
                   trackLabel,
                   style: context.theme.typography.xs.copyWith(
-                    color: AppColors.trackNumber,
+                    color: widget.enabled
+                        ? AppColors.trackNumber
+                        : context.theme.colors.mutedForeground,
                     letterSpacing: -0.5,
                     fontWeight: FontWeight.bold,
                   ),
@@ -275,9 +309,11 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
                     Text(
                       song.title,
                       style: context.theme.typography.sm.copyWith(
-                        color: isPlaying
-                            ? widget.accentColor
-                            : context.theme.colors.foreground,
+                        color: !widget.enabled
+                            ? context.theme.colors.mutedForeground
+                            : (isPlaying
+                                  ? widget.accentColor
+                                  : context.theme.colors.foreground),
                         fontWeight: FontWeight.w400,
                         letterSpacing: -0.05,
                       ),
@@ -288,7 +324,9 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
                       Text(
                         artistText,
                         style: context.theme.typography.xs.copyWith(
-                          color: AppColors.trackNumber,
+                          color: widget.enabled
+                              ? AppColors.trackNumber
+                              : context.theme.colors.mutedForeground,
                           letterSpacing: -0.05,
                         ),
                         maxLines: 1,

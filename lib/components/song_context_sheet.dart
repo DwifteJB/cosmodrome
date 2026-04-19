@@ -3,6 +3,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -93,11 +94,13 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                   if (song.coverArt != null)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
-                      child: Image.network(
-                        context
-                            .read<SubsonicProvider>()
-                            .subsonic
-                            .cachedCoverArtUrl(song.coverArt!, size: 100),
+                      child: Image(
+                        image: coverArtProvider(
+                          context
+                              .read<SubsonicProvider>()
+                              .subsonic
+                              .cachedCoverArtUrl(song.coverArt!, size: 100),
+                        ),
                         width: 48,
                         height: 48,
                         fit: BoxFit.cover,
@@ -244,7 +247,10 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                 }
 
                 return ListTile(
-                  leading: Icon(Icons.download_rounded, color: colors.foreground),
+                  leading: Icon(
+                    Icons.download_rounded,
+                    color: colors.foreground,
+                  ),
                   title: Text(
                     'Download',
                     style: TextStyle(color: colors.foreground),
@@ -355,8 +361,8 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(6),
                         child: imgUrl != null
-                            ? Image.network(
-                                imgUrl,
+                            ? Image(
+                                image: coverArtProvider(imgUrl),
                                 width: 40,
                                 height: 40,
                                 fit: BoxFit.cover,

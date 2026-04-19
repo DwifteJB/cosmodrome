@@ -99,15 +99,22 @@ class _AddServerFormState extends State<AddServerForm> {
 
     final name = _nameController.text.trim();
     final provider = context.read<SubsonicProvider>();
+
+    // remove trailing slash if present, since it causes issues with some servers
+    final normalizedUrl = url.endsWith('/')
+        ? url.substring(0, url.length - 1)
+        : url;
     final success = await provider.addKnownServer(
-      url,
+      normalizedUrl,
       name: name.isEmpty ? null : name,
     );
 
     if (!mounted) return;
 
     if (success) {
-      final server = provider.knownServers.firstWhere((s) => s.baseUrl == url);
+      final server = provider.knownServers.firstWhere(
+        (s) => s.baseUrl == normalizedUrl,
+      );
       widget.onSuccess(server);
     } else {
       setState(() {

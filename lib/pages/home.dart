@@ -6,6 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/gestures.dart';
@@ -86,8 +87,8 @@ class _AlbumCardState extends State<_AlbumCard> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: _coverUrl != null
-                  ? Image.network(
-                      _coverUrl!,
+                  ? Image(
+                      image: coverArtProvider(_coverUrl!),
                       width: cardWidth,
                       height: cardWidth,
                       fit: BoxFit.cover,
@@ -531,11 +532,12 @@ class _OfflineBanner extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           const Text(
-            'You are currently offline. Some features may be unavailable.',
+            'You are currently offline. Functionality is limited.',
             style: TextStyle(
               color: Color(0xFFFFB300),
               fontSize: 12,
               fontWeight: FontWeight.w500,
+              overflow: TextOverflow.fade,
             ),
           ),
         ],

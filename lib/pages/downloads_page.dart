@@ -4,6 +4,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -112,8 +113,9 @@ class _ActiveDownloadTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () =>
-                  context.read<DownloadProvider>().cancelDownload(download.songId),
+              onTap: () => context.read<DownloadProvider>().cancelDownload(
+                download.songId,
+              ),
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
@@ -196,11 +198,10 @@ class _CompletedDownloadTile extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-               
                 GestureDetector(
-                  onTap: () => context
-                      .read<DownloadProvider>()
-                      .deleteDownload(download.songId),
+                  onTap: () => context.read<DownloadProvider>().deleteDownload(
+                    download.songId,
+                  ),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -424,8 +425,8 @@ class _SongArt extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: url != null
-          ? Image.network(
-              url,
+          ? Image(
+              image: coverArtProvider(url),
               width: 44,
               height: 44,
               fit: BoxFit.cover,

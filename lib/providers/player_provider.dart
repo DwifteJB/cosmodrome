@@ -116,7 +116,9 @@ class PlayerProvider extends ChangeNotifier {
   int get _displayIndex => _shuffle ? _shuffleCursor : _currentIndex;
 
   Future<void> addBulkToQueue(List<Song> songs) async {
-    _songs.addAll(songs);
+    final playable = playableSongs(songs);
+    if (playable.isEmpty) return;
+    _songs.addAll(playable);
     if (_shuffle) {
       _rebuildShuffleOrder();
     }
@@ -126,6 +128,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> addToQueue(Song song) async {
+    if (!isSongPlayable(song)) return;
     _songs.add(song);
     if (_shuffle) {
       _rebuildShuffleOrder();
@@ -158,20 +161,30 @@ class PlayerProvider extends ChangeNotifier {
     super.dispose();
   }
 
+  bool isSongPlayable(Song song) {
+    if (!(_subsonicProvider?.isOffline ?? false)) return true;
+    return _downloadProvider?.isSongDownloaded(song.id) ?? false;
+  }
+
+  List<Song> playableSongs(Iterable<Song> songs) =>
+      songs.where(isSongPlayable).toList();
+
   Future<void> playAlbum(List<Song> songs, {bool shuffle = false}) async {
-    if (songs.isEmpty) return;
-    _songs = List.from(songs);
-    _playedSongIds
-      ..clear()
-      ..add(_songs.first.id);
+    final playable = playableSongs(songs);
+    if (playable.isEmpty) return;
+    _songs = List.from(playable);
     _shuffle = shuffle;
-    _currentIndex = 0;
     if (_shuffle) {
+      _currentIndex = _songs.length > 1 ? Random().nextInt(_songs.length) : 0;
       _rebuildShuffleOrder();
     } else {
+      _currentIndex = 0;
       _shuffleOrder = [];
       _shuffleCursor = -1;
     }
+    _playedSongIds
+      ..clear()
+      ..add(_songs[_currentIndex].id);
     _queueVersion++;
     _updateCoverArtCache();
     notifyListeners();
@@ -179,6 +192,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> playNow(Song song) async {
+    if (!isSongPlayable(song)) return;
     final pos = _currentIndex < 0 ? 0 : _currentIndex;
     _songs.insert(pos, song);
     _currentIndex = pos;
@@ -328,6 +342,9 @@ class PlayerProvider extends ChangeNotifier {
         final targetIndex = _shuffleOrder[_shuffleCursor];
         await _player.seek(Duration.zero, index: targetIndex);
         await _player.play();
+      } else {
+        await _player.seek(Duration.zero);
+        await _player.play();
       }
       return;
     }
@@ -336,6 +353,9 @@ class PlayerProvider extends ChangeNotifier {
       await _player.seek(Duration.zero);
     } else if (_player.hasPrevious) {
       await _player.seekToPrevious();
+      await _player.play();
+    } else {
+      await _player.seek(Duration.zero);
       await _player.play();
     }
   }
@@ -388,6 +408,7 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> _fetchAndAppendRandom() async {
     if (_subsonicProvider == null) return;
+    if (_subsonicProvider!.isOffline) return;
     try {
       final songs = await _subsonicProvider!.subsonic.getRandomSongs(count: 10);
       await addBulkToQueue(songs);
@@ -486,7 +507,7 @@ class PlayerProvider extends ChangeNotifier {
       return;
     }
     try {
-      _cachedCoverArtUrl = _subsonicProvider!.subsonic.coverArtUrl(
+      _cachedCoverArtUrl = _subsonicProvider!.subsonic.cachedCoverArtUrl(
         song.coverArt!,
         size: 300,
       );
