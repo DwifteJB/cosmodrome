@@ -27,6 +27,7 @@ class SubsonicProvider extends ChangeNotifier {
   String? _errorMessage;
   bool _isOffline = false;
   bool _canPollConnectivity = true;
+  bool _connectivityCheckInFlight = false;
   Timer? _connectivityPoller;
   final Map<String, int> _connectivityFailureCounts = {};
   final Map<String, DateTime> _connectivityDebounceUntil = {};
@@ -138,49 +139,55 @@ class SubsonicProvider extends ChangeNotifier {
 
   /// Pings the active server and updates [isOffline]
   Future<void> checkConnectivity() async {
-    if (!_canCheckConnectivity) return;
+    if (!_canCheckConnectivity || _connectivityCheckInFlight) return;
 
     final account = activeAccount;
     if (account == null) return;
 
-    final now = DateTime.now();
-    if (_isServerDebounced(account.baseUrl, now)) {
-      return;
-    }
+    _connectivityCheckInFlight = true;
 
-    var offline = false;
     try {
-      final result = await account.subsonic.ping(timeoutSeconds: 3);
-      // auth errors mean we can still "connect" with proper creds
-      offline = !result.success && result.errorCode == null;
-
-      if (offline) {
-        _recordServerFailure(account.baseUrl, now);
-      } else {
-        _recordServerSuccess(account.baseUrl);
+      final now = DateTime.now();
+      if (_isServerDebounced(account.baseUrl, now)) {
+        return;
       }
-    } catch (_) {
-      offline = true;
-      _recordServerFailure(account.baseUrl, now);
-    }
 
-    var changed = false;
-    if (_isOffline != offline) {
-      _isOffline = offline;
-      changed = true;
-    }
+      var offline = false;
+      try {
+        final result = await account.subsonic.ping(timeoutSeconds: 3);
+        // auth errors mean we can still "connect" with proper creds
+        offline = !result.success && result.errorCode == null;
 
-    final idx = knownServers.indexWhere((s) => s.baseUrl == account.baseUrl);
-    if (idx >= 0 && knownServers[idx].canConnect != !offline) {
-      knownServers[idx].canConnect = !offline;
-      changed = true;
-    }
+        if (offline) {
+          _recordServerFailure(account.baseUrl, now);
+        } else {
+          _recordServerSuccess(account.baseUrl);
+        }
+      } catch (_) {
+        offline = true;
+        _recordServerFailure(account.baseUrl, now);
+      }
 
-    final serverChanged = await _refreshKnownServersConnectivity(
-      skipBaseUrl: account.baseUrl,
-    );
-    if (changed || serverChanged) {
-      notifyListeners();
+      var changed = false;
+      if (_isOffline != offline) {
+        _isOffline = offline;
+        changed = true;
+      }
+
+      final idx = knownServers.indexWhere((s) => s.baseUrl == account.baseUrl);
+      if (idx >= 0 && knownServers[idx].canConnect != !offline) {
+        knownServers[idx].canConnect = !offline;
+        changed = true;
+      }
+
+      final serverChanged = await _refreshKnownServersConnectivity(
+        skipBaseUrl: account.baseUrl,
+      );
+      if (changed || serverChanged) {
+        notifyListeners();
+      }
+    } finally {
+      _connectivityCheckInFlight = false;
     }
   }
 
@@ -563,6 +570,7 @@ class SubsonicServer {
         return false; // server is reachable but not a Subsonic server
       }
 
+      canConnect = true;
       return true; // ping succeeded, server is reachable (but we don't expect this since credentials are wrong)
     } catch (e) {
       final error = e.toString();
