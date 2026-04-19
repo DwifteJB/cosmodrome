@@ -1,9 +1,20 @@
-name: Build Linux and Android
+name: Build Linux, Windows & Android.
 
 on:
     workflow_dispatch:
     push:
         branches: [main]
+        # all paths that would probably be triggered by a change for a new build
+        paths:
+            - 'lib/**'
+            - 'assets/**'
+            - 'pubspec.yaml'
+            - 'linux/**'
+            - 'android/**'
+            - '.github/workflows/build-linux-android.yml'
+            - 'discord-rpc/**'
+            - 'installer/**'
+            - 'windows/**'
     pull_request:
         branches: [main]
 
@@ -94,3 +105,59 @@ jobs:
               with:
                   name: cosmodrome-android
                   path: app-android.zip
+
+    build-windows:
+      permissions:
+        contents: read
+      runs-on: windows-latest
+      steps:
+        - uses: actions/checkout@v6
+        # install flutter
+        - uses: subsosito/flutter-action@v2
+          with:
+            channel: stable
+        # install golang
+        - uses: actions/setup-go@v6
+          with:
+            go-version-file: discord-rpc/go.mod
+            cache-dependency-path: |
+              discord-rpc/go.sum
+              installer/go.sum
+            cache: true
+        # install dependencies needed for fyne (cgo)
+        - name: Install Window build dependencies
+          run: |
+            winget install -e --id MSYS2.MSYS2 --source winget --accept-package-agreements --accept-source-agreements --silent          
+            echo "::add-path::C:\msys64\usr\bin"
+            go install fyne.io/tools/cmd/fyne@latest
+        
+        - name: Install Flutter dependencies
+        - run: flutter pub get
+
+        - name: Build Windows bundle
+          run: flutter build windows --release
+
+        - name: Build Discord RPC
+          working-directory: discord-rpc
+          run: go build -o ../build/windows/x64/release/bundle/cosmodrome-rpc main.go
+        - name: Zip Windows bundle
+          run: |
+            cd build/windows/x64/release/bundle
+            powershell Compress-Archive -Path * -DestinationPath ..\..\..\..\installer\app.zip
+          
+        - name: Build installer
+          working-directory: installer
+          run: |
+            fyne package -os windows -icon .\assets\logo.png -app-id me.rmfosho.cosmodromeinstaller
+
+        - name: Upload installer artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: cosmodrome-windows-installer
+            path: installer/cosmodrome-windows-installer.exe
+        
+        - name: Upload app.zip
+          uses: actions/upload-artifact@v4
+          with:
+            name: cosmodrome-windows-zip
+            path: installer/app.zip
