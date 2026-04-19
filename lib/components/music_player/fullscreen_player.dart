@@ -18,6 +18,7 @@ import 'package:cosmodrome/utils/logger.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
@@ -26,6 +27,44 @@ class FullscreenPlayer extends StatefulWidget {
 
   @override
   State<FullscreenPlayer> createState() => _FullscreenPlayerState();
+}
+
+class _FadingAlbumArt extends StatelessWidget {
+  final String imageUrl;
+  final BoxFit fit;
+  final Widget Function(BuildContext context, Object error)? errorBuilder;
+
+  const _FadingAlbumArt({
+    required this.imageUrl,
+    required this.fit,
+    this.errorBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [...previousChildren, ?currentChild],
+        );
+      },
+      transitionBuilder: (child, animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: Image.network(
+        imageUrl,
+        key: ValueKey(imageUrl),
+        fit: fit,
+        errorBuilder: errorBuilder != null
+            ? (context, error, stackTrace) => errorBuilder!(context, error)
+            : null,
+      ),
+    );
+  }
 }
 
 class _FullscreenPlayerState extends State<FullscreenPlayer> {
@@ -93,12 +132,13 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                   sigmaY: 100,
                                   tileMode: TileMode.clamp,
                                 ),
-                                child: Image.network(
-                                  coverUrl,
+                                child: _FadingAlbumArt(
+                                  imageUrl: coverUrl,
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                              if ((_accentColor?.computeLuminance() ?? 0) < 0.15)
+                              if ((_accentColor?.computeLuminance() ?? 0) <
+                                  0.15)
                                 const DecoratedBox(
                                   decoration: BoxDecoration(
                                     color: Colors.black26,
@@ -169,289 +209,333 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
 
                     const SizedBox(height: 16),
 
-                    if (song == null)
-                      const Expanded(child: SizedBox.shrink())
-                    else
-                      Expanded(
-                        child: SafeArea(
-                          top: false,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // art
-                              Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 32,
-                                  ),
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 500,
-                                      maxHeight: 500,
-                                    ),
-                                    child: AspectRatio(
-                                      aspectRatio: 1,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(12),
-                                        child: coverUrl != null
-                                            ? Image.network(
-                                                coverUrl,
-                                                fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (ctx, err, stack) {
-                                                      final size =
-                                                          MediaQuery.of(
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 350),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        layoutBuilder: (currentChild, previousChildren) {
+                          return Stack(
+                            fit: StackFit.expand,
+                            children: [...previousChildren, ?currentChild],
+                          );
+                        },
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                        child: song == null
+                            ? const SizedBox.shrink()
+                            : SafeArea(
+                                key: ValueKey(song.id),
+                                top: false,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // art
+                                    Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 32,
+                                        ),
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 500,
+                                            maxHeight: 500,
+                                          ),
+                                          child: AspectRatio(
+                                            aspectRatio: 1,
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: coverUrl != null
+                                                  ? _FadingAlbumArt(
+                                                      imageUrl: coverUrl,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (ctx, err) {
+                                                        final size =
+                                                            MediaQuery.of(
+                                                              context,
+                                                            ).size.width -
+                                                            64;
+                                                        return _coverPlaceholder(
+                                                          size,
+                                                        );
+                                                      },
+                                                    )
+                                                  : _coverPlaceholder(
+                                                      MediaQuery.of(
                                                             context,
                                                           ).size.width -
-                                                          64;
-                                                      return _coverPlaceholder(
-                                                        size,
-                                                      );
-                                                    },
-                                              )
-                                            : _coverPlaceholder(
-                                                MediaQuery.of(
-                                                      context,
-                                                    ).size.width -
-                                                    64,
-                                              ),
+                                                          64,
+                                                    ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ),
 
-                              const Spacer(),
+                                    const Spacer(),
 
-                              // title, album & star
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
+                                    // title, album & star
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                      ),
+                                      child: Row(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            CrossAxisAlignment.center,
                                         children: [
-                                          ScrollingText(
-                                            text: song.title,
-                                            maxWidth:
-                                                MediaQuery.of(
-                                                  context,
-                                                ).size.width -
-                                                96,
-                                            style: context.theme.typography.md
-                                                .copyWith(
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.white,
-                                                  height: 1.2,
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                ScrollingText(
+                                                  text: song.title,
+                                                  maxWidth:
+                                                      MediaQuery.of(
+                                                        context,
+                                                      ).size.width -
+                                                      96,
+                                                  style: context
+                                                      .theme
+                                                      .typography
+                                                      .md
+                                                      .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: Colors.white,
+                                                        height: 1.2,
+                                                      ),
+                                                  duration: 5,
                                                 ),
-                                            duration: 5,
-                                          ),
-                                          if ((song.album ?? song.artist) !=
-                                              null)
-                                            Text(
-                                              song.album ?? song.artist ?? '',
-                                              style: context.theme.typography.sm
-                                                  .copyWith(
-                                                    color: Colors.white60,
+                                                if ((song.album ??
+                                                        song.artist) !=
+                                                    null)
+                                                  Text(
+                                                    song.album ??
+                                                        song.artist ??
+                                                        '',
+                                                    style: context
+                                                        .theme
+                                                        .typography
+                                                        .sm
+                                                        .copyWith(
+                                                          color: Colors.white60,
+                                                        ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              ],
                                             ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              _isStarred
+                                                  ? Icons.star_rounded
+                                                  : Icons.star_border_rounded,
+                                              color: _isStarred
+                                                  ? accent
+                                                  : Colors.white60,
+                                              size: 28,
+                                            ),
+                                            onPressed: _toggleStar,
+                                          ),
                                         ],
                                       ),
                                     ),
-                                    IconButton(
-                                      icon: Icon(
-                                        _isStarred
-                                            ? Icons.star_rounded
-                                            : Icons.star_border_rounded,
-                                        color: _isStarred
-                                            ? accent
-                                            : Colors.white60,
-                                        size: 28,
+
+                                    const SizedBox(height: 8),
+
+                                    // progress bar
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
                                       ),
-                                      onPressed: _toggleStar,
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 8),
-
-                              // progress bar
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: SliderTheme(
-                                  data: SliderThemeData(
-                                    trackHeight: 3,
-                                    thumbColor: accent,
-                                    activeTrackColor: accent,
-                                    inactiveTrackColor: Colors.white24,
-                                    overlayColor: accent.withValues(alpha: 0.2),
-                                    thumbShape: SliderComponentShape.noThumb,
-                                    overlayShape: const RoundSliderOverlayShape(
-                                      overlayRadius: 12,
-                                    ),
-                                    trackShape:
-                                        const RoundedRectSliderTrackShape(),
-                                  ),
-                                  child: Slider(
-                                    value: sliderValue,
-                                    min: 0.0,
-                                    max: 1.0,
-                                    activeColor: accent,
-                                    inactiveColor: Colors.white24,
-                                    onChangeStart: (v) {
-                                      if (_closing || !mounted) return;
-                                      setState(() {
-                                        _seeking = true;
-                                        _seekValue = v;
-                                      });
-                                    },
-                                    onChanged: (v) {
-                                      if (_closing || !mounted) return;
-                                      setState(() => _seekValue = v);
-                                    },
-                                    onChangeEnd: (v) {
-                                      if (_closing || !mounted) return;
-                                      setState(() => _seeking = false);
-                                      final seekMs = (v * totalMs).round();
-                                      player.seekTo(
-                                        Duration(milliseconds: seekMs),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-
-                              // timestamps (dur & pos)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 28,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _fmt(player.position),
-                                      style: context.theme.typography.xs
-                                          .copyWith(
-                                            color: Colors.white,
-                                            letterSpacing: -0.5,
+                                      child: SliderTheme(
+                                        data: SliderThemeData(
+                                          trackHeight: 3,
+                                          thumbColor: accent,
+                                          activeTrackColor: accent,
+                                          inactiveTrackColor: Colors.white24,
+                                          overlayColor: accent.withValues(
+                                            alpha: 0.2,
                                           ),
+                                          thumbShape:
+                                              SliderComponentShape.noThumb,
+                                          overlayShape:
+                                              const RoundSliderOverlayShape(
+                                                overlayRadius: 12,
+                                              ),
+                                          trackShape:
+                                              const RoundedRectSliderTrackShape(),
+                                        ),
+                                        child: Slider(
+                                          value: sliderValue,
+                                          min: 0.0,
+                                          max: 1.0,
+                                          activeColor: accent,
+                                          inactiveColor: Colors.white24,
+                                          onChangeStart: (v) {
+                                            if (_closing || !mounted) return;
+                                            setState(() {
+                                              _seeking = true;
+                                              _seekValue = v;
+                                            });
+                                          },
+                                          onChanged: (v) {
+                                            if (_closing || !mounted) return;
+                                            setState(() => _seekValue = v);
+                                          },
+                                          onChangeEnd: (v) {
+                                            if (_closing || !mounted) return;
+                                            setState(() => _seeking = false);
+                                            final seekMs = (v * totalMs)
+                                                .round();
+                                            player.seekTo(
+                                              Duration(milliseconds: seekMs),
+                                            );
+                                          },
+                                        ),
+                                      ),
                                     ),
-                                    Text(
-                                      _fmt(player.duration),
-                                      style: context.theme.typography.xs
-                                          .copyWith(
-                                            color: Colors.white,
-                                            letterSpacing: -0.5,
+
+                                    // timestamps (dur & pos)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            _fmt(player.position),
+                                            style: context.theme.typography.xs
+                                                .copyWith(
+                                                  color: Colors.white,
+                                                  letterSpacing: -0.5,
+                                                ),
                                           ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              // controls
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    // shuffle
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.shuffle_rounded,
-                                        color: player.shuffle
-                                            ? accent
-                                            : Colors.white38,
-                                        size: 26,
+                                          Text(
+                                            _fmt(player.duration),
+                                            style: context.theme.typography.xs
+                                                .copyWith(
+                                                  color: Colors.white,
+                                                  letterSpacing: -0.5,
+                                                ),
+                                          ),
+                                        ],
                                       ),
-                                      onPressed: () => player.toggleShuffle(),
                                     ),
-                                    // prev
-                                    IconButton(
-                                      iconSize: 40,
-                                      icon: const Icon(
-                                        Icons.skip_previous_rounded,
-                                        color: Colors.white,
+
+                                    const SizedBox(height: 24),
+
+                                    // controls
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
                                       ),
-                                      onPressed: () => player.skipPrevious(),
-                                    ),
-                                    // play or pause
-                                    TapArea(
-                                      borderRadius: 40,
-                                      onTap: () => player.togglePlay(),
-                                      child: TweenAnimationBuilder<Color?>(
-                                        tween: ColorTween(
-                                          begin: _prevAccentColor ?? accent,
-                                          end: accent,
-                                        ),
-                                        duration: const Duration(
-                                          milliseconds: 400,
-                                        ),
-                                        builder: (context, color, _) {
-                                          return Container(
-                                            width: 72,
-                                            height: 72,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: (color ?? accent)
-                                                  .withValues(alpha: 0.3),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          // shuffle
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.shuffle_rounded,
+                                              color: player.shuffle
+                                                  ? accent
+                                                  : Colors.white38,
+                                              size: 26,
                                             ),
-                                            child: Icon(
-                                              player.isPlaying
-                                                  ? Icons.pause_rounded
-                                                  : Icons.play_arrow_rounded,
+                                            onPressed: () =>
+                                                player.toggleShuffle(),
+                                          ),
+                                          // prev
+                                          IconButton(
+                                            iconSize: 40,
+                                            icon: const Icon(
+                                              Icons.skip_previous_rounded,
                                               color: Colors.white,
-                                              size: 40,
                                             ),
-                                          );
-                                        },
+                                            onPressed: () =>
+                                                player.skipPrevious(),
+                                          ),
+                                          // play or pause
+                                          TapArea(
+                                            borderRadius: 40,
+                                            onTap: () => player.togglePlay(),
+                                            child: TweenAnimationBuilder<Color?>(
+                                              tween: ColorTween(
+                                                begin:
+                                                    _prevAccentColor ?? accent,
+                                                end: accent,
+                                              ),
+                                              duration: const Duration(
+                                                milliseconds: 400,
+                                              ),
+                                              builder: (context, color, _) {
+                                                return Container(
+                                                  width: 72,
+                                                  height: 72,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    color: (color ?? accent)
+                                                        .withValues(alpha: 0.3),
+                                                  ),
+                                                  child: Icon(
+                                                    player.isPlaying
+                                                        ? Icons.pause_rounded
+                                                        : Icons
+                                                              .play_arrow_rounded,
+                                                    color: Colors.white,
+                                                    size: 40,
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          // skip
+                                          IconButton(
+                                            iconSize: 40,
+                                            icon: const Icon(
+                                              Icons.skip_next_rounded,
+                                              color: Colors.white,
+                                            ),
+                                            onPressed: () => player.skipNext(),
+                                          ),
+                                          // repeat
+                                          IconButton(
+                                            icon: Icon(
+                                              player.repeatMode == LoopMode.one
+                                                  ? Icons.repeat_one_rounded
+                                                  : Icons.repeat_rounded,
+                                              color:
+                                                  player.repeatMode ==
+                                                      LoopMode.off
+                                                  ? Colors.white38
+                                                  : accent,
+                                              size: 26,
+                                            ),
+                                            onPressed: () =>
+                                                player.toggleRepeat(),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    // skip
-                                    IconButton(
-                                      iconSize: 40,
-                                      icon: const Icon(
-                                        Icons.skip_next_rounded,
-                                        color: Colors.white,
-                                      ),
-                                      onPressed: () => player.skipNext(),
-                                    ),
-                                    // repeat
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.repeat_rounded,
-                                        color: player.repeat
-                                            ? accent
-                                            : Colors.white38,
-                                        size: 26,
-                                      ),
-                                      onPressed: () => player.toggleRepeat(),
-                                    ),
+
+                                    SizedBox(height: bottomPadding + 16),
                                   ],
                                 ),
                               ),
-
-                              SizedBox(height: bottomPadding + 16),
-                            ],
-                          ),
-                        ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -508,6 +592,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
           _cacheId = song.id;
         });
       }
+
       return AppColors.background;
     }
 
@@ -544,8 +629,9 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
         });
       }
 
-      loggerPrint('Accent color extracted for song: ${song.id}, luminance is ${color?.computeLuminance()}');
-
+      loggerPrint(
+        'Accent color extracted for song: ${song.id}, luminance is ${color?.computeLuminance()}',
+      );
 
       return color;
     } catch (_) {}
@@ -558,7 +644,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     if (_lastAccentSongId == song.id) return;
     _lastAccentSongId = song.id;
     _extractAccentColor(song);
-
   }
 
   void _scheduleDismiss() {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
@@ -308,7 +310,31 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    setState(() => _loading = true);
+    final cachedRecent = await offlineCacheService.loadRecentAlbums(accountId);
+    final cachedStarred = await offlineCacheService.loadStarredAlbums(
+      accountId,
+    );
+
+    if (provider.isOffline) {
+      if (mounted) {
+        setState(() {
+          _recentAlbums = cachedRecent;
+          _starredAlbums = cachedStarred;
+          _loading = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted && (cachedRecent != null || cachedStarred != null)) {
+      setState(() {
+        _recentAlbums = cachedRecent;
+        _starredAlbums = cachedStarred;
+        _loading = false;
+      });
+    }
+
+    setState(() => _loading = _recentAlbums == null && _starredAlbums == null);
 
     try {
       final results = await Future.wait([
@@ -329,16 +355,14 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (_) {
-      final recent = await offlineCacheService.loadRecentAlbums(accountId);
-      final starred = await offlineCacheService.loadStarredAlbums(accountId);
       if (mounted) {
         setState(() {
-          _recentAlbums = recent;
-          _starredAlbums = starred;
+          _recentAlbums = cachedRecent;
+          _starredAlbums = cachedStarred;
           _loading = false;
         });
-        provider.checkConnectivity();
       }
+      unawaited(provider.checkConnectivity());
     }
   }
 

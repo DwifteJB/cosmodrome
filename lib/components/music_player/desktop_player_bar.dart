@@ -3,6 +3,7 @@ import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
 class DesktopPlayerBar extends StatefulWidget {
@@ -168,8 +169,10 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
                               onTap: hasSong ? player.skipNext : null,
                             ),
                             _CtrlBtn(
-                              icon: Icons.repeat_rounded,
-                              active: player.repeat,
+                              icon: player.repeatMode == LoopMode.one
+                                  ? Icons.repeat_one_rounded
+                                  : Icons.repeat_rounded,
+                              active: player.repeatMode != LoopMode.off,
                               onTap: hasSong ? player.toggleRepeat : null,
                             ),
                           ],

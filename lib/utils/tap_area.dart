@@ -63,6 +63,7 @@ class _TapAreaIosState extends State<TapArea> {
     if (widget.onTap == null && widget.onLongTap == null) return content;
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTapDown: (_) {
         setState(() {
           _isDown = true;

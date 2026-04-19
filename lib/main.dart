@@ -90,12 +90,12 @@ void main() async {
   runApp(const Application());
 }
 
+final downloadProvider = DownloadProvider();
+
 final isDesktop =
     !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
-
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
-final downloadProvider = DownloadProvider();
 
 // go router
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -163,7 +163,8 @@ class Application extends StatefulWidget {
   State<Application> createState() => _ApplicationState();
 }
 
-class _ApplicationState extends State<Application> with WindowListener {
+class _ApplicationState extends State<Application>
+    with WindowListener, WidgetsBindingObserver {
   RpcBridge? _rpcBridge;
 
   @override
@@ -181,7 +182,8 @@ class _ApplicationState extends State<Application> with WindowListener {
         ChangeNotifierProvider.value(value: subsonicProvider),
         ChangeNotifierProvider.value(value: downloadProvider),
         ChangeNotifierProxyProvider<SubsonicProvider, PlayerProvider>(
-          create: (_) => PlayerProvider()..setDownloadProvider(downloadProvider),
+          create: (_) =>
+              PlayerProvider()..setDownloadProvider(downloadProvider),
           update: (_, sub, player) => player!..update(sub),
         ),
         if (isDesktop && _rpcBridge != null)
@@ -230,7 +232,13 @@ class _ApplicationState extends State<Application> with WindowListener {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    subsonicProvider.setAppLifecycleState(state);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (isDesktop) windowManager.removeListener(this);
     super.dispose();
   }
@@ -238,6 +246,8 @@ class _ApplicationState extends State<Application> with WindowListener {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    subsonicProvider.setAppLifecycleState(AppLifecycleState.resumed);
     if (isDesktop) {
       windowManager.addListener(this);
       _rpcBridge = RpcBridge()..init();

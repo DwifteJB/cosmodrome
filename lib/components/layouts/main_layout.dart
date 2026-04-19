@@ -1305,8 +1305,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     var scrollOffset = activeController.offset.clamp(0.0, maxScroll);
     final opacity = scrollOffset / maxScroll;
 
-    loggerPrint("Scroll offset: ${activeController.offset}, opacity: $opacity");
-
     if (opacity != aniu.value) {
       setState(() {
         aniu.value = opacity;

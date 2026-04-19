@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cosmodrome/components/library/library_grid_item.dart';
 import 'package:cosmodrome/components/library/song_grid_item.dart';
 import 'package:cosmodrome/components/song_context_sheet.dart';
@@ -46,7 +48,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
 
     // if (isMobile(context)) return _buildMobileView();
     // return const SizedBox.shrink();
-    return _buildMobileView(); // TODO: desktop
+    return _buildMobileView(); // TODO: desktop? acc looks fine on desktop tbf
   }
 
   @override
@@ -130,6 +132,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   Widget _buildEmptyState() {
     var gridDelegate = _gridDelegate(context);
 
+    // do simple
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Stack(
@@ -190,35 +193,6 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         gridDelegate: _gridDelegate(context),
         itemCount: items.length,
         itemBuilder: (ctx, i) => itemBuilder(ctx, items[i], i),
-      ),
-    );
-  }
-
-  Widget _buildLibraryTopBar(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-    final colors = context.theme.colors;
-
-    return Container(
-      height: 56 + topPadding,
-      padding: EdgeInsets.only(top: topPadding, left: 20, right: 8),
-      color: Colors.transparent,
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                _currentView.title,
-                style: context.theme.typography.xl2.copyWith(
-                  fontWeight: FontWeight.bold,
-                  height: 0,
-                  color: colors.foreground,
-                ),
-              ),
-              const Spacer(),
-            ],
-          ),
-        ],
       ),
     );
   }
@@ -337,6 +311,16 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     final accountId = provider.activeAccount?.id;
     if (accountId == null) return;
 
+    if (provider.isOffline) {
+      await _loadCachedView(view, accountId);
+      if (mounted) {
+        setState(() {
+          _fetched.add(view);
+        });
+      }
+      return;
+    }
+
     setState(() => _loading.add(view));
 
     try {
@@ -361,22 +345,11 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       }
       if (mounted) setState(() => _fetched.add(view));
     } catch (_) {
-      // Fall back to cached data when offline
-      switch (view) {
-        case CurrentMobileView.albums:
-          final cached = await offlineCacheService.loadAlbums(accountId);
-          if (mounted && cached != null) setState(() => _albums = cached);
-        case CurrentMobileView.artists:
-          final cached = await offlineCacheService.loadArtists(accountId);
-          if (mounted && cached != null) setState(() => _artists = cached);
-        case CurrentMobileView.playlists:
-          final cached = await offlineCacheService.loadPlaylists(accountId);
-          if (mounted && cached != null) setState(() => _playlists = cached);
-        case CurrentMobileView.songs:
-          final cached = await offlineCacheService.loadSongs(accountId);
-          if (mounted && cached != null) setState(() => _songs = cached);
+      await _loadCachedView(view, accountId);
+      if (mounted) {
+        setState(() => _fetched.add(view));
       }
-      if (mounted) provider.checkConnectivity();
+      unawaited(provider.checkConnectivity());
     } finally {
       if (mounted) setState(() => _loading.remove(view));
     }
@@ -388,7 +361,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   ) {
     final width = MediaQuery.sizeOf(context).width;
     int crossAxisCount = 3;
-    // use the tailscale sorta rules so
+    // use the tailwind (NOT TAILSCALE!!!) sorta rules so
     // <600 = 2
     // 600-900 = 3
     // 900-1200 = 4
@@ -410,6 +383,23 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       crossAxisSpacing: 12,
       childAspectRatio: 0.72,
     );
+  }
+
+  Future<void> _loadCachedView(CurrentMobileView view, String accountId) async {
+    switch (view) {
+      case CurrentMobileView.albums:
+        final cached = await offlineCacheService.loadAlbums(accountId);
+        if (mounted && cached != null) setState(() => _albums = cached);
+      case CurrentMobileView.artists:
+        final cached = await offlineCacheService.loadArtists(accountId);
+        if (mounted && cached != null) setState(() => _artists = cached);
+      case CurrentMobileView.playlists:
+        final cached = await offlineCacheService.loadPlaylists(accountId);
+        if (mounted && cached != null) setState(() => _playlists = cached);
+      case CurrentMobileView.songs:
+        final cached = await offlineCacheService.loadSongs(accountId);
+        if (mounted && cached != null) setState(() => _songs = cached);
+    }
   }
 
   Future<void> _showCreatePlaylistDialog() async {
@@ -488,7 +478,11 @@ class _OfflineBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.wifi_off_rounded, size: 14, color: Color(0xFFFFB300)),
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 14,
+            color: Color(0xFFFFB300),
+          ),
           const SizedBox(width: 8),
           Text(
             'You are currently offline. Some features may be unavailable.',
