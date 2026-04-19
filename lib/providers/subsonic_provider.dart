@@ -6,7 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/user.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/utils/logger.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const _keyAccounts = 'subsonic_accounts';
@@ -26,7 +26,10 @@ class SubsonicProvider extends ChangeNotifier {
   String? _activeId;
   String? _errorMessage;
   bool _isOffline = false;
+  bool _canPollConnectivity = true;
   Timer? _connectivityPoller;
+  final Map<String, int> _connectivityFailureCounts = {};
+  final Map<String, DateTime> _connectivityDebounceUntil = {};
 
   List<SubsonicAccount> get accounts => List.unmodifiable(_accounts);
   SubsonicAccount? get activeAccount => _activeId == null
@@ -44,6 +47,8 @@ class SubsonicProvider extends ChangeNotifier {
     assert(activeAccount != null, 'SubsonicProvider: no active account');
     return activeAccount!.subsonic;
   }
+
+  bool get _canCheckConnectivity => _canPollConnectivity;
 
   /// Adds a new account and makes it active. If an account with the same id
   /// already exists, it will be replaced. Returns an error message on failure.
@@ -133,16 +138,30 @@ class SubsonicProvider extends ChangeNotifier {
 
   /// Pings the active server and updates [isOffline]
   Future<void> checkConnectivity() async {
+    if (!_canCheckConnectivity) return;
+
     final account = activeAccount;
     if (account == null) return;
+
+    final now = DateTime.now();
+    if (_isServerDebounced(account.baseUrl, now)) {
+      return;
+    }
 
     var offline = false;
     try {
       final result = await account.subsonic.ping(timeoutSeconds: 3);
       // auth errors mean we can still "connect" with proper creds
       offline = !result.success && result.errorCode == null;
+
+      if (offline) {
+        _recordServerFailure(account.baseUrl, now);
+      } else {
+        _recordServerSuccess(account.baseUrl);
+      }
     } catch (_) {
       offline = true;
+      _recordServerFailure(account.baseUrl, now);
     }
 
     var changed = false;
@@ -219,6 +238,25 @@ class SubsonicProvider extends ChangeNotifier {
     loggerPrint('SubsonicProvider: removed known server $baseUrl');
     await _persist(); // save known servers to storage
     notifyListeners();
+  }
+
+  void setAppLifecycleState(AppLifecycleState state) {
+    final canPoll = state == AppLifecycleState.resumed;
+    if (_canPollConnectivity == canPoll) {
+      return;
+    }
+
+    _canPollConnectivity = canPoll;
+    if (!canPoll) {
+      _connectivityPoller?.cancel();
+      _connectivityPoller = null;
+      return;
+    }
+
+    if (_authState == AuthState.authenticated && activeAccount != null) {
+      _startConnectivityPolling();
+      unawaited(checkConnectivity());
+    }
   }
 
   /// Switches the active account.
@@ -369,6 +407,19 @@ class SubsonicProvider extends ChangeNotifier {
     }
   }
 
+  bool _isServerDebounced(String baseUrl, DateTime now) {
+    final until = _connectivityDebounceUntil[baseUrl];
+    if (until == null) return false;
+
+    if (!now.isBefore(until)) {
+      _connectivityDebounceUntil.remove(baseUrl);
+      _connectivityFailureCounts.remove(baseUrl);
+      return false;
+    }
+
+    return true;
+  }
+
   // saves accounts to storage! saving!
   Future<void> _persist() async {
     final json = jsonEncode(_accounts.map((a) => a.toJson()).toList());
@@ -387,14 +438,47 @@ class SubsonicProvider extends ChangeNotifier {
     await _getAvatarsForAllAccounts();
   }
 
+  void _recordServerFailure(String baseUrl, DateTime now) {
+    final failureCount = (_connectivityFailureCounts[baseUrl] ?? 0) + 1;
+    if (failureCount >= 3) {
+      _connectivityFailureCounts.remove(baseUrl);
+      _connectivityDebounceUntil[baseUrl] = now.add(
+        const Duration(seconds: 60),
+      );
+      loggerPrint(
+        'SubsonicProvider: debouncing $baseUrl for 60 seconds after repeated connectivity failures',
+      );
+      return;
+    }
+
+    _connectivityFailureCounts[baseUrl] = failureCount;
+  }
+
+  void _recordServerSuccess(String baseUrl) {
+    _connectivityFailureCounts.remove(baseUrl);
+    _connectivityDebounceUntil.remove(baseUrl);
+  }
+
   Future<bool> _refreshKnownServersConnectivity({String? skipBaseUrl}) async {
+    if (!_canCheckConnectivity) return false;
+
     var changed = false;
+    final now = DateTime.now();
     for (final server in knownServers) {
       if (skipBaseUrl != null && server.baseUrl == skipBaseUrl) {
         continue;
       }
+      if (_isServerDebounced(server.baseUrl, now)) {
+        continue;
+      }
+
       final before = server.canConnect;
       final after = await server.tryConnect(timeoutSeconds: 3);
+      if (after) {
+        _recordServerSuccess(server.baseUrl);
+      } else {
+        _recordServerFailure(server.baseUrl, now);
+      }
       if (before != after) {
         changed = true;
       }
@@ -408,6 +492,12 @@ class SubsonicProvider extends ChangeNotifier {
   }
 
   void _startConnectivityPolling() {
+    if (!_canCheckConnectivity) {
+      _connectivityPoller?.cancel();
+      _connectivityPoller = null;
+      return;
+    }
+
     _connectivityPoller?.cancel();
     _connectivityPoller = Timer.periodic(const Duration(seconds: 15), (_) {
       unawaited(checkConnectivity());
