@@ -1,7 +1,6 @@
 // easy to use provider for managing song download & storage state
 
-import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
@@ -11,7 +10,8 @@ import 'package:http/http.dart' as http;
 
 class DownloadProvider extends ChangeNotifier {
   final Map<String, SongDownload> _downloads = {};
-  final Map<String, HttpClient> _activeClients = {};
+  final Map<String, http.Client> _activeClients = {};
+  final Set<String> _cancelledDownloads = {};
   String? _currentAccountId;
 
   List<SongDownload> get activeDownloads => _downloads.values
@@ -23,6 +23,7 @@ class DownloadProvider extends ChangeNotifier {
       .toList();
 
   Future<void> cancelDownload(String songId) async {
+    _cancelledDownloads.add(songId);
     _activeClients[songId]?.close();
     _activeClients.remove(songId);
     _downloads.remove(songId);
@@ -33,7 +34,7 @@ class DownloadProvider extends ChangeNotifier {
     final d = _downloads[songId];
     if (d?.localPath != null) {
       try {
-        await File(d!.localPath!).delete();
+        await LocalStorageService.deleteSong(d!.localPath!);
       } catch (_) {}
     }
     _downloads.remove(songId);
@@ -69,31 +70,35 @@ class DownloadProvider extends ChangeNotifier {
       final uri = Uri.parse(streamUrl);
 
       final client = http.Client();
-      _activeClients[song.id] = HttpClient();
+      _activeClients[song.id] = client;
 
       final request = http.Request('GET', uri);
       final response = await client.send(request);
 
       final contentLength = response.contentLength ?? 0;
       int received = 0;
-
-      final file = File(path);
-      final sink = file.openWrite();
+      final bytes = BytesBuilder(copy: false);
 
       await for (final chunk in response.stream) {
-        sink.add(chunk);
+        if (_cancelledDownloads.contains(song.id)) {
+          throw _DownloadCancelled();
+        }
+        bytes.add(chunk);
         received += chunk.length;
         if (contentLength > 0) {
-          _downloads[song.id]!.progress = received / contentLength;
+          final download = _downloads[song.id];
+          if (download != null) {
+            download.progress = received / contentLength;
+          }
           notifyListeners();
         }
-
       }
 
-      await sink.flush();
-      await sink.close();
+      await LocalStorageService.writeSongBytes(path, bytes.takeBytes());
+
       client.close();
       _activeClients.remove(song.id);
+      _cancelledDownloads.remove(song.id);
 
       _downloads[song.id]!
         ..status = DownloadStatus.done
@@ -103,10 +108,17 @@ class DownloadProvider extends ChangeNotifier {
       await _saveManifest(accountId);
       notifyListeners();
     } catch (e) {
-      _downloads[song.id]!
-        ..status = DownloadStatus.error
-        ..error = e.toString();
+      if (e is! _DownloadCancelled) {
+        final download = _downloads[song.id];
+        if (download != null) {
+          download
+            ..status = DownloadStatus.error
+            ..error = e.toString();
+        }
+      }
+      _activeClients[song.id]?.close();
       _activeClients.remove(song.id);
+      _cancelledDownloads.remove(song.id);
       notifyListeners();
     }
   }
@@ -138,13 +150,18 @@ class DownloadProvider extends ChangeNotifier {
 
   Future<void> _loadManifest(String accountId) async {
     try {
-      final file = File(LocalStorageService.metaPath(accountId, 'downloads_manifest'));
-      if (!await file.exists()) return;
-      final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+      final raw = await LocalStorageService.readJsonMeta(
+        accountId,
+        'downloads_manifest',
+      );
+      if (raw == null) return;
       for (final entry in raw.entries) {
         final data = entry.value as Map<String, dynamic>;
         final localPath = data['localPath'] as String?;
-        if (localPath == null || !await File(localPath).exists()) continue;
+        if (localPath == null ||
+            !await LocalStorageService.songExists(localPath)) {
+          continue;
+        }
         final songData = data['song'] as Map<String, dynamic>?;
         _downloads[entry.key] = SongDownload(
           songId: entry.key,
@@ -160,7 +177,6 @@ class DownloadProvider extends ChangeNotifier {
   Future<void> _saveManifest(String accountId) async {
     try {
       await LocalStorageService.ensureDirs(accountId);
-      final file = File(LocalStorageService.metaPath(accountId, 'downloads_manifest'));
       final data = <String, dynamic>{};
       for (final entry in _downloads.entries) {
         if (entry.value.status == DownloadStatus.done && entry.value.localPath != null) {
@@ -170,7 +186,11 @@ class DownloadProvider extends ChangeNotifier {
           };
         }
       }
-      await file.writeAsString(jsonEncode(data));
+      await LocalStorageService.writeJsonMeta(
+        accountId,
+        'downloads_manifest',
+        data,
+      );
     } catch (_) {}
   }
 }
@@ -194,3 +214,5 @@ class SongDownload {
     this.songMeta,
   });
 }
+
+class _DownloadCancelled implements Exception {}

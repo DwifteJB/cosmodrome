@@ -334,6 +334,7 @@ class _HomePageState extends State<HomePage> {
       });
     }
 
+    if (!mounted) return;
     setState(() => _loading = _recentAlbums == null && _starredAlbums == null);
 
     try {

@@ -111,8 +111,10 @@ class Subsonic {
 
     loggerPrint('API request to $endpoint successful: ${root['status']}');
 
-    // save to cache
-    _apiCache[cacheKey] = ApiResultCache(root);
+    // keep ping/getUser uncached so connectivity/auth checks stay fresh.
+    if (!excludedPingEndpoints.contains(endpoint)) {
+      _apiCache[cacheKey] = ApiResultCache(root);
+    }
 
     return root;
   }

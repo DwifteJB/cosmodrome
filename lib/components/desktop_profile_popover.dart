@@ -2,6 +2,8 @@
 import 'package:cosmodrome/components/forms/add_server_form.dart';
 import 'package:cosmodrome/components/forms/add_user_form.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:cosmodrome/pages/downloads_page.dart';
+import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
@@ -97,6 +99,8 @@ class _DesktopAccountPopoverContentState
                   ? _buildActiveProfileCard(context, activeAccount, colors)
                   : _buildNoAccountPill(context, colors),
             ),
+            Container(height: 1, color: colors.border),
+            _buildDownloadsShortcut(context),
             // all profiles
             Container(height: 1, color: colors.border),
             _buildSectionHeader(
@@ -257,6 +261,59 @@ class _DesktopAccountPopoverContentState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDownloadsShortcut(BuildContext context) {
+    return Consumer<DownloadProvider>(
+      builder: (ctx, dl, _) {
+        final colors = context.theme.colors;
+        final count = dl.completedDownloads.length;
+        final active = dl.activeDownloads.length;
+
+        return GestureDetector(
+          onTap: () {
+            widget.onClose();
+            showDownloadsSheet(context);
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.download_rounded,
+                  size: 18,
+                  color: colors.foreground,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Downloads',
+                    style: context.theme.typography.sm.copyWith(
+                      color: colors.foreground,
+                    ),
+                  ),
+                ),
+                Text(
+                  active > 0
+                      ? '$count downloaded · $active active'
+                      : '$count song${count == 1 ? '' : 's'}',
+                  style: context.theme.typography.xs.copyWith(
+                    color: colors.mutedForeground,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  FIcons.chevronRight,
+                  size: 14,
+                  color: colors.mutedForeground,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
