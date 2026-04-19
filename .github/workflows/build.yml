@@ -11,7 +11,7 @@ on:
             - 'pubspec.yaml'
             - 'linux/**'
             - 'android/**'
-            - '.github/workflows/build-linux-android.yml'
+            - '.github/workflows/build.yml'
             - 'discord-rpc/**'
             - 'installer/**'
             - 'windows/**'
@@ -132,7 +132,7 @@ jobs:
             go install fyne.io/tools/cmd/fyne@latest
         
         - name: Install Flutter dependencies
-        - run: flutter pub get
+          run: flutter pub get
 
         - name: Build Windows bundle
           run: flutter build windows --release
