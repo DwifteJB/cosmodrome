@@ -84,13 +84,12 @@ class DesktopQueuePanel extends StatelessWidget {
             ),
             // queue list
             Expanded(
-              child: Selector<PlayerProvider, (List<Song>, String?)>(
-                selector: (_, p) => (p.queue, p.currentSong?.id),
-                shouldRebuild: (prev, next) =>
-                    prev.$2 != next.$2 || prev.$1.length != next.$1.length,
-                builder: (context, data, _) {
+              child: Selector<PlayerProvider, (int, int)>(
+                selector: (_, p) => (p.queueVersion, p.currentIndex),
+                builder: (context, _, _) {
                   final player = context.read<PlayerProvider>();
-                  final queue = data.$1;
+                  final queue = player.visibleQueue;
+                  final queueOffset = player.visibleQueueStartIndex;
                   if (queue.isEmpty) {
                     return Center(
                       child: Text(
@@ -106,11 +105,13 @@ class DesktopQueuePanel extends StatelessWidget {
                     itemCount: queue.length,
                     itemBuilder: (context, index) {
                       final song = queue[index];
+                      final absoluteIndex = queueOffset + index;
                       return _QueueItem(
-                        key: ValueKey(song.id),
-                        index: index,
+                        key: ValueKey('${song.id}_$absoluteIndex'),
+                        song: song,
+                        isCurrent: player.currentSong?.id == song.id,
                         player: player,
-                        onRemove: () => player.removeFromQueue(index),
+                        onRemove: () => player.removeFromQueue(absoluteIndex),
                       );
                     },
                   );
@@ -125,13 +126,15 @@ class DesktopQueuePanel extends StatelessWidget {
 }
 
 class _QueueItem extends StatefulWidget {
-  final int index;
+  final Song song;
+  final bool isCurrent;
   final PlayerProvider player;
   final VoidCallback onRemove;
 
   const _QueueItem({
     super.key,
-    required this.index,
+    required this.song,
+    required this.isCurrent,
     required this.player,
     required this.onRemove,
   });
@@ -147,8 +150,8 @@ class _QueueItemState extends State<_QueueItem> {
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
-    final song = widget.player.queue[widget.index];
-    final isCurrent = widget.player.currentSong?.id == song.id;
+    final song = widget.song;
+    final isCurrent = widget.isCurrent;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -227,8 +230,8 @@ class _QueueItemState extends State<_QueueItem> {
   @override
   void didUpdateWidget(_QueueItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final song = widget.player.queue[widget.index];
-    final oldSong = oldWidget.player.queue[oldWidget.index];
+    final song = widget.song;
+    final oldSong = oldWidget.song;
     if (song.id != oldSong.id) {
       _coverUrl = widget.player.coverArtUrlForSong(song);
     }
@@ -237,9 +240,7 @@ class _QueueItemState extends State<_QueueItem> {
   @override
   void initState() {
     super.initState();
-    _coverUrl = widget.player.coverArtUrlForSong(
-      widget.player.queue[widget.index],
-    );
+    _coverUrl = widget.player.coverArtUrlForSong(widget.song);
   }
 
   Widget _placeholder() {

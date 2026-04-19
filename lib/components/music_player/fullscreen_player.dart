@@ -18,6 +18,7 @@ import 'package:cosmodrome/utils/logger.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
@@ -26,6 +27,44 @@ class FullscreenPlayer extends StatefulWidget {
 
   @override
   State<FullscreenPlayer> createState() => _FullscreenPlayerState();
+}
+
+class _FadingAlbumArt extends StatelessWidget {
+  final String imageUrl;
+  final BoxFit fit;
+  final Widget Function(BuildContext context, Object error)? errorBuilder;
+
+  const _FadingAlbumArt({
+    required this.imageUrl,
+    required this.fit,
+    this.errorBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [...previousChildren, ?currentChild],
+        );
+      },
+      transitionBuilder: (child, animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: Image.network(
+        imageUrl,
+        key: ValueKey(imageUrl),
+        fit: fit,
+        errorBuilder: errorBuilder != null
+            ? (context, error, stackTrace) => errorBuilder!(context, error)
+            : null,
+      ),
+    );
+  }
 }
 
 class _FullscreenPlayerState extends State<FullscreenPlayer> {
@@ -93,12 +132,13 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                   sigmaY: 100,
                                   tileMode: TileMode.clamp,
                                 ),
-                                child: Image.network(
-                                  coverUrl,
+                                child: _FadingAlbumArt(
+                                  imageUrl: coverUrl,
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                              if ((_accentColor?.computeLuminance() ?? 0) < 0.15)
+                              if ((_accentColor?.computeLuminance() ?? 0) <
+                                  0.15)
                                 const DecoratedBox(
                                   decoration: BoxDecoration(
                                     color: Colors.black26,
@@ -194,20 +234,19 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(12),
                                         child: coverUrl != null
-                                            ? Image.network(
-                                                coverUrl,
+                                            ? _FadingAlbumArt(
+                                                imageUrl: coverUrl,
                                                 fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (ctx, err, stack) {
-                                                      final size =
-                                                          MediaQuery.of(
-                                                            context,
-                                                          ).size.width -
-                                                          64;
-                                                      return _coverPlaceholder(
-                                                        size,
-                                                      );
-                                                    },
+                                                errorBuilder: (ctx, err) {
+                                                  final size =
+                                                      MediaQuery.of(
+                                                        context,
+                                                      ).size.width -
+                                                      64;
+                                                  return _coverPlaceholder(
+                                                    size,
+                                                  );
+                                                },
                                               )
                                             : _coverPlaceholder(
                                                 MediaQuery.of(
@@ -435,10 +474,12 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                     // repeat
                                     IconButton(
                                       icon: Icon(
-                                        Icons.repeat_rounded,
-                                        color: player.repeat
-                                            ? accent
-                                            : Colors.white38,
+                                        player.repeatMode == LoopMode.one
+                                            ? Icons.repeat_one_rounded
+                                            : Icons.repeat_rounded,
+                                        color: player.repeatMode == LoopMode.off
+                                            ? Colors.white38
+                                            : accent,
                                         size: 26,
                                       ),
                                       onPressed: () => player.toggleRepeat(),
@@ -508,6 +549,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
           _cacheId = song.id;
         });
       }
+
       return AppColors.background;
     }
 
@@ -544,8 +586,9 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
         });
       }
 
-      loggerPrint('Accent color extracted for song: ${song.id}, luminance is ${color?.computeLuminance()}');
-
+      loggerPrint(
+        'Accent color extracted for song: ${song.id}, luminance is ${color?.computeLuminance()}',
+      );
 
       return color;
     } catch (_) {}
@@ -558,7 +601,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     if (_lastAccentSongId == song.id) return;
     _lastAccentSongId = song.id;
     _extractAccentColor(song);
-
   }
 
   void _scheduleDismiss() {

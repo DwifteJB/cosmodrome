@@ -7,12 +7,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 const _apiVersion = '1.16.1';
-const _cacheTTL = Duration(seconds: 45);
+const _cacheTTL = Duration(seconds: 60 * 5); // 5 minutes
 const _clientName = 'cosmodrome';
+
+final excludedPingEndpoints = {'ping.view', 'getUser'};
 
 // global cache — keyed as "baseUrl|username|endpoint?params"
 final Map<String, ApiResultCache<Map<String, dynamic>>> _apiCache = {};
-
 class ApiResultCache<T> {
   final T data;
   final DateTime timestamp;
@@ -42,10 +43,11 @@ class Subsonic {
     // check to see if theres a cached result that isn't expired
     final cacheKey =
         '$baseUrl|${auth.username}|$endpoint?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
-
-    loggerPrint("[Subsonic] API request for $cacheKey");
     final cached = _apiCache[cacheKey];
-    if (cached != null && !cached.isExpired) {
+
+    if (cached != null &&
+        !cached.isExpired &&
+        !excludedPingEndpoints.contains(endpoint)) {
       loggerPrint('Cache hit for $cacheKey');
       return cached.data;
     }

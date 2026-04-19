@@ -1,5 +1,5 @@
 /*
-  MOBILE ONLY 
+  MOBILE ONLY
   QUEUE SHEET
 
   USE SIDEBAR/SIDE SHEET FOR DESKTOP
@@ -32,55 +32,75 @@ class _QueueSheetState extends State<QueueSheet> {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
-        child: Consumer<PlayerProvider>(
-          builder: (context, player, _) {
-            final queue = player.queue;
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.theme.colors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Queue',
+                  style: context.theme.typography.xl.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: context.theme.colors.foreground,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Selector<PlayerProvider, (int, int)>(
+                selector: (_, p) => (p.queueVersion, p.currentIndex),
+                builder: (context, _, _) {
+                  final player = context.read<PlayerProvider>();
+                  final queue = player.visibleQueue;
+                  final queueOffset = player.visibleQueueStartIndex;
 
-            return Column(
-              children: [
-                const SizedBox(height: 12),
-                Center(
-                  child: Container(
-                    width: 32,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: context.theme.colors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Queue',
-                      style: context.theme.typography.xl.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: context.theme.colors.foreground,
+                  if (queue.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Queue is empty',
+                        style: context.theme.typography.sm.copyWith(
+                          color: context.theme.colors.mutedForeground,
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: ReorderableListView.builder(
-                    itemCount: queue.length,
+                    );
+                  }
+
+                  return ReorderableListView.builder(
                     key: const Key('queue_list'),
-                    onReorder: player.reorderQueue,
+                    itemCount: queue.length,
+                    onReorder: (oldIndex, newIndex) => player.reorderQueue(
+                      oldIndex + queueOffset,
+                      newIndex + queueOffset,
+                    ),
                     itemBuilder: (context, index) {
                       final song = queue[index];
+                      final absoluteIndex = queueOffset + index;
+                      final coverUrl = _idToCoverUrlCache.putIfAbsent(
+                        song.id,
+                        () => player.coverArtUrlForSong(song) ?? '',
+                      );
+
                       return TapArea(
-                        key: ValueKey(
-                          '${song.id}_$index.${song.title}.${song.artist}.${DateTime.now().millisecondsSinceEpoch}',
-                        ),
+                        key: ValueKey('${song.id}_$absoluteIndex'),
                         onTap: null,
                         child: ListTile(
                           leading: ClipRRect(
                             key: ValueKey('cover_${song.id}'),
                             borderRadius: BorderRadius.circular(4),
                             child: Image.network(
-                              _idToCoverUrlCache[song.id] ?? '',
-
+                              coverUrl,
                               width: 40,
                               height: 40,
                               fit: BoxFit.cover,
@@ -127,18 +147,19 @@ class _QueueSheetState extends State<QueueSheet> {
                                   color: context.theme.colors.mutedForeground,
                                   size: 20,
                                 ),
-                                onPressed: () => player.removeFromQueue(index),
+                                onPressed: () =>
+                                    player.removeFromQueue(absoluteIndex),
                               ),
                             ],
                           ),
                         ),
                       );
                     },
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -147,7 +168,7 @@ class _QueueSheetState extends State<QueueSheet> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final player = Provider.of<PlayerProvider>(context);
+    final player = Provider.of<PlayerProvider>(context, listen: false);
     _getAllCoverUrls(player.queue, player);
   }
 
@@ -159,7 +180,7 @@ class _QueueSheetState extends State<QueueSheet> {
   }
 
   void _getAllCoverUrls(List<Song> songs, PlayerProvider player) {
-    for (var song in songs) {
+    for (final song in songs) {
       if (!_idToCoverUrlCache.containsKey(song.id)) {
         _idToCoverUrlCache[song.id] = player.coverArtUrlForSong(song) ?? '';
       }
