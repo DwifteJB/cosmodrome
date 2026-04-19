@@ -113,9 +113,12 @@ jobs:
       steps:
         - uses: actions/checkout@v6
         # install flutter
-        - uses: subsosito/flutter-action@v2
+    
+        - uses: subosito/flutter-action@v2
           with:
-            channel: stable
+              channel: stable
+              cache: true
+
         # install golang
         - uses: actions/setup-go@v6
           with:
