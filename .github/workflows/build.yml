@@ -19,7 +19,7 @@ on:
         branches: [main]
 
 jobs:
-    build-linux:
+    linux:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
                       cosmodrome_installer
                       app.zip
 
-    build-android:
+    android:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
                   name: cosmodrome-android
                   path: app-android.zip
 
-    build-windows:
+    windows:
       permissions:
         contents: read
       runs-on: windows-latest

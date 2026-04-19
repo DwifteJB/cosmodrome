@@ -40,6 +40,11 @@ You can fully play through & search for whatever albums you have on your subsoni
 
 You can fully play, browse, create & edit playlists in the app.
 
+
+### Downloads
+
+Data within the app is cached, so when you open it without access to the server, you'll be able to use any downloaded song.
+
 ### Artist View
 
 TBD
