@@ -166,12 +166,19 @@ class RpcBridge extends ChangeNotifier {
         p.join(exeDir, 'bin', _executableName),
       ]);
     } else if (Platform.isMacOS) {
-      final exeDir = p.dirname(Platform.resolvedExecutable);
-      final resourcesDir = p.join(exeDir, '..', 'Resources');
+      final exeDir = p.dirname(
+        Platform.resolvedExecutable,
+      ); // same as Contents/MacOS/
+      final resourcesDir = p.join(
+        exeDir,
+        '..',
+        'Resources',
+      ); // same as Contents/Resources/
       candidates.addAll([
         p.join(resourcesDir, _executableName),
         p.join(exeDir, _executableName),
         '/Applications/cosmodrome.app/Contents/Resources/$_executableName',
+        '/Applications/cosmodrome.app/Contents/MacOS/$_executableName',
       ]);
     } else if (Platform.isLinux) {
       final exeDir = p.dirname(Platform.resolvedExecutable);

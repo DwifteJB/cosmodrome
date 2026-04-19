@@ -124,6 +124,19 @@ class Album {
           : null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'artist': artist,
+    if (artistId != null) 'artistId': artistId,
+    if (coverArt != null) 'coverArt': coverArt,
+    'songCount': songCount,
+    'duration': duration,
+    if (year != null) 'year': year,
+    if (genre != null) 'genre': genre,
+    if (starred != null) 'starred': starred!.toIso8601String(),
+  };
 }
 
 class Song {
@@ -136,6 +149,8 @@ class Song {
   final String? coverArt;
   final int? samplingRate;
   final int? bitRate;
+  final String? suffix;
+  final DateTime? starred;
 
   Song({
     required this.id,
@@ -147,6 +162,8 @@ class Song {
     this.coverArt,
     this.samplingRate,
     this.bitRate,
+    this.suffix,
+    this.starred,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
@@ -160,8 +177,26 @@ class Song {
       coverArt: json['coverArt'] as String?,
       samplingRate: (json['samplingRate'] as num?)?.toInt(),
       bitRate: (json['bitRate'] as num?)?.toInt(),
+      suffix: json['suffix'] as String?,
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    if (artist != null) 'artist': artist,
+    if (album != null) 'album': album,
+    if (track != null) 'track': track,
+    if (duration != null) 'duration': duration,
+    if (coverArt != null) 'coverArt': coverArt,
+    if (samplingRate != null) 'samplingRate': samplingRate,
+    if (bitRate != null) 'bitRate': bitRate,
+    if (suffix != null) 'suffix': suffix,
+    if (starred != null) 'starred': starred!.toIso8601String(),
+  };
 }
 
 class Artist {
@@ -190,6 +225,14 @@ class Artist {
           : null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'albumCount': albumCount,
+    if (coverArt != null) 'coverArt': coverArt,
+    if (starred != null) 'starred': starred!.toIso8601String(),
+  };
 }
 
 class Playlist {
@@ -225,6 +268,17 @@ class Playlist {
       public: json['public'] as bool? ?? false,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    if (comment != null) 'comment': comment,
+    'songCount': songCount,
+    'duration': duration,
+    if (coverArt != null) 'coverArt': coverArt,
+    'owner': owner,
+    'public': public,
+  };
 }
 
 class PlaylistDetail extends Playlist {

@@ -11,6 +11,15 @@ void clearCoverArtCache() => _coverArtUrlCache.clear();
 
 extension SubsonicBrowsingApi on Subsonic {
   // https://www.subsonic.org/pages/api.jsp#getIndexes
+  /// Returns a cached version of [coverArtUrl]. Safe to use in Image.network() since the URL will never change for a given id and size, but must be cleared when the active account changes.
+  String cachedCoverArtUrl(String id, {int size = 300}) {
+    final key = '$baseUrl|$id|$size';
+    return _coverArtUrlCache.putIfAbsent(
+      key,
+      () => coverArtUrl(id, size: size),
+    );
+  }
+
   /// Builds a cover art URL without making an HTTP request.
   /// NOT Safe to use directly in Image.network()!!! MAKE SURE TO CACHE!!!
   String coverArtUrl(String id, {int size = 300}) {
@@ -27,34 +36,22 @@ extension SubsonicBrowsingApi on Subsonic {
     return Uri.http(baseUrl, '/rest/getCoverArt', query).toString();
   }
 
-  /// Returns a cached version of [coverArtUrl]. Safe to use in Image.network() since the URL will never change for a given id and size, but must be cleared when the active account changes.
-  String cachedCoverArtUrl(String id, {int size = 300}) {
-    final key = '$baseUrl|$id|$size';
-    return _coverArtUrlCache.putIfAbsent(
-      key,
-      () => coverArtUrl(id, size: size),
-    );
-  }
-
-  // https://www.subsonic.org/pages/api.jsp#star
-  Future<bool> starAlbum(String albumId) async {
+  // creates a new empty playlist and returns the new playlist id.
+  Future<String?> createNewPlaylist(String name) async {
     try {
-      await apiRequest('star', params: {'albumId': albumId});
-      return true;
-    } catch (e) {
-      loggerPrint('Error starring album $albumId: $e');
-      return false;
-    }
-  }
+      final response = await apiRequest(
+        'createPlaylist',
+        params: {'name': name},
+      );
+      final playlist = response['playlist'] as Map<String, dynamic>?;
 
-  // https://www.subsonic.org/pages/api.jsp#unstar
-  Future<bool> unstarAlbum(String albumId) async {
-    try {
-      await apiRequest('unstar', params: {'albumId': albumId});
-      return true;
+      // created new playlist, so clear anything that gives us playlist
+      clearCacheStartingWith("getPlaylists");
+      
+      return playlist?['id'] as String?;
     } catch (e) {
-      loggerPrint('Error unstarring album $albumId: $e');
-      return false;
+      loggerPrint('Error creating playlist: $e');
+      return null;
     }
   }
 
@@ -161,6 +158,19 @@ extension SubsonicBrowsingApi on Subsonic {
     }
   }
 
+  // https://www.subsonic.org/pages/api.jsp#getPlaylist
+  Future<PlaylistDetail?> getPlaylist(String id) async {
+    try {
+      final response = await apiRequest('getPlaylist', params: {'id': id});
+      final json = response['playlist'] as Map<String, dynamic>?;
+      if (json == null) return null;
+      return PlaylistDetail.fromJson(json);
+    } catch (e) {
+      loggerPrint('Error fetching playlist $id: $e');
+      return null;
+    }
+  }
+
   // https://www.subsonic.org/pages/api.jsp#getPlaylists
   Future<List<Playlist>> getPlaylists() async {
     try {
@@ -178,74 +188,6 @@ extension SubsonicBrowsingApi on Subsonic {
     }
   }
 
-  // https://www.subsonic.org/pages/api.jsp#getPlaylist
-  Future<PlaylistDetail?> getPlaylist(String id) async {
-    try {
-      final response = await apiRequest('getPlaylist', params: {'id': id});
-      final json = response['playlist'] as Map<String, dynamic>?;
-      if (json == null) return null;
-      return PlaylistDetail.fromJson(json);
-    } catch (e) {
-      loggerPrint('Error fetching playlist $id: $e');
-      return null;
-    }
-  }
-
-  // https://www.subsonic.org/pages/api.jsp#updatePlaylist
-  Future<void> updatePlaylist({
-    required String playlistId,
-    String? name,
-    String? songIdToAdd,
-    int? songIndexToRemove,
-  }) async {
-    try {
-      await apiRequest(
-        'updatePlaylist',
-        params: {
-          'playlistId': playlistId,
-          'name': ?name,
-          'songIdToAdd': ?songIdToAdd,
-          if (songIndexToRemove != null)
-            'songIndexToRemove': '$songIndexToRemove',
-        },
-      );
-    } catch (e) {
-      loggerPrint('Error updating playlist $playlistId: $e');
-      rethrow;
-    }
-  }
-
-  // creates a new empty playlist and returns the new playlist id.
-  Future<String?> createNewPlaylist(String name) async {
-    try {
-      final response = await apiRequest(
-        'createPlaylist',
-        params: {'name': name},
-      );
-      final playlist = response['playlist'] as Map<String, dynamic>?;
-      return playlist?['id'] as String?;
-    } catch (e) {
-      loggerPrint('Error creating playlist: $e');
-      return null;
-    }
-  }
-
-  // replaces all songs with a given list
-  Future<void> replacePlaylistSongs(
-    String playlistId,
-    List<String> songIds,
-  ) async {
-    try {
-      await multiParamRequest(
-        'createPlaylist',
-        params: {'playlistId': playlistId, 'songId': songIds},
-      );
-    } catch (e) {
-      loggerPrint('Error replacing playlist songs $playlistId: $e');
-      rethrow;
-    }
-  }
-
   // https://www.subsonic.org/pages/api.jsp#getRandomSongs
   Future<List<Song>> getRandomSongs({int count = 10}) async {
     try {
@@ -260,6 +202,24 @@ extension SubsonicBrowsingApi on Subsonic {
     } catch (e) {
       loggerPrint('Error fetching random songs: $e');
       return [];
+    }
+  }
+
+  // replaces all songs with a given list
+  Future<void> replacePlaylistSongs(
+    String playlistId,
+    List<String> songIds,
+  ) async {
+    try {
+      await multiParamRequest(
+        'createPlaylist',
+        params: {'playlistId': playlistId, 'songId': songIds},
+      );
+      clearCacheStartingWith("getPlaylist?id=$playlistId");
+      clearCacheStartingWith("getPlaylists");
+    } catch (e) {
+      loggerPrint('Error replacing playlist songs $playlistId: $e');
+      rethrow;
     }
   }
 
@@ -287,6 +247,85 @@ extension SubsonicBrowsingApi on Subsonic {
     } catch (e) {
       loggerPrint('Error searching songs: $e');
       return [];
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#star
+  Future<bool> starAlbum(String albumId) async {
+    try {
+      await apiRequest('star', params: {'albumId': albumId});
+
+      // since we starred, we gotta clear cache cuz everything will be stale now
+      clearCacheStartingWith("getAlbum");
+      clearCacheStartingWith("getAlbumList2");
+
+      return true;
+    } catch (e) {
+      loggerPrint('Error starring album $albumId: $e');
+      return false;
+    }
+  }
+
+  Future<bool> starSong(String id) async {
+    try {
+      await apiRequest('star', params: {'id': id});
+      clearCacheStartingWith("getAlbum");
+      return true;
+    } catch (e) {
+      loggerPrint('Error starring song $id: $e');
+      return false;
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#unstar
+  Future<bool> unstarAlbum(String albumId) async {
+    try {
+      await apiRequest('unstar', params: {'albumId': albumId});
+
+      // since we starred, we gotta clear cache cuz everything will be stale now
+      clearCacheStartingWith("getAlbum");
+      clearCacheStartingWith("getAlbumList2");
+      return true;
+    } catch (e) {
+      loggerPrint('Error unstarring album $albumId: $e');
+      return false;
+    }
+  }
+
+  Future<bool> unstarSong(String id) async {
+    try {
+      await apiRequest('unstar', params: {'id': id});
+      clearCacheStartingWith("getAlbum");
+      return true;
+    } catch (e) {
+      loggerPrint('Error unstarring song $id: $e');
+      return false;
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#updatePlaylist
+  Future<void> updatePlaylist({
+    required String playlistId,
+    String? name,
+    String? songIdToAdd,
+    int? songIndexToRemove,
+  }) async {
+    try {
+      await apiRequest(
+        'updatePlaylist',
+        params: {
+          'playlistId': playlistId,
+          'name': ?name,
+          'songIdToAdd': ?songIdToAdd,
+          if (songIndexToRemove != null)
+            'songIndexToRemove': '$songIndexToRemove',
+        },
+      );
+      clearCacheStartingWith("getPlaylist?id=$playlistId");
+      clearCacheStartingWith("getPlaylists");
+    } catch (e) {
+      loggerPrint('Error updating playlist $playlistId: $e');
+      rethrow;
     }
   }
 }

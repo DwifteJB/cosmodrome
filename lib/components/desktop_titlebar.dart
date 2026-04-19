@@ -52,7 +52,7 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
             ),
           ),
 
-          // Back button
+          // back button (to change?)
           if (widget.canGoBack)
             Positioned(
               left: 8,
@@ -66,7 +66,7 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
               ),
             ),
 
-          // Right side: queue toggle + window controls
+          // on the right, queue & window controls
           Positioned(
             right: 0,
             top: 0,
@@ -74,7 +74,7 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Queue toggle button
+                // queue toggle top right
                 _TitlebarButton(
                   icon: FIcons.listMusic,
                   onPressed: widget.onToggleQueue ?? () {},

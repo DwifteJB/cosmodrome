@@ -15,7 +15,6 @@ class TopbarButton {
 class LayoutConfig {
   final String? title;
   final List<TopbarButton> buttons;
-  final Widget Function(BuildContext)? topBarBuilder;
   final Widget Function(BuildContext)? mainPillBuilder;
   final Widget Function(BuildContext)? searchPillBuilder;
   final bool hidePill;
@@ -25,7 +24,6 @@ class LayoutConfig {
   const LayoutConfig({
     this.title,
     this.buttons = const [],
-    this.topBarBuilder,
     this.mainPillBuilder,
     this.searchPillBuilder,
     this.hidePill = false,

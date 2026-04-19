@@ -38,7 +38,7 @@ String uriToTitle(String uri) {
     case '/home':
       return 'Home';
     case '/library':
-      return 'your library';
+      return 'your albums';
     default:
       // try get from _mobilenavItems
       final item = _mobilenavItems.firstWhere(
@@ -144,8 +144,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     layoutConfig.removeListener(_onLayoutConfigChanged);
     accentColorNotifier.removeListener(_onAccentChanged);
     coverUrlNotifier.removeListener(_onCoverUrlChanged);
-    starredSidebarVersion.removeListener(_onStarredSidebarChanged);
-    playlistsSidebarVersion.removeListener(_onPlaylistsSidebarChanged);
+    starredCountChanged.removeListener(_onStarredSidebarChanged);
+    playlistsCountChanged.removeListener(_onPlaylistsSidebarChanged);
     aniu.dispose();
     super.dispose();
   }
@@ -163,8 +163,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     layoutConfig.addListener(_onLayoutConfigChanged);
     accentColorNotifier.addListener(_onAccentChanged);
     coverUrlNotifier.addListener(_onCoverUrlChanged);
-    starredSidebarVersion.addListener(_onStarredSidebarChanged);
-    playlistsSidebarVersion.addListener(_onPlaylistsSidebarChanged);
+    starredCountChanged.addListener(_onStarredSidebarChanged);
+    playlistsCountChanged.addListener(_onPlaylistsSidebarChanged);
 
     for (final menu in _navMenus) {
       _desktopMenuExpanded[menu.label] = true;
@@ -671,7 +671,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                         child: widget.child,
                       ),
                     ),
-                    SizedBox(height: navHeight + bottomPadding),
+                    // extra space at the bottom to allow scrolling content above the floating nav
+                    SizedBox(height: navHeight + bottomPadding + 60),
                   ],
                 ),
               ),
@@ -798,18 +799,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   Widget _buildMobileTopBar(BuildContext context) {
-    // mixin allows pages to fully replace the top bar if they want, so check for that first
-    if (_layoutConfig.topBarBuilder != null) {
-      return FadeTransition(
-        opacity: aniu.drive(
-          Tween(begin: 1.0, end: 0.0).chain(
-            CurveTween(curve: const Interval(0.0, 0.3, curve: Curves.easeOut)),
-          ),
-        ),
-        child: _layoutConfig.topBarBuilder!(context),
-      );
-    }
-
     final colors = context.theme.colors;
     final topPadding = MediaQuery.of(context).padding.top;
 
@@ -858,7 +847,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
               Text(
                 _getPageTitle(),
                 style: context.theme.typography.xl2.copyWith(
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w400,
                   height: 0,
                   color: colors.foreground,
                 ),

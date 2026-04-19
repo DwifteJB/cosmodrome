@@ -8,7 +8,6 @@ import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:cosmodrome/utils/is_colour_too_dark.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:cosmodrome/utils/sidebar_notifier.dart';
@@ -396,15 +395,6 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
       final color =
           generator.vibrantColor?.color ?? generator.dominantColor?.color;
       // figure out if its too dark
-      final tooDark = isColourTooDark(color ?? AppColors.auraColor);
-
-      if (tooDark) {
-        if (mounted) accentColorNotifier.value = AppColors.auraColor;
-        setState(() {
-          _localCoverColor = AppColors.auraColor;
-        });
-        return;
-      }
 
       if (mounted) accentColorNotifier.value = color;
       setState(() {
@@ -611,7 +601,6 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     layoutConfig.value = LayoutConfig(
       title: cur.title,
       buttons: pageButtons,
-      topBarBuilder: cur.topBarBuilder,
       mainPillBuilder: cur.mainPillBuilder,
       searchPillBuilder: cur.searchPillBuilder,
       hidePill: cur.hidePill,

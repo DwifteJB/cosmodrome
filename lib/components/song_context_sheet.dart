@@ -1,5 +1,6 @@
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/sidebar_notifier.dart';
@@ -84,7 +85,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
             const SizedBox(height: 12),
             _handle(colors),
             const SizedBox(height: 8),
-            // Song header
+            // song header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
@@ -175,6 +176,83 @@ class _SongContextSheetState extends State<_SongContextSheet> {
               ),
               onTap: _goToPlaylistPicker,
             ),
+            Consumer2<DownloadProvider, SubsonicProvider>(
+              builder: (ctx, dl, sp, _) {
+                final d = dl.getDownload(widget.song.id);
+                final status = d?.status ?? DownloadStatus.idle;
+
+                if (status == DownloadStatus.done) {
+                  return ListTile(
+                    leading: const Icon(
+                      Icons.download_done_rounded,
+                      color: Colors.greenAccent,
+                    ),
+                    title: Text(
+                      'Downloaded',
+                      style: TextStyle(color: colors.foreground),
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
+                      onPressed: () => dl.deleteDownload(widget.song.id),
+                    ),
+                  );
+                }
+
+                if (status == DownloadStatus.downloading) {
+                  final pct = ((d?.progress ?? 0) * 100).round();
+                  return ListTile(
+                    leading: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        value: d?.progress,
+                        strokeWidth: 2,
+                        color: colors.foreground,
+                      ),
+                    ),
+                    title: Text(
+                      '$pct% downloading…',
+                      style: TextStyle(color: colors.mutedForeground),
+                    ),
+                    trailing: IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        color: colors.mutedForeground,
+                        size: 18,
+                      ),
+                      onPressed: () => dl.cancelDownload(widget.song.id),
+                    ),
+                  );
+                }
+
+                if (status == DownloadStatus.error) {
+                  return ListTile(
+                    leading: const Icon(
+                      Icons.error_outline,
+                      color: Colors.redAccent,
+                    ),
+                    title: Text(
+                      'Download failed - tap to retry',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                    onTap: () => dl.retryDownload(widget.song, sp),
+                  );
+                }
+
+                return ListTile(
+                  leading: Icon(Icons.download_rounded, color: colors.foreground),
+                  title: Text(
+                    'Download',
+                    style: TextStyle(color: colors.foreground),
+                  ),
+                  onTap: () => dl.downloadSong(widget.song, sp),
+                );
+              },
+            ),
             if (widget.onRemoveFromPlaylist != null)
               ListTile(
                 leading: const Icon(
@@ -210,7 +288,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
             const SizedBox(height: 12),
             _handle(colors),
             const SizedBox(height: 4),
-            // Back + title row
+            // back & title row
             Row(
               children: [
                 IconButton(
@@ -243,7 +321,7 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                 ),
               )
             else ...[
-              // New playlist option
+              // new playlist button
               ListTile(
                 leading: Container(
                   width: 40,

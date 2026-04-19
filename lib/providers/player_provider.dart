@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
@@ -9,7 +11,12 @@ import 'package:just_audio_background/just_audio_background.dart';
 
 class PlayerProvider extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
-  List<Song> _queue = [];
+
+  // canonical ordered list — always kept in sync regardless of shuffle state
+  List<Song> _songs = [];
+  // shuffled view — populated only when shuffle is on
+  List<Song> _shuffledSongs = [];
+
   int _currentIndex = -1;
   bool _isPlaying = false;
   Duration _position = Duration.zero;
@@ -19,6 +26,8 @@ class PlayerProvider extends ChangeNotifier {
   bool _repeat = false;
   double _volume = 1.0;
 
+  DownloadProvider? _downloadProvider;
+
   // Cached once per song so Image.network gets a stable URL.
   String? _cachedCoverArtUrl;
   String? _cachedSongId;
@@ -26,6 +35,8 @@ class PlayerProvider extends ChangeNotifier {
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration?>? _durationSub;
   StreamSubscription<PlayerState>? _stateSub;
+
+  List<Song> get _activeQueue => _shuffle ? _shuffledSongs : _songs;
 
   PlayerProvider() {
     _positionSub = _player.positionStream.listen((pos) {
@@ -47,26 +58,39 @@ class PlayerProvider extends ChangeNotifier {
 
   String? get currentCoverArtUrl => _cachedCoverArtUrl;
 
-  Song? get currentSong => _currentIndex >= 0 && _currentIndex < _queue.length
-      ? _queue[_currentIndex]
-      : null;
+  Song? get currentSong =>
+      _currentIndex >= 0 && _currentIndex < _activeQueue.length
+          ? _activeQueue[_currentIndex]
+          : null;
 
   Duration get duration => _duration;
   bool get hasCurrentSong => currentSong != null;
   bool get isPlaying => _isPlaying;
   Duration get position => _position;
-  List<Song> get queue => List.unmodifiable(_queue);
+  List<Song> get queue => List.unmodifiable(_activeQueue);
   bool get repeat => _repeat;
   bool get shuffle => _shuffle;
   double get volume => _volume;
 
   Future<void> addBulkToQueue(List<Song> songs) async {
-    _queue.addAll(songs);
+    _songs.addAll(songs);
+    if (_shuffle) {
+      // shuffle only the new songs and insert them after the current position
+      final newSongs = List<Song>.from(songs)..shuffle(math.Random());
+      final insertAt = (_currentIndex + 1).clamp(0, _shuffledSongs.length);
+      _shuffledSongs.insertAll(insertAt, newSongs);
+    }
     notifyListeners();
   }
 
   Future<void> addToQueue(Song song) async {
-    _queue.add(song);
+    _songs.add(song);
+    if (_shuffle) {
+      // insert at a random position after the current song
+      final remaining = _shuffledSongs.length - (_currentIndex + 1);
+      final offset = remaining > 0 ? math.Random().nextInt(remaining + 1) : 0;
+      _shuffledSongs.insert(_currentIndex + 1 + offset, song);
+    }
     notifyListeners();
   }
 
@@ -93,8 +117,14 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> playAlbum(List<Song> songs, {bool shuffle = false}) async {
     if (songs.isEmpty) return;
-    _queue = List.from(songs);
-    if (shuffle) _queue.shuffle();
+    _songs = List.from(songs);
+    _shuffledSongs = [];
+    if (shuffle) {
+      _shuffledSongs = List.from(_songs)..shuffle(math.Random());
+      _shuffle = true;
+    } else {
+      _shuffle = false;
+    }
     _currentIndex = 0;
     _updateCoverArtCache();
     notifyListeners();
@@ -103,7 +133,10 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> playNow(Song song) async {
     final pos = _currentIndex < 0 ? 0 : _currentIndex;
-    _queue.insert(pos, song);
+    _songs.insert(pos, song);
+    if (_shuffle) {
+      _shuffledSongs.insert(pos, song);
+    }
     _currentIndex = pos;
     _updateCoverArtCache();
     notifyListeners();
@@ -111,13 +144,20 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> removeFromQueue(int index) async {
-    if (index < 0 || index >= _queue.length) return;
-    _queue.removeAt(index);
+    if (index < 0 || index >= _activeQueue.length) return;
+    final songId = _activeQueue[index].id;
+    if (_shuffle) {
+      _shuffledSongs.removeAt(index);
+      final idxInSongs = _songs.indexWhere((s) => s.id == songId);
+      if (idxInSongs >= 0) _songs.removeAt(idxInSongs);
+    } else {
+      _songs.removeAt(index);
+    }
     if (index < _currentIndex) {
       _currentIndex--;
     } else if (index == _currentIndex) {
-      if (_currentIndex >= _queue.length) {
-        _currentIndex = _queue.length - 1;
+      if (_currentIndex >= _activeQueue.length) {
+        _currentIndex = _activeQueue.length - 1;
       }
       if (_currentIndex >= 0) {
         _updateCoverArtCache();
@@ -129,8 +169,13 @@ class PlayerProvider extends ChangeNotifier {
 
   void reorderQueue(int oldIndex, int newIndex) {
     if (oldIndex < newIndex) newIndex -= 1;
-    final song = _queue.removeAt(oldIndex);
-    _queue.insert(newIndex, song);
+    if (_shuffle) {
+      final song = _shuffledSongs.removeAt(oldIndex);
+      _shuffledSongs.insert(newIndex, song);
+    } else {
+      final song = _songs.removeAt(oldIndex);
+      _songs.insert(newIndex, song);
+    }
     if (oldIndex == _currentIndex) {
       _currentIndex = newIndex;
     } else if (oldIndex < _currentIndex && newIndex >= _currentIndex) {
@@ -142,7 +187,8 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> resetQueue() async {
-    _queue.clear();
+    _songs.clear();
+    _shuffledSongs.clear();
     _currentIndex = -1;
     _updateCoverArtCache();
     notifyListeners();
@@ -153,6 +199,10 @@ class PlayerProvider extends ChangeNotifier {
     await _player.seek(pos);
   }
 
+  void setDownloadProvider(DownloadProvider dp) {
+    _downloadProvider = dp;
+  }
+
   Future<void> setVolume(double v) async {
     await _player.setVolume(v);
     _volume = v;
@@ -160,7 +210,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> skipNext() async {
-    if (_currentIndex >= _queue.length - 1) {
+    if (_currentIndex >= _activeQueue.length - 1) {
       if (_repeat) {
         _currentIndex = 0;
         _updateCoverArtCache();
@@ -170,7 +220,7 @@ class PlayerProvider extends ChangeNotifier {
       }
       await _fetchAndAppendRandom();
     }
-    if (_currentIndex < _queue.length - 1) {
+    if (_currentIndex < _activeQueue.length - 1) {
       _currentIndex++;
       _updateCoverArtCache();
       notifyListeners();
@@ -203,7 +253,24 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void toggleShuffle() {
-    _shuffle = !_shuffle;
+    final currentSongId = currentSong?.id;
+    if (!_shuffle) {
+      // turning ON: shuffle _songs into _shuffledSongs, track current song's new position
+      _shuffledSongs = List.from(_songs)..shuffle(math.Random());
+      _shuffle = true;
+      if (currentSongId != null) {
+        final idx = _shuffledSongs.indexWhere((s) => s.id == currentSongId);
+        if (idx >= 0) _currentIndex = idx;
+      }
+    } else {
+      // turning OFF: restore _songs order, find current song's original position
+      _shuffle = false;
+      _shuffledSongs = [];
+      if (currentSongId != null) {
+        final idx = _songs.indexWhere((s) => s.id == currentSongId);
+        if (idx >= 0) _currentIndex = idx;
+      }
+    }
     notifyListeners();
   }
 
@@ -216,8 +283,7 @@ class PlayerProvider extends ChangeNotifier {
     if (_subsonicProvider == null) return;
     try {
       final songs = await _subsonicProvider!.subsonic.getRandomSongs(count: 10);
-      _queue.addAll(songs);
-      notifyListeners();
+      await addBulkToQueue(songs);
     } catch (_) {}
   }
 
@@ -226,7 +292,10 @@ class PlayerProvider extends ChangeNotifier {
     final song = currentSong;
     if (song == null) return;
     try {
-      final url = _subsonicProvider!.subsonic.streamUrl(song.id);
+      final localPath = _downloadProvider?.getLocalPath(song.id);
+      final url = localPath != null
+          ? Uri.file(localPath).toString()
+          : _subsonicProvider!.subsonic.streamUrl(song.id);
 
       await _player.setUrl(
         url,

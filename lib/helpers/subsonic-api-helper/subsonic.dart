@@ -7,7 +7,20 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 const _apiVersion = '1.16.1';
+const _cacheTTL = Duration(seconds: 45);
 const _clientName = 'cosmodrome';
+
+// global cache — keyed as "baseUrl|username|endpoint?params"
+final Map<String, ApiResultCache<Map<String, dynamic>>> _apiCache = {};
+
+class ApiResultCache<T> {
+  final T data;
+  final DateTime timestamp;
+
+  ApiResultCache(this.data) : timestamp = DateTime.now();
+
+  bool get isExpired => DateTime.now().difference(timestamp) > _cacheTTL;
+}
 
 class Subsonic {
   final String baseUrl; // includes port e.g. localhost:4455
@@ -26,6 +39,20 @@ class Subsonic {
     Map<String, String> params = const {},
     int timeoutSeconds = 5,
   }) async {
+    // check to see if theres a cached result that isn't expired
+    final cacheKey =
+        '$baseUrl|${auth.username}|$endpoint?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+
+    loggerPrint("[Subsonic] API request for $cacheKey");
+    final cached = _apiCache[cacheKey];
+    if (cached != null && !cached.isExpired) {
+      loggerPrint('Cache hit for $cacheKey');
+      return cached.data;
+    }
+
+    // cleanup old cache entries
+    _apiCache.removeWhere((key, value) => value.isExpired);
+
     final tok = auth.generateToken();
     final query = {
       'u': auth.username,
@@ -40,7 +67,7 @@ class Subsonic {
     final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
     loggerPrint('Making API request to $uri');
     final response = await http
-        .get(uri, headers: {'timeout': timeoutSeconds.toString()})
+        .get(uri)
         .timeout(
           Duration(seconds: timeoutSeconds),
           onTimeout: () {
@@ -82,6 +109,9 @@ class Subsonic {
 
     loggerPrint('API request to $endpoint successful: ${root['status']}');
 
+    // save to cache
+    _apiCache[cacheKey] = ApiResultCache(root);
+
     return root;
   }
 
@@ -114,6 +144,11 @@ class Subsonic {
     return response.bodyBytes;
   }
 
+  void clearCacheStartingWith(String endpoint) {
+    final prefix = '$baseUrl|${auth.username}|$endpoint';
+    _apiCache.removeWhere((key, value) => key.startsWith(prefix));
+  }
+
   Future<Map<String, dynamic>> multiParamRequest(
     String endpoint, {
     Map<String, dynamic> params = const {},
@@ -132,7 +167,7 @@ class Subsonic {
     final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
     loggerPrint('Making multi-param API request to $uri');
     final response = await http
-        .get(uri, headers: {'timeout': timeoutSeconds.toString()})
+        .get(uri)
         .timeout(
           Duration(seconds: timeoutSeconds),
           onTimeout: () {
