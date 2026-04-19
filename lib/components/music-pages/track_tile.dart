@@ -117,65 +117,65 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    trackLabel,
-                    style: context.theme.typography.xs.copyWith(
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      trackLabel,
+                      style: context.theme.typography.xs.copyWith(
                         color: widget.enabled
                             ? AppColors.trackNumber
                             : disabledText,
-                      letterSpacing: -0.5,
-                      fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        song.title,
-                        style: context.theme.typography.sm.copyWith(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          song.title,
+                          style: context.theme.typography.sm.copyWith(
                             color: !widget.enabled
                                 ? disabledText
                                 : (isPlaying
                                       ? widget.accentColor
                                       : context.theme.colors.foreground),
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.05,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (showArtist)
-                        Text(
-                          song.artist!,
-                          style: context.theme.typography.xs.copyWith(
-                              color: widget.enabled
-                                  ? AppColors.trackNumber
-                                  : disabledText,
+                            fontWeight: FontWeight.w400,
                             letterSpacing: -0.05,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                    ],
+                        if (showArtist)
+                          Text(
+                            song.artist!,
+                            style: context.theme.typography.xs.copyWith(
+                              color: widget.enabled
+                                  ? AppColors.trackNumber
+                                  : disabledText,
+                              letterSpacing: -0.05,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                if (song.duration != null)
-                  Text(
-                    formatTrackDuration(song.duration!),
-                    style: context.theme.typography.sm.copyWith(
+                  if (song.duration != null)
+                    Text(
+                      formatTrackDuration(song.duration!),
+                      style: context.theme.typography.sm.copyWith(
                         color: widget.enabled
                             ? context.theme.colors.mutedForeground
                             : disabledText,
+                      ),
                     ),
-                  ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   if (widget.enabled)
                     DesktopSongPopover(
                       song: song,
@@ -198,9 +198,9 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
                         ),
                       ),
                     ),
-              ],
+                ],
+              ),
             ),
-          ),
           ),
         ),
       ),

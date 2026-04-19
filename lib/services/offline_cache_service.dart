@@ -123,8 +123,11 @@ class OfflineCacheService {
         return null;
       }
 
-      final timestamp = DateTime.tryParse(envelope['timestamp'] as String? ?? '');
-      if (timestamp == null || DateTime.now().difference(timestamp) > _offlineTTL) {
+      final timestamp = DateTime.tryParse(
+        envelope['timestamp'] as String? ?? '',
+      );
+      if (timestamp == null ||
+          DateTime.now().difference(timestamp) > _offlineTTL) {
         loggerPrint('OfflineCache: expired cache for $key, discarding');
         return null;
       }

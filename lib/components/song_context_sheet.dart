@@ -247,7 +247,10 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                 }
 
                 return ListTile(
-                  leading: Icon(Icons.download_rounded, color: colors.foreground),
+                  leading: Icon(
+                    Icons.download_rounded,
+                    color: colors.foreground,
+                  ),
                   title: Text(
                     'Download',
                     style: TextStyle(color: colors.foreground),

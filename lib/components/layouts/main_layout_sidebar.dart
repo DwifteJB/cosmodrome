@@ -99,7 +99,8 @@ class MainLayoutDesktopSidebar extends StatelessWidget {
                       child: SizedBox(
                         width: 20,
                         height: 20,
-                        child: (menu.label == 'Starred'
+                        child:
+                            (menu.label == 'Starred'
                                 ? isRefreshingStarred
                                 : isRefreshingPlaylists)
                             ? const Padding(
@@ -163,7 +164,8 @@ class MainLayoutDesktopSidebar extends StatelessWidget {
                                     buildStarredContent(context),
                                   if (menu.label == 'Playlists')
                                     buildPlaylistsContent(context),
-                                  if (menu.builder != null) menu.builder!(context),
+                                  if (menu.builder != null)
+                                    menu.builder!(context),
                                 ],
                               )
                             : const SizedBox.shrink(),

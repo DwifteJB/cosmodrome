@@ -490,7 +490,7 @@ class _OfflineBanner extends StatelessWidget {
               color: const Color(0xFFFFB300),
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              overflow: TextOverflow.fade
+              overflow: TextOverflow.fade,
             ),
           ),
         ],

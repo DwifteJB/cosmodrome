@@ -18,9 +18,8 @@ class DownloadProvider extends ChangeNotifier {
       .where((d) => d.status == DownloadStatus.downloading)
       .toList();
 
-  List<SongDownload> get completedDownloads => _downloads.values
-      .where((d) => d.status == DownloadStatus.done)
-      .toList();
+  List<SongDownload> get completedDownloads =>
+      _downloads.values.where((d) => d.status == DownloadStatus.done).toList();
 
   Future<void> cancelDownload(String songId) async {
     _cancelledDownloads.add(songId);
@@ -179,10 +178,12 @@ class DownloadProvider extends ChangeNotifier {
       await LocalStorageService.ensureDirs(accountId);
       final data = <String, dynamic>{};
       for (final entry in _downloads.entries) {
-        if (entry.value.status == DownloadStatus.done && entry.value.localPath != null) {
+        if (entry.value.status == DownloadStatus.done &&
+            entry.value.localPath != null) {
           data[entry.key] = {
             'localPath': entry.value.localPath,
-            if (entry.value.songMeta != null) 'song': entry.value.songMeta!.toJson(),
+            if (entry.value.songMeta != null)
+              'song': entry.value.songMeta!.toJson(),
           };
         }
       }

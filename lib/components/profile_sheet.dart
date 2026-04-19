@@ -97,7 +97,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
                   padding: const EdgeInsets.only(bottom: 32),
                   children: [
                     Container(height: 1, color: context.theme.colors.border),
-                    // shortcut to the downloads section 
+                    // shortcut to the downloads section
                     Consumer<DownloadProvider>(
                       builder: (ctx, dl, _) {
                         final count = dl.completedDownloads.length;

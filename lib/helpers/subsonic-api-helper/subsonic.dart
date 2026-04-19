@@ -14,6 +14,7 @@ final excludedPingEndpoints = {'ping.view', 'getUser'};
 
 // global cache — keyed as "baseUrl|username|endpoint?params"
 final Map<String, ApiResultCache<Map<String, dynamic>>> _apiCache = {};
+
 class ApiResultCache<T> {
   final T data;
   final DateTime timestamp;
@@ -84,7 +85,6 @@ class Subsonic {
 
     loggerPrint("made request!");
 
-
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
     final root = body['subsonic-response'] as Map<String, dynamic>;
@@ -97,7 +97,6 @@ class Subsonic {
       );
       throw Exception('HTTP ${response.statusCode} from $endpoint');
     }
-
 
     if (root['status'] == 'failed') {
       final err = root['error'] as Map<String, dynamic>;

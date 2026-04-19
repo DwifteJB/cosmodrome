@@ -113,8 +113,9 @@ class _ActiveDownloadTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () =>
-                  context.read<DownloadProvider>().cancelDownload(download.songId),
+              onTap: () => context.read<DownloadProvider>().cancelDownload(
+                download.songId,
+              ),
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
@@ -197,11 +198,10 @@ class _CompletedDownloadTile extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-               
                 GestureDetector(
-                  onTap: () => context
-                      .read<DownloadProvider>()
-                      .deleteDownload(download.songId),
+                  onTap: () => context.read<DownloadProvider>().deleteDownload(
+                    download.songId,
+                  ),
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(

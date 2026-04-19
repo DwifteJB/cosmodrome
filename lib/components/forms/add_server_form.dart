@@ -112,7 +112,9 @@ class _AddServerFormState extends State<AddServerForm> {
     if (!mounted) return;
 
     if (success) {
-      final server = provider.knownServers.firstWhere((s) => s.baseUrl == normalizedUrl);
+      final server = provider.knownServers.firstWhere(
+        (s) => s.baseUrl == normalizedUrl,
+      );
       widget.onSuccess(server);
     } else {
       setState(() {

@@ -21,7 +21,8 @@ class WebLocalStorageBackend implements LocalStorageBackend {
     final prefixes = ['$accountId/songs/', '$accountId/cached-images/'];
 
     var total = 0;
-    await for (final cursor in store.openCursor(autoAdvance: true).asBroadcastStream()) {
+    await for (final cursor
+        in store.openCursor(autoAdvance: true).asBroadcastStream()) {
       final key = cursor.key.toString();
       if (!prefixes.any(key.startsWith)) continue;
       final value = cursor.value;
@@ -114,7 +115,9 @@ class WebLocalStorageBackend implements LocalStorageBackend {
     await txn.completed;
 
     if (value == null) return null;
-    final bytes = value is Uint8List ? value : Uint8List.fromList((value as List).cast<int>());
+    final bytes = value is Uint8List
+        ? value
+        : Uint8List.fromList((value as List).cast<int>());
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
     return Uri.parse(url);
