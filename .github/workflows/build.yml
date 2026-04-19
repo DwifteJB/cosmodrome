@@ -145,7 +145,7 @@ jobs:
         - name: Zip Windows bundle
           run: |
             cd build/windows/x64/release/bundle
-            powershell Compress-Archive -Path * -DestinationPath $GITHUB_WORKSPACE/installer/app.zip
+            Compress-Archive -Path * -DestinationPath (Join-Path $env:GITHUB_WORKSPACE 'installer/app.zip')
     
         - name: Build installer
           working-directory: installer
