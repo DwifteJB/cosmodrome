@@ -9,7 +9,7 @@ on:
             - 'assets/**'
             - 'pubspec.yaml'
             - 'web/**'
-            - '.github/workflows/build-web.yml
+            - '.github/workflows/build-web.yml'
             
 jobs:
     build:
