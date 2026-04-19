@@ -56,3 +56,4 @@ output/
 output2/
 
 .env
+secrets/

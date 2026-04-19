@@ -15,7 +15,8 @@ const _keyKnownServers = 'subsonic_known_servers';
 enum AuthState { initial, loading, authenticated, unauthenticated }
 
 class SubsonicProvider extends ChangeNotifier {
-  final _storage = const FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage(
+  );
 
   AuthState _authState = AuthState.initial;
   final List<SubsonicAccount> _accounts = [];
