@@ -131,7 +131,6 @@ jobs:
         - name: Install Window build dependencies
           run: |
             winget install -e --id MSYS2.MSYS2 --source winget --accept-package-agreements --accept-source-agreements --silent          
-            echo "::add-path::C:\msys64\usr\bin"
             go install fyne.io/tools/cmd/fyne@latest
         
         - name: Install Flutter dependencies
