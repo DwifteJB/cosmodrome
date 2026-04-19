@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/basic.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/user.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
@@ -44,6 +45,7 @@ class SubsonicProvider extends ChangeNotifier {
   bool get isOffline => _isOffline;
 
   /// The current subsonic istance for the active account. Will throw if not authenticated.
+  /// Should use this instead of .activeAccount.subsonic
   Subsonic get subsonic {
     assert(activeAccount != null, 'SubsonicProvider: no active account');
     return activeAccount!.subsonic;
@@ -98,6 +100,8 @@ class SubsonicProvider extends ChangeNotifier {
 
       _activeId = account.id;
       _isOffline = false;
+      clearCoverArtCache();
+      unawaited(account.subsonic.initCoverArtCacheForAccount());
       _startConnectivityPolling();
       await _persist();
       _setState(AuthState.authenticated);
@@ -205,6 +209,11 @@ class SubsonicProvider extends ChangeNotifier {
 
     if (_activeId == id) {
       _activeId = _accounts.firstOrNull?.id;
+      clearCoverArtCache();
+      final active = activeAccount;
+      if (active != null) {
+        unawaited(active.subsonic.initCoverArtCacheForAccount());
+      }
     }
 
     await _persist();
@@ -220,6 +229,7 @@ class SubsonicProvider extends ChangeNotifier {
     _errorMessage = null;
     _connectivityPoller?.cancel();
     _connectivityPoller = null;
+    clearCoverArtCache();
     await _storage.delete(key: _keyAccounts);
     await _storage.delete(key: _keyActiveId);
     loggerPrint('SubsonicProvider: all accounts removed');
@@ -234,6 +244,11 @@ class SubsonicProvider extends ChangeNotifier {
     // check if the active account belongs to this server, if so switch to another one (or unauthenticated if none remain)
     if (activeAccount != null && activeAccount!.baseUrl == baseUrl) {
       _activeId = _accounts.where((a) => a.baseUrl != baseUrl).firstOrNull?.id;
+      clearCoverArtCache();
+      final active = activeAccount;
+      if (active != null) {
+        unawaited(active.subsonic.initCoverArtCacheForAccount());
+      }
       if (_activeId == null) {
         _setState(AuthState.unauthenticated);
       }
@@ -271,6 +286,11 @@ class SubsonicProvider extends ChangeNotifier {
     assert(_accounts.any((a) => a.id == id), 'switchAccount: unknown id $id');
     _activeId = id;
     _isOffline = false;
+    clearCoverArtCache();
+    final active = activeAccount;
+    if (active != null) {
+      unawaited(active.subsonic.initCoverArtCacheForAccount());
+    }
     _startConnectivityPolling();
     loggerPrint('SubsonicProvider: switched to $id');
 
@@ -319,6 +339,12 @@ class SubsonicProvider extends ChangeNotifier {
     _activeId = _accounts.any((a) => a.id == activeId)
         ? activeId
         : _accounts.first.id;
+
+    clearCoverArtCache();
+    final restored = activeAccount;
+    if (restored != null) {
+      await restored.subsonic.initCoverArtCacheForAccount();
+    }
 
     _getAvatarsForActiveAccount();
     _startConnectivityPolling();
@@ -545,6 +571,11 @@ class SubsonicServer {
           'SubsonicServer: unexpected successful ping to $baseUrl with dummy credentials',
         );
       }
+
+      // log error
+      loggerPrint(
+        "SubsonicServer: ping to $baseUrl failed with error: ${res.errorMessage}, code: ${res.errorCode}",
+      );
 
       if (res.errorMessage != null &&
           res.errorMessage!.contains('Subsonic API error')) {

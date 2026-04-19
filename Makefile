@@ -5,6 +5,10 @@ export
 APP_PATH=./build/macos/Build/Products/Release/cosmodrome.app
 RPC_ENTITLEMENTS=./macos/cosmodrome-rpc.entitlements
 MACOS_PROFILE=./secrets/macbook_cosmodrome_profile.provisionprofile
+IOS_APP_PATH=./build/ios/iphoneos/Runner.app
+IOS_IPA_DIR=./build/ios/ipa
+IOS_RUNNER_BIN=$(IOS_APP_PATH)/Runner
+IOS_TROLLSTORE_ENTITLEMENTS?=./ios/Runner/Runner.entitlements
 
 linux-and-android:
 	docker build --target export --output ./output .
@@ -95,8 +99,8 @@ macos-notarize:
 
 	# create output & ditto zip the app for distribution
 	mkdir -p ./output
-	ditto -c -k --keepParent "$(APP_PATH)" ./output/cosmodrome.zip
-	@echo "Packaged app: ./output/cosmodrome.zip"
+	ditto -c -k --keepParent "$(APP_PATH)" ./output/cosmodrome-macos.zip
+	@echo "Packaged app: ./output/cosmodrome-macos.zip"
 
 linux-local:
 	mkdir -p ./output
@@ -116,6 +120,21 @@ linux-local:
 	rm -rf ./installer/app.zip
 	rm -rf ./installer/cosmodrome_installer.tar.xz
 
-	mv ./app.zip ./output/app.zip
+	mv ./app.zip ./output/cosmodrome-linux.zip
 
+
+ipa:
+	mkdir -p ./output/
+	flutter build ios --release --no-codesign
+	@if command -v ldid >/dev/null 2>&1; then \
+		echo "Applying TrollStore entitlements with ldid..."; \
+		ldid -S"$(IOS_TROLLSTORE_ENTITLEMENTS)" "$(IOS_RUNNER_BIN)"; \
+	else \
+		echo "ldid not found; skipping entitlements patch (install ldid for TrollStore-ready IPA)"; \
+	fi
+	mkdir -p ./output/ios/Payload
+	cp -R "$(IOS_APP_PATH)" ./output/ios/Payload/
+	cd ./output/ios && zip -qry ../cosmodrome.ipa Payload
+	rm -rf ./output/ios/Payload
+	@echo "IPA created: ./output/cosmodrome.ipa"
 

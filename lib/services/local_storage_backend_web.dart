@@ -18,12 +18,12 @@ class WebLocalStorageBackend implements LocalStorageBackend {
     final db = await _dbFuture;
     final txn = db.transaction(_songsStore, idbModeReadOnly);
     final store = txn.objectStore(_songsStore);
-    final prefix = '$accountId/songs/';
+    final prefixes = ['$accountId/songs/', '$accountId/cached-images/'];
 
     var total = 0;
     await for (final cursor in store.openCursor(autoAdvance: true).asBroadcastStream()) {
       final key = cursor.key.toString();
-      if (!key.startsWith(prefix)) continue;
+      if (!prefixes.any(key.startsWith)) continue;
       final value = cursor.value;
       if (value is Uint8List) {
         total += value.length;
@@ -33,6 +33,43 @@ class WebLocalStorageBackend implements LocalStorageBackend {
     }
     await txn.completed;
     return total;
+  }
+
+  @override
+  Future<bool> coverImageExists(String coverRef) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(_songsStore, idbModeReadOnly);
+    final value = await txn.objectStore(_songsStore).getObject(coverRef);
+    await txn.completed;
+    return value != null;
+  }
+
+  @override
+  String coverImageRef(String accountId, String imageId, String extension) =>
+      '$accountId/cached-images/$imageId.$extension';
+
+  @override
+  Future<Uri?> coverImageUri(String coverRef) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(_songsStore, idbModeReadOnly);
+    final value = await txn.objectStore(_songsStore).getObject(coverRef);
+    await txn.completed;
+
+    if (value == null) return null;
+    final bytes = value is Uint8List
+        ? value
+        : Uint8List.fromList((value as List).cast<int>());
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    return Uri.parse(url);
+  }
+
+  @override
+  Future<void> deleteCoverImage(String coverRef) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(_songsStore, idbModeReadWrite);
+    await txn.objectStore(_songsStore).delete(coverRef);
+    await txn.completed;
   }
 
   @override
@@ -111,6 +148,14 @@ class WebLocalStorageBackend implements LocalStorageBackend {
   @override
   String songRef(String accountId, String songId, String suffix) =>
       '$accountId/songs/$songId.$suffix';
+
+  @override
+  Future<void> writeCoverImageBytes(String coverRef, List<int> bytes) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(_songsStore, idbModeReadWrite);
+    await txn.objectStore(_songsStore).put(Uint8List.fromList(bytes), coverRef);
+    await txn.completed;
+  }
 
   @override
   Future<void> writeMeta(String metaRef, String content) async {

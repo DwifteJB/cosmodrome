@@ -1,4 +1,143 @@
 // TYPES FOR BROWSING-RELATED SUBSONIC API RESPONSES
+class Album {
+  final String id;
+  final String name;
+  final String artist;
+  final String? artistId;
+  final String? coverArt;
+  String? cachedCoverUrl;
+  final int songCount;
+  final int duration;
+  final int? year;
+  final String? genre;
+  final DateTime? starred;
+
+  Album({
+    required this.id,
+    required this.name,
+    required this.artist,
+    this.artistId,
+    this.coverArt,
+    required this.songCount,
+    required this.duration,
+    this.year,
+    this.genre,
+    this.starred,
+  });
+
+  factory Album.fromJson(Map<String, dynamic> json) {
+    return Album(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      artist: json['artist'] as String? ?? '',
+      artistId: json['artistId'] as String?,
+      coverArt: json['coverArt'] as String?,
+      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      year: (json['year'] as num?)?.toInt(),
+      genre: json['genre'] as String?,
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'artist': artist,
+    if (artistId != null) 'artistId': artistId,
+    if (coverArt != null) 'coverArt': coverArt,
+    'songCount': songCount,
+    'duration': duration,
+    if (year != null) 'year': year,
+    if (genre != null) 'genre': genre,
+    if (starred != null) 'starred': starred!.toIso8601String(),
+  };
+}
+
+class AlbumDetail extends Album {
+  final List<Song> songs;
+
+  AlbumDetail({
+    required super.id,
+    required super.name,
+    required super.artist,
+    super.artistId,
+    super.coverArt,
+    required super.songCount,
+    required super.duration,
+    super.year,
+    super.genre,
+    super.starred,
+    required this.songs,
+  });
+
+  factory AlbumDetail.fromJson(Map<String, dynamic> json) {
+    final songsJson = json['song'] as List<dynamic>? ?? [];
+    final songs = songsJson
+        .map((s) => Song.fromJson(s as Map<String, dynamic>))
+        .toList();
+    return AlbumDetail(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      artist: json['artist'] as String? ?? '',
+      artistId: json['artistId'] as String?,
+      coverArt: json['coverArt'] as String?,
+      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      year: (json['year'] as num?)?.toInt(),
+      genre: json['genre'] as String?,
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
+      songs: songs,
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() => {
+    ...super.toJson(),
+    'song': songs.map((s) => s.toJson()).toList(),
+  };
+}
+
+class Artist {
+  final String id;
+  final String name;
+  final int albumCount;
+  final String? coverArt;
+  final DateTime? starred;
+
+  Artist({
+    required this.id,
+    required this.name,
+    required this.albumCount,
+    this.coverArt,
+    this.starred,
+  });
+
+  factory Artist.fromJson(Map<String, dynamic> json) {
+    return Artist(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      albumCount: (json['albumCount'] as num?)?.toInt() ?? 0,
+      coverArt: json['coverArt'] as String?,
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'albumCount': albumCount,
+    if (coverArt != null) 'coverArt': coverArt,
+    if (starred != null) 'starred': starred!.toIso8601String(),
+  };
+}
+
 class Index {
   String name;
   List<IndexArtist> artists;
@@ -69,170 +208,6 @@ class MusicFolder {
   factory MusicFolder.fromJson(Map<String, dynamic> json) {
     return MusicFolder(id: json['id'] as int, name: json['name'] as String);
   }
-}
-
-class Shortcut {
-  int id;
-  String name;
-
-  Shortcut({required this.id, required this.name});
-
-  factory Shortcut.fromJson(Map<String, dynamic> json) {
-    return Shortcut(id: json['id'] as int, name: json['name'] as String);
-  }
-}
-
-class Album {
-  final String id;
-  final String name;
-  final String artist;
-  final String? artistId;
-  final String? coverArt;
-  String? cachedCoverUrl;
-  final int songCount;
-  final int duration;
-  final int? year;
-  final String? genre;
-  final DateTime? starred;
-
-  Album({
-    required this.id,
-    required this.name,
-    required this.artist,
-    this.artistId,
-    this.coverArt,
-    required this.songCount,
-    required this.duration,
-    this.year,
-    this.genre,
-    this.starred,
-  });
-
-  factory Album.fromJson(Map<String, dynamic> json) {
-    return Album(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      artist: json['artist'] as String? ?? '',
-      artistId: json['artistId'] as String?,
-      coverArt: json['coverArt'] as String?,
-      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
-      duration: (json['duration'] as num?)?.toInt() ?? 0,
-      year: (json['year'] as num?)?.toInt(),
-      genre: json['genre'] as String?,
-      starred: json['starred'] != null
-          ? DateTime.tryParse(json['starred'] as String)
-          : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'artist': artist,
-    if (artistId != null) 'artistId': artistId,
-    if (coverArt != null) 'coverArt': coverArt,
-    'songCount': songCount,
-    'duration': duration,
-    if (year != null) 'year': year,
-    if (genre != null) 'genre': genre,
-    if (starred != null) 'starred': starred!.toIso8601String(),
-  };
-}
-
-class Song {
-  final String id;
-  final String title;
-  final String? artist;
-  final String? album;
-  final int? track;
-  final int? duration;
-  final String? coverArt;
-  final int? samplingRate;
-  final int? bitRate;
-  final String? suffix;
-  final DateTime? starred;
-
-  Song({
-    required this.id,
-    required this.title,
-    this.artist,
-    this.album,
-    this.track,
-    this.duration,
-    this.coverArt,
-    this.samplingRate,
-    this.bitRate,
-    this.suffix,
-    this.starred,
-  });
-
-  factory Song.fromJson(Map<String, dynamic> json) {
-    return Song(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      artist: json['artist'] as String?,
-      album: json['album'] as String?,
-      track: (json['track'] as num?)?.toInt(),
-      duration: (json['duration'] as num?)?.toInt(),
-      coverArt: json['coverArt'] as String?,
-      samplingRate: (json['samplingRate'] as num?)?.toInt(),
-      bitRate: (json['bitRate'] as num?)?.toInt(),
-      suffix: json['suffix'] as String?,
-      starred: json['starred'] != null
-          ? DateTime.tryParse(json['starred'] as String)
-          : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'title': title,
-    if (artist != null) 'artist': artist,
-    if (album != null) 'album': album,
-    if (track != null) 'track': track,
-    if (duration != null) 'duration': duration,
-    if (coverArt != null) 'coverArt': coverArt,
-    if (samplingRate != null) 'samplingRate': samplingRate,
-    if (bitRate != null) 'bitRate': bitRate,
-    if (suffix != null) 'suffix': suffix,
-    if (starred != null) 'starred': starred!.toIso8601String(),
-  };
-}
-
-class Artist {
-  final String id;
-  final String name;
-  final int albumCount;
-  final String? coverArt;
-  final DateTime? starred;
-
-  Artist({
-    required this.id,
-    required this.name,
-    required this.albumCount,
-    this.coverArt,
-    this.starred,
-  });
-
-  factory Artist.fromJson(Map<String, dynamic> json) {
-    return Artist(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      albumCount: (json['albumCount'] as num?)?.toInt() ?? 0,
-      coverArt: json['coverArt'] as String?,
-      starred: json['starred'] != null
-          ? DateTime.tryParse(json['starred'] as String)
-          : null,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'albumCount': albumCount,
-    if (coverArt != null) 'coverArt': coverArt,
-    if (starred != null) 'starred': starred!.toIso8601String(),
-  };
 }
 
 class Playlist {
@@ -313,44 +288,81 @@ class PlaylistDetail extends Playlist {
       songs: songs,
     );
   }
+
+  @override
+  Map<String, dynamic> toJson() => {
+    ...super.toJson(),
+    'entry': songs.map((s) => s.toJson()).toList(),
+  };
 }
 
-class AlbumDetail extends Album {
-  final List<Song> songs;
+class Shortcut {
+  int id;
+  String name;
 
-  AlbumDetail({
-    required super.id,
-    required super.name,
-    required super.artist,
-    super.artistId,
-    super.coverArt,
-    required super.songCount,
-    required super.duration,
-    super.year,
-    super.genre,
-    super.starred,
-    required this.songs,
+  Shortcut({required this.id, required this.name});
+
+  factory Shortcut.fromJson(Map<String, dynamic> json) {
+    return Shortcut(id: json['id'] as int, name: json['name'] as String);
+  }
+}
+
+class Song {
+  final String id;
+  final String title;
+  final String? artist;
+  final String? album;
+  final int? track;
+  final int? duration;
+  final String? coverArt;
+  final int? samplingRate;
+  final int? bitRate;
+  final String? suffix;
+  final DateTime? starred;
+
+  Song({
+    required this.id,
+    required this.title,
+    this.artist,
+    this.album,
+    this.track,
+    this.duration,
+    this.coverArt,
+    this.samplingRate,
+    this.bitRate,
+    this.suffix,
+    this.starred,
   });
 
-  factory AlbumDetail.fromJson(Map<String, dynamic> json) {
-    final songsJson = json['song'] as List<dynamic>? ?? [];
-    final songs = songsJson
-        .map((s) => Song.fromJson(s as Map<String, dynamic>))
-        .toList();
-    return AlbumDetail(
+  factory Song.fromJson(Map<String, dynamic> json) {
+    return Song(
       id: json['id'] as String,
-      name: json['name'] as String,
-      artist: json['artist'] as String? ?? '',
-      artistId: json['artistId'] as String?,
+      title: json['title'] as String,
+      artist: json['artist'] as String?,
+      album: json['album'] as String?,
+      track: (json['track'] as num?)?.toInt(),
+      duration: (json['duration'] as num?)?.toInt(),
       coverArt: json['coverArt'] as String?,
-      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
-      duration: (json['duration'] as num?)?.toInt() ?? 0,
-      year: (json['year'] as num?)?.toInt(),
-      genre: json['genre'] as String?,
+      samplingRate: (json['samplingRate'] as num?)?.toInt(),
+      bitRate: (json['bitRate'] as num?)?.toInt(),
+      suffix: json['suffix'] as String?,
       starred: json['starred'] != null
           ? DateTime.tryParse(json['starred'] as String)
           : null,
-      songs: songs,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    if (artist != null) 'artist': artist,
+    if (album != null) 'album': album,
+    if (track != null) 'track': track,
+    if (duration != null) 'duration': duration,
+    if (coverArt != null) 'coverArt': coverArt,
+    if (samplingRate != null) 'samplingRate': samplingRate,
+    if (bitRate != null) 'bitRate': bitRate,
+    if (suffix != null) 'suffix': suffix,
+    if (starred != null) 'starred': starred!.toIso8601String(),
+  };
 }

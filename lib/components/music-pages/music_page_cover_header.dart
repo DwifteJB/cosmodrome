@@ -1,3 +1,4 @@
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
@@ -32,8 +33,8 @@ class MusicPageCoverHeader extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: coverUrl != null
-              ? Image.network(
-                  coverUrl!,
+              ? Image(
+                  image: coverArtProvider(coverUrl!),
                   width: 280,
                   height: 280,
                   fit: BoxFit.cover,

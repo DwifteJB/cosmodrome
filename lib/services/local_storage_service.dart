@@ -10,6 +10,21 @@ class LocalStorageService {
   static Future<int> accountStorageBytes(String accountId) =>
       _backend.accountStorageBytes(accountId);
 
+  static Future<bool> coverImageExists(String coverRef) =>
+      _backend.coverImageExists(coverRef);
+
+  static String coverImagePath(
+    String accountId,
+    String imageId,
+    String extension,
+  ) => _backend.coverImageRef(accountId, imageId, extension);
+
+  static Future<Uri?> coverImageUriForRef(String coverRef) =>
+      _backend.coverImageUri(coverRef);
+
+  static Future<void> deleteCoverImage(String coverRef) =>
+      _backend.deleteCoverImage(coverRef);
+
   static Future<void> deleteSong(String songRef) =>
       _backend.deleteSong(songRef);
 
@@ -44,6 +59,9 @@ class LocalStorageService {
 
   static String songPath(String accountId, String songId, String suffix) =>
       _backend.songRef(accountId, songId, suffix);
+
+  static Future<void> writeCoverImageBytes(String coverRef, List<int> bytes) =>
+      _backend.writeCoverImageBytes(coverRef, bytes);
 
   static Future<void> writeJsonMeta(
     String accountId,

@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/utils/logger.dart';
@@ -15,6 +12,8 @@ class OfflineCacheService {
   static const _songs = 'songs';
   static const _recentAlbums = 'recent_albums';
   static const _starredAlbums = 'starred_albums';
+  static const _albumDetail = 'album_detail';
+  static const _playlistDetail = 'playlist_detail';
 
   // tracks accounts whose dirs are confirmed to exist this session
   final _initializedAccounts = <String>{};
@@ -67,6 +66,27 @@ class OfflineCacheService {
     return raw?.map((e) => Album.fromJson(e)).toList();
   }
 
+  Future<void> saveAlbumDetail(String accountId, AlbumDetail album) =>
+      _write(accountId, '$_albumDetail:${album.id}', [album.toJson()]);
+
+  Future<AlbumDetail?> loadAlbumDetail(String accountId, String albumId) async {
+    final raw = await _read(accountId, '$_albumDetail:$albumId');
+    if (raw == null || raw.isEmpty) return null;
+    return AlbumDetail.fromJson(raw.first);
+  }
+
+  Future<void> savePlaylistDetail(String accountId, PlaylistDetail playlist) =>
+      _write(accountId, '$_playlistDetail:${playlist.id}', [playlist.toJson()]);
+
+  Future<PlaylistDetail?> loadPlaylistDetail(
+    String accountId,
+    String playlistId,
+  ) async {
+    final raw = await _read(accountId, '$_playlistDetail:$playlistId');
+    if (raw == null || raw.isEmpty) return null;
+    return PlaylistDetail.fromJson(raw.first);
+  }
+
   Future<void> _write(
     String accountId,
     String key,
@@ -82,8 +102,7 @@ class OfflineCacheService {
         'timestamp': DateTime.now().toIso8601String(),
         'data': data,
       };
-      final file = File(LocalStorageService.metaPath(accountId, key));
-      await file.writeAsString(jsonEncode(envelope));
+      await LocalStorageService.writeJsonMeta(accountId, key, envelope);
     } catch (e) {
       loggerPrint('OfflineCache: failed to write $key for $accountId: $e');
     }
@@ -94,24 +113,19 @@ class OfflineCacheService {
     String key,
   ) async {
     try {
-      final file = File(LocalStorageService.metaPath(accountId, key));
-      if (!await file.exists()) return null;
-
-      final raw = await file.readAsString();
-      final envelope = jsonDecode(raw) as Map<String, dynamic>;
+      final envelope = await LocalStorageService.readJsonMeta(accountId, key);
+      if (envelope == null) return null;
 
       if ((envelope['version'] as int?) != _schemaVersion) {
         loggerPrint(
           'OfflineCache: stale schema version for $key, discarding cache',
         );
-        await file.delete();
         return null;
       }
 
       final timestamp = DateTime.tryParse(envelope['timestamp'] as String? ?? '');
       if (timestamp == null || DateTime.now().difference(timestamp) > _offlineTTL) {
         loggerPrint('OfflineCache: expired cache for $key, discarding');
-        await file.delete();
         return null;
       }
 

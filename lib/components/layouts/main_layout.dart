@@ -1,10 +1,23 @@
 // ignore_for_file: deprecated_member_use
+
+/*
+  this file was split into mobile_layout & desktop_layout
+
+  this handles all the things that the two layouts need to function properly
+  UI is controlled there now :)
+
+  - 19/04/2026 Robbie Morgan
+*/
+
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:cosmodrome/components/desktop_profile_popover.dart';
 import 'package:cosmodrome/components/desktop_titlebar.dart';
+import 'package:cosmodrome/components/layouts/desktop_layout.dart';
+import 'package:cosmodrome/components/layouts/main_layout_sidebar.dart';
+import 'package:cosmodrome/components/layouts/mobile_layout.dart';
 import 'package:cosmodrome/components/music_player/desktop_player_bar.dart';
 import 'package:cosmodrome/components/music_player/desktop_queue_panel.dart';
 import 'package:cosmodrome/components/music_player/mini_player.dart';
@@ -16,9 +29,9 @@ import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/theme/sidebar_item_style.dart';
 import 'package:cosmodrome/utils/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
-import 'package:cosmodrome/utils/logger.dart';
 import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -28,9 +41,9 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 const _mobilenavItems = [
-  _NavItem(label: 'Home', route: '/home', icon: FIcons.house),
-  _NavItem(label: 'Library', route: '/library', icon: FIcons.library),
-  _NavItem(label: 'Search', route: '/search', icon: FIcons.search),
+  MainLayoutNavItem(label: 'Home', route: '/home', icon: FIcons.house),
+  MainLayoutNavItem(label: 'Library', route: '/library', icon: FIcons.library),
+  MainLayoutNavItem(label: 'Search', route: '/search', icon: FIcons.search),
 ];
 
 String uriToTitle(String uri) {
@@ -43,7 +56,8 @@ String uriToTitle(String uri) {
       // try get from _mobilenavItems
       final item = _mobilenavItems.firstWhere(
         (item) => uri.startsWith(item.route),
-        orElse: () => _NavItem(label: '', route: '', icon: FIcons.qrCode),
+        orElse: () =>
+            const MainLayoutNavItem(label: '', route: '', icon: FIcons.qrCode),
       );
       return item.label.isNotEmpty ? item.label : 'Page';
   }
@@ -86,18 +100,22 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   late AnimationController aniu;
 
-  final List<_NavMenu> _navMenus = [
-    _NavMenu(
+  final List<MainLayoutNavMenu> _navMenus = [
+    MainLayoutNavMenu(
       label: "Cosmodrome",
       builder: null,
       items: [
-        _NavItem(label: 'Home', route: '/home', icon: FIcons.house),
-        _NavItem(label: 'Library', route: '/library', icon: FIcons.library),
+        MainLayoutNavItem(label: 'Home', route: '/home', icon: FIcons.house),
+        MainLayoutNavItem(
+          label: 'Library',
+          route: '/library',
+          icon: FIcons.library,
+        ),
       ],
     ),
 
-    _NavMenu(label: "Starred", builder: null),
-    _NavMenu(label: "Playlists", builder: null),
+    const MainLayoutNavMenu(label: "Starred", builder: null),
+    const MainLayoutNavMenu(label: "Playlists", builder: null),
   ];
 
   bool get _isDesktop =>
@@ -180,8 +198,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
-      child: Image.network(
-        url,
+      child: Image(
+        image: coverArtProvider(url),
         width: 20,
         height: 20,
         fit: BoxFit.cover,
@@ -194,373 +212,105 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   Widget _buildDesktopLayout(BuildContext context) {
     final colors = context.theme.colors;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // sidebar
-          SizedBox(
-            width: AppLayout.sidebarWidth,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF151517),
-                border: Border(
-                  right: BorderSide(color: colors.border, width: 1),
-                ),
-              ),
-              child: FSidebar(
-                style: .delta(
-                  contentPadding: .add(
-                    const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
-                  ),
-                  footerPadding: .add(
-                    const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                  decoration: .boxDelta(color: AppColors.sidebar),
-                ),
-                header: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // on macOS the native traffic-light buttons sit in the top-left
-                    // of the window, so push the search field down to avoid overlap
-                    if (!kIsWeb && Platform.isMacOS) const SizedBox(height: 28),
-                    GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onPanStart: _isDesktop
-                          ? (_) => windowManager.startDragging()
-                          : null,
-                      onDoubleTap: _isDesktop
-                          ? () async {
-                              if (await windowManager.isMaximized()) {
-                                await windowManager.unmaximize();
-                              } else {
-                                await windowManager.maximize();
-                              }
-                            }
-                          : null,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
-                        child: FTextField(
-                          hint: 'Search music...',
-                          control: FTextFieldControl.managed(
-                            controller: _searchController,
-                          ),
-                          prefixBuilder: (ctx, style, variants) =>
-                              FTextField.prefixIconBuilder(
-                                ctx,
-                                style,
-                                variants,
-                                const Icon(FIcons.search),
-                              ),
-                        ),
-                      ),
+    final sidebar = SizedBox(
+      width: AppLayout.sidebarWidth,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFF151517),
+          border: Border(right: BorderSide(color: colors.border, width: 1)),
+        ),
+        child: MainLayoutDesktopSidebar(
+          header: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!kIsWeb && Platform.isMacOS) const SizedBox(height: 28),
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onPanStart: _isDesktop
+                    ? (_) => windowManager.startDragging()
+                    : null,
+                onDoubleTap: _isDesktop
+                    ? () async {
+                        if (await windowManager.isMaximized()) {
+                          await windowManager.unmaximize();
+                        } else {
+                          await windowManager.maximize();
+                        }
+                      }
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
+                  child: FTextField(
+                    hint: 'Search music...',
+                    control: FTextFieldControl.managed(
+                      controller: _searchController,
                     ),
-                    const Divider(),
-                  ],
-                ),
-                footer: const DesktopProfilePopover(),
-                // DESKTOP nav menus
-                children: _navMenus
-                    .map(
-                      (menu) => FSidebarGroup(
-                        key: ValueKey('desktop-group-${menu.label}'),
-                        label: MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          onEnter: (_) =>
-                              _setDesktopMenuHovered(menu.label, value: true),
-                          onExit: (_) =>
-                              _setDesktopMenuHovered(menu.label, value: false),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _toggleDesktopMenu(menu.label),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 140),
-                              curve: Curves.easeOut,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _isDesktopMenuHovered(menu.label)
-                                    ? AppColors.sidebarSelected
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(child: Text(menu.label)),
-                                  AnimatedRotation(
-                                    turns: _isDesktopMenuExpanded(menu.label)
-                                        ? 0.0
-                                        : -0.25,
-                                    duration: const Duration(milliseconds: 180),
-                                    child: const Icon(
-                                      FIcons.chevronDown,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                    prefixBuilder: (ctx, style, variants) =>
+                        FTextField.prefixIconBuilder(
+                          ctx,
+                          style,
+                          variants,
+                          const Icon(FIcons.search),
                         ),
-                        style: .delta(padding: .delta(left: 0, right: 0)),
-                        action:
-                            (menu.label == 'Starred' ||
-                                menu.label == 'Playlists')
-                            ? Tooltip(
-                                message: menu.label == 'Starred'
-                                    ? 'Refresh starred'
-                                    : 'Refresh playlists',
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child:
-                                      (menu.label == 'Starred'
-                                          ? _isRefreshingStarred
-                                          : _isRefreshingPlaylists)
-                                      ? const Padding(
-                                          padding: EdgeInsets.all(2),
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(Icons.refresh, size: 16),
-                                ),
-                              )
-                            : null,
-                        onActionPress: menu.label == 'Starred'
-                            ? () => _refreshStarredAlbums(context)
-                            : menu.label == 'Playlists'
-                            ? () => _refreshPlaylists(context)
-                            : null,
-                        children: [
-                          AnimatedSize(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutCubic,
-                            alignment: Alignment.topCenter,
-                            child: ClipRect(
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 170),
-                                curve: Curves.easeOut,
-                                opacity: _isDesktopMenuExpanded(menu.label)
-                                    ? 1
-                                    : 0,
-                                child: IgnorePointer(
-                                  ignoring: !_isDesktopMenuExpanded(menu.label),
-                                  child: _isDesktopMenuExpanded(menu.label)
-                                      ? Column(
-                                          children: [
-                                            ...menu.items.map(
-                                              (item) => Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                      vertical: 2,
-                                                    ),
-                                                child: FSidebarItem(
-                                                  label: Text(item.label),
-                                                  icon: Icon(
-                                                    item.icon,
-                                                    size: 20,
-
-                                                    color: AppColors.auraColor,
-                                                  ),
-                                                  selected: _isSelected(item),
-                                                  onPress: () =>
-                                                      _navigateTo(item.route),
-                                                  style: desktopSidebarItem(
-                                                    selectedBackgroundColor:
-                                                        AppColors.auraColor
-                                                            .withValues(
-                                                              alpha: 0.16,
-                                                            ),
-                                                    colors: colors,
-                                                    typography: context
-                                                        .theme
-                                                        .typography,
-                                                    style: context.theme.style,
-                                                    touch: false,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            if (menu.label == 'Starred')
-                                              _buildStarredMenuContent(context),
-                                            if (menu.label == 'Playlists')
-                                              _buildPlaylistsMenuContent(
-                                                context,
-                                              ),
-                                            if (menu.builder != null)
-                                              menu.builder!(context),
-                                          ],
-                                        )
-                                      : const SizedBox.shrink(),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // main content area
-                      Expanded(
-                        child: Stack(
-                          clipBehavior: Clip.hardEdge,
-                          children: [
-                            Positioned(
-                              top: -32,
-                              left: 0,
-                              right: 0,
-                              height:
-                                  MediaQuery.of(context).size.height * 1 + 32,
-                              child: IgnorePointer(
-                                child: AnimatedOpacity(
-                                  opacity: _coverVisible ? 1.0 : 0.0,
-                                  duration: const Duration(milliseconds: 700),
-                                  curve: Curves.easeIn,
-                                  child: _coverUrl == null
-                                      ? const SizedBox.expand()
-                                      : Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            ImageFiltered(
-                                              imageFilter: ImageFilter.blur(
-                                                sigmaX: 100,
-                                                sigmaY: 100,
-                                                tileMode: TileMode.clamp,
-                                              ),
-                                              child: Image.network(
-                                                _coverUrl!,
-                                                fit: BoxFit.cover,
-                                                colorBlendMode:
-                                                    BlendMode.overlay,
-                                              ),
-                                            ),
-                                            const DecoratedBox(
-                                              decoration: BoxDecoration(
-                                                color: Color(0x99000000),
-                                              ),
-                                            ),
-                                            DecoratedBox(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topCenter,
-                                                  end: Alignment.center,
-                                                  colors: [
-                                                    colors.background
-                                                        .withValues(
-                                                          alpha: 0.42,
-                                                        ),
-                                                    colors.background
-                                                        .withValues(
-                                                          alpha: 0.16,
-                                                        ),
-                                                  ],
-                                                  stops: const [0.0, 0.62],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              ),
-                            ),
-                            Positioned.fill(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (_isDesktop)
-                                    DesktopTitlebar(
-                                      showWindowControls: !_queueOpen,
-                                      canGoBack:
-                                          widget.selectedRoute != '/home' &&
-                                          widget.selectedRoute != null,
-                                      onBack: () {
-                                        if (context.canPop()) {
-                                          context.pop();
-                                        } else {
-                                          context.go('/home');
-                                        }
-                                      },
-                                      queueOpen: _queueOpen,
-                                      onToggleQueue: () => setState(
-                                        () => _queueOpen = !_queueOpen,
-                                      ),
-                                    )
-                                  else if (kIsWeb)
-                                    const SizedBox(height: 32),
-                                  Expanded(
-                                    child: SingleChildScrollView(
-                                      controller: _desktopScrollController,
-                                      child: KeyedSubtree(
-                                        key: const ValueKey('desktop-child'),
-                                        child: widget.child,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IgnorePointer(
-                              ignoring: !_queueOpen,
-                              child: AnimatedOpacity(
-                                opacity: _queueOpen ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 220),
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      setState(() => _queueOpen = false),
-                                  behavior: HitTestBehavior.opaque,
-                                  child: const ColoredBox(
-                                    color: Color(0x66000000),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // queue elements
-                            AnimatedPositioned(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOutCubic,
-                              top: 0,
-                              right: _queueOpen ? 0 : -280,
-                              bottom: 0,
-                              width: 280,
-                              child: DesktopQueuePanel(
-                                onClose: () =>
-                                    setState(() => _queueOpen = false),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-                // plr bar
-                DesktopPlayerBar(
-                  onQueueToggle: kIsWeb
-                      ? () => setState(() => _queueOpen = !_queueOpen)
-                      : null,
-                ),
-              ],
-            ),
+              ),
+              const Divider(),
+            ],
           ),
-        ],
+          footer: const DesktopProfilePopover(),
+          navMenus: _navMenus,
+          isRefreshingStarred: _isRefreshingStarred,
+          isRefreshingPlaylists: _isRefreshingPlaylists,
+          isMenuExpanded: _isDesktopMenuExpanded,
+          isMenuHovered: _isDesktopMenuHovered,
+          isItemSelected: _isSelected,
+          onMenuHoverChanged: _setDesktopMenuHovered,
+          onMenuToggle: _toggleDesktopMenu,
+          onRefreshStarred: () => _refreshStarredAlbums(context),
+          onRefreshPlaylists: () => _refreshPlaylists(context),
+          onNavigate: _navigateTo,
+          buildStarredContent: _buildStarredMenuContent,
+          buildPlaylistsContent: _buildPlaylistsMenuContent,
+        ),
       ),
+    );
+
+    final topBar = _isDesktop
+        ? DesktopTitlebar(
+            showWindowControls: !_queueOpen,
+            canGoBack:
+                widget.selectedRoute != '/home' && widget.selectedRoute != null,
+            onBack: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/home');
+              }
+            },
+            queueOpen: _queueOpen,
+            onToggleQueue: () => setState(() => _queueOpen = !_queueOpen),
+          )
+        : (kIsWeb ? const SizedBox(height: 32) : const SizedBox.shrink());
+
+    return DesktopLayout(
+      backgroundColor: colors.background,
+      sidebar: sidebar,
+      queueOpen: _queueOpen,
+      onCloseQueue: () => setState(() => _queueOpen = false),
+      coverUrl: _coverUrl,
+      coverVisible: _coverVisible,
+      scrollController: _desktopScrollController,
+      topBar: topBar,
+      queuePanel: DesktopQueuePanel(
+        onClose: () => setState(() => _queueOpen = false),
+      ),
+      playerBar: DesktopPlayerBar(
+        onQueueToggle: kIsWeb
+            ? () => setState(() => _queueOpen = !_queueOpen)
+            : null,
+      ),
+      child: widget.child,
     );
   }
 
@@ -614,187 +364,55 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   Widget _buildMobileLayout(BuildContext context) {
     final colors = context.theme.colors;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final topPadding = MediaQuery.of(context).padding.top;
-    const navHeight = 80.0;
-    return Scaffold(
+    final expandedMiniPlayer = Consumer<PlayerProvider>(
+      builder: (_, player, _) {
+        if (!player.hasCurrentSong) return const SizedBox.shrink();
+        final collapsed = aniu.value > 0.3;
+        return AnimatedOpacity(
+          opacity: collapsed ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          child: IgnorePointer(ignoring: collapsed, child: const MiniPlayer()),
+        );
+      },
+    );
+
+    final floatingNav = _layoutConfig.hidePill
+        ? const SizedBox.shrink()
+        : Consumer<PlayerProvider>(
+            builder: (_, player, _) {
+              final collapsed = aniu.value > 0.3;
+              return Row(
+                children: [
+                  _layoutConfig.mainPillBuilder != null
+                      ? _layoutConfig.mainPillBuilder!(context)
+                      : _buildMainPill(context),
+                  Expanded(
+                    child: player.hasCurrentSong && collapsed
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: MiniPlayer(),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  _layoutConfig.searchPillBuilder != null
+                      ? _layoutConfig.searchPillBuilder!(context)
+                      : _buildSearchPill(context),
+                ],
+              );
+            },
+          );
+
+    return MobileLayout(
       backgroundColor: colors.background,
-      body: Stack(
-        children: [
-          // accent gradient
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: topPadding + MediaQuery.of(context).size.height * 0.38,
-            child: IgnorePointer(
-              child: AnimatedOpacity(
-                opacity: _accentVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeIn,
-                child: _accentColor == null
-                    ? const SizedBox.expand()
-                    : Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              _accentColor!.withValues(alpha: 0.55),
-                              _accentColor!.withValues(alpha: 0.30),
-                              colors.background.withValues(alpha: 0.0),
-                            ],
-                            stops: const [0.0, 0.15, 1.0],
-                          ),
-                        ),
-                      ),
-              ),
-            ),
-          ),
-          // actual content
-          if (_layoutConfig.isScrollable)
-            Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _mobileScrollController,
-                child: Column(
-                  children: [
-                    SizedBox(height: topPadding + 20),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight:
-                            MediaQuery.of(context).size.height -
-                            (topPadding + 20) -
-                            (navHeight + bottomPadding),
-                      ),
-                      child: KeyedSubtree(
-                        key: const ValueKey('mobile-child'),
-                        child: widget.child,
-                      ),
-                    ),
-                    // extra space at the bottom to allow scrolling content above the floating nav
-                    SizedBox(height: navHeight + bottomPadding + 60),
-                  ],
-                ),
-              ),
-            )
-          else
-            Positioned.fill(
-              child: KeyedSubtree(
-                key: const ValueKey('mobile-child'),
-                child: widget.child,
-              ),
-            ),
-          // bottom gradient (always visible, beneath the floating nav)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: navHeight + bottomPadding + 24,
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      colors.background.withOpacity(0),
-                      colors.background.withOpacity(0.95),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // top gradient
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: topPadding + 72,
-            child: IgnorePointer(
-              child: FadeTransition(
-                opacity: aniu.drive(CurveTween(curve: Curves.easeOut)),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        colors.background.withOpacity(0),
-                        colors.background.withOpacity(0.9),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // top bar
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 56 + topPadding,
-            child: _buildMobileTopBar(context),
-          ),
-
-          // mini mobile player! (if song playing, and not collapsed)
-          Positioned(
-            bottom: bottomPadding + 18 + 48 + 20,
-            left: 16,
-            right: 16,
-            child: Consumer<PlayerProvider>(
-              builder: (_, player, _) {
-                if (!player.hasCurrentSong) return const SizedBox.shrink();
-                final collapsed = aniu.value > 0.3;
-                return AnimatedOpacity(
-                  opacity: collapsed ? 0.0 : 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: IgnorePointer(
-                    ignoring: collapsed,
-                    child: const MiniPlayer(),
-                  ),
-                );
-              },
-            ),
-          ),
-          // floating dual-pill nav
-          Positioned(
-            bottom: bottomPadding + 18,
-            left: 16,
-            right: 16,
-            child: _layoutConfig.hidePill
-                ? const SizedBox.shrink()
-                : Consumer<PlayerProvider>(
-                    builder: (_, player, _) {
-                      final collapsed = aniu.value > 0.3;
-                      return Row(
-                        children: [
-                          _layoutConfig.mainPillBuilder != null
-                              ? _layoutConfig.mainPillBuilder!(context)
-                              : _buildMainPill(context),
-
-                          // mini mobile player! (if song playing, and collapsed)
-                          Expanded(
-                            child: player.hasCurrentSong && collapsed
-                                ? Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    child: const MiniPlayer(),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                          _layoutConfig.searchPillBuilder != null
-                              ? _layoutConfig.searchPillBuilder!(context)
-                              : _buildSearchPill(context),
-                        ],
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+      accentColor: _accentColor,
+      accentVisible: _accentVisible,
+      isScrollable: _layoutConfig.isScrollable,
+      scrollController: _mobileScrollController,
+      topGradientOpacity: aniu.drive(CurveTween(curve: Curves.easeOut)),
+      topBar: _buildMobileTopBar(context),
+      expandedMiniPlayer: expandedMiniPlayer,
+      floatingNav: floatingNav,
+      child: widget.child,
     );
   }
 
@@ -895,7 +513,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                   backgroundImage:
                       subsonic.activeAccount?.avatar.isNotEmpty == true
                       ? MemoryImage(subsonic.activeAccount!.avatar)
-                      : Image.asset("/assets/logo.png").image,
+                      : Image.asset("assets/logo.png").image,
                 ),
               ),
           ],
@@ -906,7 +524,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   Widget _buildNavButton(
     BuildContext context,
-    _NavItem item, {
+    MainLayoutNavItem item, {
     bool showLabel = true,
   }) {
     final colors = context.theme.colors;
@@ -956,8 +574,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
-      child: Image.network(
-        url,
+      child: Image(
+        image: coverArtProvider(url),
         width: 20,
         height: 20,
         fit: BoxFit.cover,
@@ -1215,7 +833,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         route.startsWith('$playlistRoute/');
   }
 
-  bool _isSelected(_NavItem item) {
+  bool _isSelected(MainLayoutNavItem item) {
     if (widget.selectedRoute == null) return false;
     return widget.selectedRoute == item.route;
   }
@@ -1357,7 +975,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     }
   }
 
-  void _setDesktopMenuHovered(String label, {required bool value}) {
+  void _setDesktopMenuHovered(String label, bool value) {
     if (_isDesktopMenuHovered(label) == value) return;
     setState(() {
       _desktopMenuHovered[label] = value;
@@ -1369,27 +987,4 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       _desktopMenuExpanded[label] = !_isDesktopMenuExpanded(label);
     });
   }
-}
-
-class _NavItem {
-  final String label;
-  final String route;
-  final IconData icon;
-
-  const _NavItem({
-    required this.label,
-    required this.route,
-    required this.icon,
-  });
-}
-
-class _NavMenu {
-  final String label;
-  final List<_NavItem> items;
-
-  // optional custom widget builder
-  // so you can show playlists, starred etc
-  final Widget Function(BuildContext context)? builder;
-
-  const _NavMenu({required this.label, this.items = const [], this.builder});
 }

@@ -84,15 +84,20 @@ class Subsonic {
 
     loggerPrint("made request!");
 
-    if (response.statusCode != 200) {
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    final root = body['subsonic-response'] as Map<String, dynamic>;
+
+    // if no subsonic-response or status, something is very wrong, therefore show HTTP error
+
+    if (root['status'] == null || body['subsonic-response'] == null) {
       loggerPrint(
         'HTTP error ${response.statusCode} from $endpoint: ${response.body}',
       );
       throw Exception('HTTP ${response.statusCode} from $endpoint');
     }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final root = body['subsonic-response'] as Map<String, dynamic>;
 
     if (root['status'] == 'failed') {
       final err = root['error'] as Map<String, dynamic>;

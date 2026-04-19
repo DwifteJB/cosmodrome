@@ -1,3 +1,4 @@
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -34,8 +35,8 @@ class SongGridItem extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: imageUrl != null
-                      ? Image.network(
-                          imageUrl!,
+                      ? Image(
+                          image: coverArtProvider(imageUrl!),
                           fit: BoxFit.cover,
                           frameBuilder:
                               (ctx, child, frame, wasSynchronouslyLoaded) {

@@ -10,6 +10,7 @@ import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -99,8 +100,8 @@ class _QueueSheetState extends State<QueueSheet> {
                           leading: ClipRRect(
                             key: ValueKey('cover_${song.id}'),
                             borderRadius: BorderRadius.circular(4),
-                            child: Image.network(
-                              coverUrl,
+                            child: Image(
+                              image: coverArtProvider(coverUrl),
                               width: 40,
                               height: 40,
                               fit: BoxFit.cover,

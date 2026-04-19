@@ -13,6 +13,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/logger.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
@@ -55,8 +56,8 @@ class _FadingAlbumArt extends StatelessWidget {
       transitionBuilder: (child, animation) {
         return FadeTransition(opacity: animation, child: child);
       },
-      child: Image.network(
-        imageUrl,
+      child: Image(
+        image: coverArtProvider(imageUrl),
         key: ValueKey(imageUrl),
         fit: fit,
         errorBuilder: errorBuilder != null
@@ -94,7 +95,17 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
       child: Consumer<PlayerProvider>(
         builder: (context, player, _) {
           final song = player.currentSong;
-          final coverUrl = player.currentCoverArtUrl;
+          String? coverUrl = player.currentCoverArtUrl;
+
+          final sp = Provider.of<SubsonicProvider>(context, listen: false);
+          if (song?.coverArt != null) {
+            try {
+              coverUrl = sp.subsonic.cachedCoverArtUrl(
+                song!.coverArt!,
+                size: 1200,
+              );
+            } catch (_) {}
+          }
 
           if (song != null) {
             _maybeExtractAccentColor(song);
@@ -598,12 +609,12 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
 
     final saveCoverArtURL = sp.subsonic.cachedCoverArtUrl(
       song.coverArt!,
-      size: 300,
+      size: 1200,
     );
 
     try {
       final generator = await PaletteGenerator.fromImageProvider(
-        NetworkImage(saveCoverArtURL),
+        coverArtProvider(saveCoverArtURL),
         size: const Size(200, 200),
       );
 
