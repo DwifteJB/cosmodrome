@@ -72,7 +72,7 @@ func CreateEntry(installDir, exePath string) error {
 		return err
 	}
 
-	iconPath := filepath.Join(installDir, "data", "flutter_assets", "assets", "images", "logo.png")
+	iconPath := filepath.Join(installDir, "data", "flutter_assets", "assets", "logo.png")
 
 	entry := fmt.Sprintf(`[Desktop Entry]
 Name=%s
