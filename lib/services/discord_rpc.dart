@@ -6,7 +6,6 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 // desktop platforms only, bundled in
 // ignore: depend_on_referenced_packages
 import 'package:path/path.dart' as p;
@@ -22,7 +21,10 @@ class RpcBridge extends ChangeNotifier {
   String? _lastSongId;
   bool? _lastIsPlaying;
   bool _lastSendHadZeroDuration = false;
-  final Map<String, String> _coverBase64Cache = {}; // coverArtId → base64
+  final Map<String, String> _coverUrlCache =
+      {}; // coverArtId remote http(s) URL
+  final Map<String, String> _coverBase64Cache =
+      {}; // coverArtId base64-encoded local image
   String? get connectedUser => _connectedUser;
 
   bool get isConnected => _connected;
@@ -116,30 +118,46 @@ class RpcBridge extends ChangeNotifier {
       return;
     }
 
+    String coverUrl = '';
     String coverBase64 = '';
     final artId = song.coverArt ?? '';
     if (artId.isNotEmpty) {
-      if (_coverBase64Cache.containsKey(artId)) {
+      if (_coverUrlCache.containsKey(artId)) {
+        coverUrl = _coverUrlCache[artId]!;
+      } else if (_coverBase64Cache.containsKey(artId)) {
         coverBase64 = _coverBase64Cache[artId]!;
       } else {
-        final coverUrl = player.currentCoverArtUrl;
-        if (coverUrl != null && coverUrl.isNotEmpty) {
-          try {
-            final res = await http.get(Uri.parse(coverUrl));
-            if (res.statusCode == 200) {
-              coverBase64 = base64Encode(res.bodyBytes);
-              _coverBase64Cache[artId] = coverBase64;
+        final candidate = player.currentCoverArtUrl;
+        if (candidate != null && candidate.isNotEmpty) {
+          final parsed = Uri.tryParse(candidate);
+          final isRemoteHttp =
+              parsed != null &&
+              (parsed.scheme == 'http' || parsed.scheme == 'https');
+          if (isRemoteHttp) {
+            coverUrl = candidate;
+            _coverUrlCache[artId] = coverUrl;
+          } else {
+            // this is a local file, so we gotta base64 it for the discord_rpc process :)
+            final file = _resolveLocalImageFile(candidate);
+            if (file != null && await file.exists()) {
+              try {
+                coverBase64 = base64Encode(await file.readAsBytes());
+                if (coverBase64.isNotEmpty) {
+                  _coverBase64Cache[artId] = coverBase64;
+                }
+              } catch (_) {}
             }
-          } catch (_) {}
+          }
         }
       }
     }
 
-    var activity = {
+    final activity = {
       'type': 'SET_ACTIVITY',
       'title': song.title,
       'artist': song.artist ?? '',
       'album': song.album ?? '',
+      'coverUrl': coverUrl,
       'coverBase64': coverBase64,
       'coverArtId': artId,
       'elapsed': player.position.inSeconds,
@@ -212,15 +230,35 @@ class RpcBridge extends ChangeNotifier {
           _connected = true;
           _connectedUser = data['user'] as String?;
           notifyListeners();
+          break;
         case 'DISCONNECTED':
           _connected = false;
           _connectedUser = null;
           notifyListeners();
+          break;
         case 'ERROR':
           _connected = false;
           notifyListeners();
+          break;
+        default:
+          break;
       }
     } catch (_) {}
+  }
+
+  File? _resolveLocalImageFile(String candidate) {
+    final parsed = Uri.tryParse(candidate);
+    if (parsed == null) return File(candidate);
+
+    if (parsed.scheme == 'file') {
+      return File.fromUri(parsed);
+    }
+
+    if (parsed.scheme.isEmpty) {
+      return File(candidate);
+    }
+
+    return null;
   }
 
   void _write(Map<String, dynamic> msg) {
