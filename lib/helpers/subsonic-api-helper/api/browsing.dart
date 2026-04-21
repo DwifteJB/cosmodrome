@@ -17,12 +17,14 @@ final _coverArtManifestByAccount = <String, Map<String, dynamic>>{};
 // not good, sicne lot of redraws
 final _coverArtUrlCache = <String, String>{};
 final _coverArtWarmInFlight = <String, Future<void>>{};
+final _coverArtInitFutureByAccount = <String, Future<void>>{};
 
 void clearCoverArtCache() {
   _coverArtUrlCache.clear();
   _coverArtLocalUriCache.clear();
   _coverArtWarmInFlight.clear();
   _coverArtManifestByAccount.clear();
+  _coverArtInitFutureByAccount.clear();
   _coverArtActiveAccountId = null;
 }
 
@@ -47,7 +49,7 @@ extension SubsonicBrowsingApi on Subsonic {
       _coverArtUrlCache.clear();
       _coverArtLocalUriCache.clear();
       _coverArtActiveAccountId = accountId;
-      unawaited(initCoverArtCacheForAccount());
+      _coverArtInitFutureByAccount[accountId] = initCoverArtCacheForAccount();
     }
 
     final local = _coverArtLocalUriCache['$accountId|$id'];
@@ -473,6 +475,24 @@ extension SubsonicBrowsingApi on Subsonic {
 
     _coverArtWarmInFlight[inFlightKey] = Future<void>(() async {
       try {
+        // wait for any in-flight init to complete
+        // prevents duplicate inits and a ton of un-needed downloads to system
+        final initFuture = _coverArtInitFutureByAccount[accountId];
+        if (initFuture != null) await initFuture;
+
+        // read manifest only after init is done so we see on-disk entries.
+        final manifest = _coverArtManifestByAccount.putIfAbsent(
+          accountId,
+          () => <String, dynamic>{},
+        );
+        final prior = manifest[id] as Map<String, dynamic>?;
+        final priorRef = prior?['ref'] as String?;
+        final priorSize = (prior?['size'] as num?)?.toInt() ?? 0;
+
+        if (priorRef != null && priorSize >= size) {
+          return;
+        }
+
         await LocalStorageService.ensureDirs(accountId);
         final response = await http
             .get(Uri.parse(coverArtUrl(id, size: size)))
@@ -488,18 +508,6 @@ extension SubsonicBrowsingApi on Subsonic {
           extension,
         );
 
-        final existingManifest = _coverArtManifestByAccount.putIfAbsent(
-          accountId,
-          () => <String, dynamic>{},
-        );
-        final prior = existingManifest[id] as Map<String, dynamic>?;
-        final priorRef = prior?['ref'] as String?;
-        final priorSize = (prior?['size'] as num?)?.toInt() ?? 0;
-
-        if (priorRef != null && priorSize >= size) {
-          return;
-        }
-
         await LocalStorageService.writeCoverImageBytes(ref, response.bodyBytes);
         final uri = await LocalStorageService.coverImageUriForRef(ref);
         if (uri == null) return;
@@ -508,7 +516,12 @@ extension SubsonicBrowsingApi on Subsonic {
           uri: uri.toString(),
           size: size,
         );
-        existingManifest[id] = {
+
+        final currentManifest = _coverArtManifestByAccount.putIfAbsent(
+          accountId,
+          () => <String, dynamic>{},
+        );
+        currentManifest[id] = {
           'ref': ref,
           'fetchedAt': DateTime.now().toIso8601String(),
           'size': size,
@@ -520,7 +533,7 @@ extension SubsonicBrowsingApi on Subsonic {
         await LocalStorageService.writeJsonMeta(
           accountId,
           _coverArtManifestKey,
-          {'data': existingManifest},
+          {'data': currentManifest},
         );
       } catch (_) {}
     });

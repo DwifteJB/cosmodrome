@@ -65,6 +65,17 @@ class IoLocalStorageBackend implements LocalStorageBackend {
 
   @override
   Future<void> init() async {
+
+    // if linux use ~/.local/share/me.rmfosho.me (APP INSTALL) instead of documents directory
+    if (Platform.isLinux) {
+      // find current install path
+      // this is fine if cache gets cleared every update (something we want acc)
+      final installDir = Directory.current;
+      _basePath = '${installDir.path}/cache';
+      return;
+    }
+
+
     final dir = await getApplicationDocumentsDirectory();
     _basePath = '${dir.path}/cosmodrome';
   }
