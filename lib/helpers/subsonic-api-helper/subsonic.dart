@@ -12,7 +12,7 @@ const _clientName = 'cosmodrome';
 
 final excludedPingEndpoints = {'ping.view', 'getUser'};
 
-// global cache — keyed as "baseUrl|username|endpoint?params"
+// global cache - keyed as "baseUrl|username|endpoint?params"
 final Map<String, ApiResultCache<Map<String, dynamic>>> _apiCache = {};
 
 class ApiResultCache<T> {

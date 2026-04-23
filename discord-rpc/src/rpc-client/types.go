@@ -53,6 +53,7 @@ type SongUpdate struct {
 	Title       string `json:"title"`
 	Artist      string `json:"artist"`
 	Album       string `json:"album"`
+	CoverURL    string `json:"coverUrl"`    // remote http(s) URL for Discord image proxy
 	CoverBase64 string `json:"coverBase64"` // base64-encoded image bytes
 	CoverArtID  string `json:"coverArtId"`  // stable Subsonic cover art ID (cache key)
 	Elapsed     int64  `json:"elapsed"`     // seconds into the track

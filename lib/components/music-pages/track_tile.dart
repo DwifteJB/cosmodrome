@@ -220,7 +220,7 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
     final trackLabel = widget.trackNumber > 0 ? '${widget.trackNumber}' : '—';
     final artistText = song.artist?.isNotEmpty == true
         ? song.artist
-        : widget.albumArtist;
+        : widget.albumArtist; 
 
     return Dismissible(
       key: ValueKey(
