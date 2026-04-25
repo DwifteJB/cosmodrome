@@ -1,4 +1,4 @@
-name: Build Linux, Windows & Android.
+name: Build Linux, Windows & Android & iOS.
 
 on:
     workflow_dispatch:
@@ -15,10 +15,29 @@ on:
             - 'discord-rpc/**'
             - 'installer/**'
             - 'windows/**'
+            - 'ios/**'
     pull_request:
         branches: [main]
 
 jobs:
+    ipa:
+      runs-on: macos-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: subosito/flutter-action@v2
+          with:
+              channel: stable
+              cache: true
+        - name: Install Flutter dependencies
+          run: flutter pub get
+        - name: Build iOS bundle
+          run: make ipa
+
+        - name: Upload IPA artifact
+          uses: actions/upload-artifact@v4
+          with:
+              name: cosmodrome-ios
+              path: output/cosmodrome.ipa
     linux:
         runs-on: ubuntu-latest
         steps:
