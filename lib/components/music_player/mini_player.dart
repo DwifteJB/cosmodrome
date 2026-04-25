@@ -7,7 +7,6 @@
 
 import 'dart:ui';
 
-import 'package:cosmodrome/components/music_player/fullscreen_player.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/cover_art_provider.dart';
@@ -29,13 +28,7 @@ class MiniPlayer extends StatelessWidget {
         final coverUrl = player.currentCoverArtUrl;
 
         return GestureDetector(
-          onTap: () => showFSheet(
-            context: context,
-            side: FLayout.btt,
-            mainAxisMaxRatio: 1.0,
-            useSafeArea: false,
-            builder: (_) => const FullscreenPlayer(),
-          ),
+          onTap: () => player.openFullscreen(),
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(color: colors.border, width: 1),

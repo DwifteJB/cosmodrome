@@ -11,6 +11,7 @@ class MobileLayout extends StatelessWidget {
   final Widget topBar;
   final Widget expandedMiniPlayer;
   final Widget floatingNav;
+  final Future<void> Function()? onRefresh;
 
   const MobileLayout({
     super.key,
@@ -24,6 +25,7 @@ class MobileLayout extends StatelessWidget {
     required this.topBar,
     required this.expandedMiniPlayer,
     required this.floatingNav,
+    this.onRefresh,
   });
 
   @override
@@ -67,25 +69,31 @@ class MobileLayout extends StatelessWidget {
           ),
           if (isScrollable)
             Positioned.fill(
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: Column(
-                  children: [
-                    SizedBox(height: topPadding + 20),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight:
-                            MediaQuery.of(context).size.height -
-                            (topPadding + 20) -
-                            (navHeight + bottomPadding),
+              child: RefreshIndicator(
+                onRefresh: onRefresh ?? () async {},
+                notificationPredicate: onRefresh != null
+                    ? (notification) => notification.depth == 0
+                    : (_) => false,
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Column(
+                    children: [
+                      SizedBox(height: topPadding + 20),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight:
+                              MediaQuery.of(context).size.height -
+                              (topPadding + 20) -
+                              (navHeight + bottomPadding),
+                        ),
+                        child: KeyedSubtree(
+                          key: const ValueKey('mobile-child'),
+                          child: child,
+                        ),
                       ),
-                      child: KeyedSubtree(
-                        key: const ValueKey('mobile-child'),
-                        child: child,
-                      ),
-                    ),
-                    SizedBox(height: navHeight + bottomPadding + 60),
-                  ],
+                      SizedBox(height: navHeight + bottomPadding + 60),
+                    ],
+                  ),
                 ),
               ),
             )

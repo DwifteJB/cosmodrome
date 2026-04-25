@@ -402,17 +402,26 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             },
           );
 
-    return MobileLayout(
-      backgroundColor: colors.background,
-      accentColor: _accentColor,
-      accentVisible: _accentVisible,
-      isScrollable: _layoutConfig.isScrollable,
-      scrollController: _mobileScrollController,
-      topGradientOpacity: aniu.drive(CurveTween(curve: Curves.easeOut)),
-      topBar: _buildMobileTopBar(context),
-      expandedMiniPlayer: expandedMiniPlayer,
-      floatingNav: floatingNav,
-      child: widget.child,
+    return Consumer<PlayerProvider>(
+      builder: (_, player, _) => PopScope(
+        canPop: !player.isFullscreenOpen,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) player.closeFullscreen();
+        },
+        child: MobileLayout(
+          backgroundColor: colors.background,
+          accentColor: _accentColor,
+          accentVisible: _accentVisible,
+          isScrollable: _layoutConfig.isScrollable,
+          scrollController: _mobileScrollController,
+          topGradientOpacity: aniu.drive(CurveTween(curve: Curves.easeOut)),
+          topBar: _buildMobileTopBar(context),
+          expandedMiniPlayer: expandedMiniPlayer,
+          floatingNav: floatingNav,
+          onRefresh: widget.selectedRoute == '/home' ? requestHomeRefresh : null,
+          child: widget.child,
+        ),
+      ),
     );
   }
 

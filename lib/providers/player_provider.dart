@@ -6,9 +6,11 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
-import 'package:flutter/foundation.dart';
+import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'package:palette_generator/palette_generator.dart';
 
 class PlayerProvider extends ChangeNotifier {
   static final Map<LoopMode, LoopMode> _nextRepeatMode = {
@@ -39,6 +41,11 @@ class PlayerProvider extends ChangeNotifier {
   String? _cachedCoverArtUrl;
   String? _cachedSongId;
   final Set<Uri> _ephemeralCachedUris = <Uri>{};
+
+  bool _isFullscreenOpen = false;
+  Color? _accentColor;
+  Color? _prevAccentColor;
+  final Map<String, Color?> _accentCache = {};
 
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration?>? _durationSub;
@@ -77,7 +84,20 @@ class PlayerProvider extends ChangeNotifier {
     });
   }
 
+  Color? get accentColor => _accentColor;
   String? get currentCoverArtUrl => _cachedCoverArtUrl;
+  bool get isFullscreenOpen => _isFullscreenOpen;
+  Color? get prevAccentColor => _prevAccentColor;
+
+  void closeFullscreen() {
+    _isFullscreenOpen = false;
+    notifyListeners();
+  }
+
+  void openFullscreen() {
+    _isFullscreenOpen = true;
+    notifyListeners();
+  }
 
   int get currentIndex => _currentIndex;
 
@@ -217,6 +237,7 @@ class PlayerProvider extends ChangeNotifier {
       _currentIndex = -1;
       _shuffleOrder = [];
       _shuffleCursor = -1;
+      _isFullscreenOpen = false;
       _queueVersion++;
       _updateCoverArtCache();
       await _player.stop();
@@ -268,6 +289,7 @@ class PlayerProvider extends ChangeNotifier {
     _songs.clear();
     _playedSongIds.clear();
     _currentIndex = -1;
+    _isFullscreenOpen = false;
     _queueVersion++;
     _updateCoverArtCache();
     notifyListeners();
@@ -514,5 +536,60 @@ class PlayerProvider extends ChangeNotifier {
     } catch (_) {
       _cachedCoverArtUrl = null;
     }
+    _maybeExtractAccentColor(song);
+  }
+
+  void _maybeExtractAccentColor(Song song) {
+    if (_accentCache.containsKey(song.id)) {
+      _prevAccentColor = _accentColor;
+      _accentColor = _accentCache[song.id];
+      notifyListeners();
+      return;
+    }
+    unawaited(_extractAccentColor(song));
+  }
+
+  Future<void> _extractAccentColor(Song song) async {
+    if (song.coverArt == null || _subsonicProvider == null) {
+      _accentCache[song.id] = null;
+      _prevAccentColor = _accentColor;
+      _accentColor = null;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final coverUrl = _subsonicProvider!.subsonic.cachedCoverArtUrl(
+        song.coverArt!,
+        size: 1200,
+      );
+
+      final generator = await PaletteGenerator.fromImageProvider(
+        coverArtProvider(coverUrl),
+        size: const Size(200, 200),
+      );
+
+      // Discard if a different song became current while we were waiting
+      if (currentSong?.id != song.id) return;
+
+      final raw =
+          generator.vibrantColor?.color ??
+          generator.lightVibrantColor?.color ??
+          generator.mutedColor?.color ??
+          generator.lightMutedColor?.color ??
+          generator.dominantColor?.color;
+
+      Color? color;
+      if (raw != null) {
+        final hsl = HSLColor.fromColor(raw);
+        color =
+            hsl.lightness < 0.25 ? hsl.withLightness(0.35).toColor() : raw;
+      }
+
+      _accentCache[song.id] = color;
+      _prevAccentColor = _accentColor;
+      _accentColor = color;
+      notifyListeners();
+    } catch (_) {}
   }
 }

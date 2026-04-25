@@ -167,7 +167,7 @@ class SubsonicProvider extends ChangeNotifier {
         } else {
           _recordServerSuccess(account.baseUrl);
         }
-      } catch (_) {
+      } catch (e) {
         offline = true;
         _recordServerFailure(account.baseUrl, now);
       }
@@ -508,7 +508,10 @@ class SubsonicProvider extends ChangeNotifier {
       final before = server.canConnect;
       final after = await server.tryConnect(timeoutSeconds: 3);
       if (after) {
-        _recordServerSuccess(server.baseUrl);
+        _connectivityFailureCounts.remove(server.baseUrl);
+        _connectivityDebounceUntil[server.baseUrl] = now.add(
+          const Duration(minutes: 3),
+        );
       } else {
         _recordServerFailure(server.baseUrl, now);
       }
@@ -572,16 +575,9 @@ class SubsonicServer {
         );
       }
 
-      // log error
-      loggerPrint(
-        "SubsonicServer: ping to $baseUrl failed with error: ${res.errorMessage}, code: ${res.errorCode}",
-      );
-
       if (res.errorMessage != null &&
           res.errorMessage!.contains('Subsonic API error')) {
-        loggerPrint(
-          'SubsonicServer: received expected API error from $baseUrl, server is reachable',
-        );
+        
         canConnect = true;
         return true; // server is reachable and responded with an API error, which is expected
       } else if (res.errorMessage != null) {
