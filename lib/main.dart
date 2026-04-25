@@ -12,6 +12,7 @@ import 'package:cosmodrome/pages/album_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
 import 'package:cosmodrome/pages/playlist_page.dart';
+import 'package:cosmodrome/pages/search_page.dart';
 //
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -121,6 +122,12 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           path: '/library',
           pageBuilder: (context, state) =>
               const NoTransitionPage(child: LibraryPage()),
+        ),
+
+        GoRoute(
+          path: '/search',
+          pageBuilder: (context, state) =>
+              const NoTransitionPage(child: SearchPage()),
         ),
 
         if (isDesktop) ...[
@@ -302,19 +309,6 @@ class _ApplicationState extends State<Application>
   }
 }
 
-class _NoTransition extends PageTransitionsBuilder {
-  const _NoTransition();
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) => child;
-}
-
 class _FullscreenPlayerOverlay extends StatefulWidget {
   const _FullscreenPlayerOverlay();
 
@@ -378,4 +372,17 @@ class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
       },
     );
   }
+}
+
+class _NoTransition extends PageTransitionsBuilder {
+  const _NoTransition();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => child;
 }

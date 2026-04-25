@@ -245,7 +245,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
       decoration: BoxDecoration(
         border: Border.all(color: colors.border, width: 1),
         borderRadius: BorderRadius.circular(28),
-        color: colors.background.withOpacity(0.55),
+        color: colors.background.withValues(alpha: 0.55),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
@@ -305,7 +305,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
       decoration: BoxDecoration(
         border: Border.all(color: colors.border, width: 1),
         borderRadius: BorderRadius.circular(28),
-        color: colors.background.withOpacity(0.55),
+        color: colors.background.withValues(alpha: 0.55),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
@@ -359,7 +359,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
                       padding: const EdgeInsets.all(10),
-                      color: colors.background.withOpacity(0.8),
+                      color: colors.background.withValues(alpha: 0.8),
                       child: Icon(
                         FIcons.chevronLeft,
                         size: 20,

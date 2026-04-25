@@ -125,11 +125,13 @@ extension SubsonicBrowsingApi on Subsonic {
     String type, {
     int size = 20,
     int offset = 0,
+    bool forceRefresh = false,
   }) async {
     try {
       final response = await apiRequest(
         'getAlbumList2',
         params: {'type': type, 'size': '$size', 'offset': '$offset'},
+        forceRefresh: forceRefresh,
       );
       final listJson = response['albumList2'] as Map<String, dynamic>?;
       if (listJson == null) return [];

@@ -99,6 +99,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   Timer? _coverHideTimer;
 
   late AnimationController aniu;
+  late AnimationController _searchAnim;
+  final _mobileSearchController = TextEditingController();
+  final _mobileSearchFocus = FocusNode();
 
   final List<MainLayoutNavMenu> _navMenus = [
     MainLayoutNavMenu(
@@ -148,6 +151,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         accentColorNotifier.value = null;
         coverUrlNotifier.value = null;
       }
+      if (widget.selectedRoute == '/search') {
+        _searchAnim.forward().then((_) {
+          if (mounted) _mobileSearchFocus.requestFocus();
+        });
+      } else if (oldWidget.selectedRoute == '/search') {
+        _mobileSearchFocus.unfocus();
+        _mobileSearchController.clear();
+        _searchAnim.reverse();
+      }
     }
   }
 
@@ -156,6 +168,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     _accentHideTimer?.cancel();
     _coverHideTimer?.cancel();
     _searchController.dispose();
+    _mobileSearchController.dispose();
+    _mobileSearchFocus.dispose();
     _mobileScrollController.dispose();
     _desktopScrollController.dispose();
 
@@ -165,6 +179,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     starredCountChanged.removeListener(_onStarredSidebarChanged);
     playlistsCountChanged.removeListener(_onPlaylistsSidebarChanged);
     aniu.dispose();
+    _searchAnim.dispose();
     super.dispose();
   }
 
@@ -175,6 +190,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
+    _searchAnim = AnimationController(
+      duration: const Duration(milliseconds: 350),
+      vsync: this,
+    );
+    if (widget.selectedRoute == '/search') _searchAnim.value = 1.0;
     _mobileScrollController.addListener(_onScroll);
     _desktopScrollController.addListener(_onScroll);
 
@@ -318,11 +338,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     final colors = context.theme.colors;
     final collapsed = aniu.value > 0.3;
 
-    return Container(
+    final pill = Container(
       decoration: BoxDecoration(
         border: Border.all(color: colors.border, width: 1),
         borderRadius: BorderRadius.circular(28),
-        color: colors.background.withOpacity(0.55),
+        color: colors.background.withValues(alpha: 0.55),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
@@ -360,6 +380,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         ),
       ),
     );
+
+    return pill;
   }
 
   Widget _buildMobileLayout(BuildContext context) {
@@ -381,23 +403,57 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         : Consumer<PlayerProvider>(
             builder: (_, player, _) {
               final collapsed = aniu.value > 0.3;
-              return Row(
-                children: [
-                  _layoutConfig.mainPillBuilder != null
-                      ? _layoutConfig.mainPillBuilder!(context)
-                      : _buildMainPill(context),
-                  Expanded(
-                    child: player.hasCurrentSong && collapsed
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: MiniPlayer(),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                  _layoutConfig.searchPillBuilder != null
-                      ? _layoutConfig.searchPillBuilder!(context)
-                      : _buildSearchPill(context),
-                ],
+              return AnimatedBuilder(
+                animation: _searchAnim,
+                builder: (context, _) {
+                  final searching = _searchAnim.value > 0;
+                  final curved = CurvedAnimation(
+                    parent: _searchAnim,
+                    curve: Curves.easeOutCubic,
+                  );
+                  return Row(
+                    children: [
+                      _layoutConfig.mainPillBuilder != null
+                          ? _layoutConfig.mainPillBuilder!(context)
+                          : _buildMainPill(context),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: searching
+                            ? FadeTransition(
+                                opacity: curved,
+                                child: _buildSearchPillExpanded(context),
+                              )
+                            : (player.hasCurrentSong && collapsed
+                                  ? MiniPlayer()
+                                  : const SizedBox.shrink()),
+                      ),
+                      // fades, goes left & opens up :)
+                      FadeTransition(
+                        opacity: Tween<double>(
+                          begin: 1.0,
+                          end: 0.0,
+                        ).animate(curved),
+                        child: SizeTransition(
+                          axis: Axis.horizontal,
+                          axisAlignment: 1.0,
+                          sizeFactor: Tween<double>(
+                            begin: 1.0,
+                            end: 0.0,
+                          ).animate(curved),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(width: 8),
+                              _layoutConfig.searchPillBuilder != null
+                                  ? _layoutConfig.searchPillBuilder!(context)
+                                  : _buildSearchPillIcon(context),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           );
@@ -418,6 +474,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           topBar: _buildMobileTopBar(context),
           expandedMiniPlayer: expandedMiniPlayer,
           floatingNav: floatingNav,
+          searchAnimation: CurvedAnimation(
+            parent: _searchAnim,
+            curve: Curves.easeOutCubic,
+          ),
           onRefresh: widget.selectedRoute == '/home' ? requestHomeRefresh : null,
           child: widget.child,
         ),
@@ -459,7 +519,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                       child: Container(
                         padding: const EdgeInsets.all(10),
-                        color: colors.background.withOpacity(0.8),
+                        color: colors.background.withValues(alpha: 0.8),
                         child: Icon(
                           FIcons.chevronLeft,
                           size: 20,
@@ -688,14 +748,15 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildSearchPill(BuildContext context) {
+  // The expanded search TextField shown inside the Expanded slot when searching
+  Widget _buildSearchPillExpanded(BuildContext context) {
     final colors = context.theme.colors;
 
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: colors.border, width: 1),
         borderRadius: BorderRadius.circular(28),
-        color: colors.background.withOpacity(0.55),
+        color: colors.background.withValues(alpha: 0.55),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(28),
@@ -703,12 +764,85 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            // search
-            child: _buildNavButton(
-              context,
-              _mobilenavItems.where((item) => item.label == 'Search').first,
-              showLabel: false,
+            child: SizedBox(
+              height: 44,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: colors.mutedForeground,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _mobileSearchController,
+                      focusNode: _mobileSearchFocus,
+                      style: context.theme.typography.sm.copyWith(
+                        color: colors.foreground,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search music...',
+                        hintStyle: context.theme.typography.sm.copyWith(
+                          color: colors.mutedForeground,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onSubmitted: (_) => _mobileSearchFocus.unfocus(),
+                    ),
+                  ),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _mobileSearchController,
+                    builder: (_, value, _) {
+                      if (value.text.isEmpty) return const SizedBox.shrink();
+                      return GestureDetector(
+                        onTap: () {
+                          _mobileSearchController.clear();
+                          _mobileSearchFocus.requestFocus();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: colors.mutedForeground,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // icon that expands into the textfield on search
+  Widget _buildSearchPillIcon(BuildContext context) {
+    final colors = context.theme.colors;
+    final searchNavItem = _mobilenavItems.firstWhere(
+      (item) => item.label == 'Search',
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.border, width: 1),
+        borderRadius: BorderRadius.circular(28),
+        color: colors.background.withValues(alpha: 0.55),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: _buildNavButton(context, searchNavItem, showLabel: false),
           ),
         ),
       ),

@@ -35,7 +35,6 @@ extension SubsonicBasicApi on Subsonic {
       await apiRequest('ping.view');
       return (success: true, errorCode: null, errorMessage: null);
     } catch (e) {
-      loggerPrint('ping failed: $e');
       return (success: false, errorCode: null, errorMessage: e.toString());
     }
   }

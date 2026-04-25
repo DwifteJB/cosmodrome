@@ -12,6 +12,7 @@ class MobileLayout extends StatelessWidget {
   final Widget expandedMiniPlayer;
   final Widget floatingNav;
   final Future<void> Function()? onRefresh;
+  final Animation<double> searchAnimation;
 
   const MobileLayout({
     super.key,
@@ -25,6 +26,7 @@ class MobileLayout extends StatelessWidget {
     required this.topBar,
     required this.expandedMiniPlayer,
     required this.floatingNav,
+    required this.searchAnimation,
     this.onRefresh,
   });
 
@@ -154,10 +156,14 @@ class MobileLayout extends StatelessWidget {
             height: 56 + topPadding,
             child: topBar,
           ),
-          Positioned(
-            bottom: bottomPadding + 18 + 48 + 20,
-            left: 16,
-            right: 16,
+          AnimatedBuilder(
+            animation: searchAnimation,
+            builder: (_, child) => Positioned(
+              bottom: bottomPadding + 18 + 48 + 20,
+              left: 16,
+              right: 16,
+              child: child!,
+            ),
             child: expandedMiniPlayer,
           ),
           Positioned(

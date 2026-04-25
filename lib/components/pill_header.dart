@@ -53,7 +53,7 @@ class PillHeader extends StatelessWidget {
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
                       padding: const EdgeInsets.all(10),
-                      color: colors.background.withOpacity(0.8),
+                      color: colors.background.withValues(alpha: 0.8),
                       child: Icon(
                         FIcons.chevronLeft,
                         size: 20,

@@ -33,7 +33,6 @@ class LocalStorageService {
 
   static Future<void> init() async {
     await _backend.init();
-    loggerPrint('STORAGE: local storage backend initialized');
   }
 
   static String metaPath(String accountId, String key) =>

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cosmodrome/components/shared_views/no_account_view.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
@@ -218,7 +219,7 @@ class _HomePageState extends State<HomePage> {
     final provider = context.watch<SubsonicProvider>();
 
     if (provider.activeAccount == null) {
-      return _NoAccountView();
+      return NoAccountView();
     }
 
     if (_loading) {
@@ -301,7 +302,9 @@ class _HomePageState extends State<HomePage> {
     homeRefreshNotifier.addListener(_onHomeRefreshRequested);
   }
 
-  Future<void> _fetchAlbums() async {
+  Future<void> _fetchAlbums({
+    bool forceRefresh = false,
+  }) async {
     final provider = context.read<SubsonicProvider>();
     final accountId = provider.activeAccount?.id;
     if (accountId == null) {
@@ -311,6 +314,10 @@ class _HomePageState extends State<HomePage> {
         _starredAlbums = null;
       });
       return;
+    }
+
+    if (forceRefresh) {
+      setState(() => _loading = true);
     }
 
     final cachedRecent = await offlineCacheService.loadRecentAlbums(accountId);
@@ -342,8 +349,8 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final results = await Future.wait([
-        provider.subsonic.getAlbumList2('newest', size: 20),
-        provider.subsonic.getAlbumList2('starred', size: 20),
+        provider.subsonic.getAlbumList2('newest', size: 20, forceRefresh: forceRefresh),
+        provider.subsonic.getAlbumList2('starred', size: 20, forceRefresh: forceRefresh),
       ]);
 
       await Future.wait([
@@ -374,7 +381,8 @@ class _HomePageState extends State<HomePage> {
     final completer = homeRefreshNotifier.value;
     if (completer == null || completer.isCompleted) return;
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      await _fetchAlbums();
+      // reset cache
+      await _fetchAlbums(forceRefresh: true);
       if (!completer.isCompleted) completer.complete();
     });
   }
@@ -490,36 +498,6 @@ class _HorizontalCarousel extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _NoAccountView extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    // background of a bunch of shimmering album cards in a row
-    // so grid based layout that it looks like a music library, but the cards are just gray boxes with a shimmer effect
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'No account connected',
-            style: context.theme.typography.xl.copyWith(
-              fontWeight: FontWeight.bold,
-              color: context.theme.colors.foreground,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Please add an account to view your music library.',
-            style: context.theme.typography.md.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

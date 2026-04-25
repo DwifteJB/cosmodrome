@@ -40,13 +40,15 @@ class Subsonic {
     String endpoint, {
     Map<String, String> params = const {},
     int timeoutSeconds = 5,
+    bool forceRefresh = false,
   }) async {
     // check to see if theres a cached result that isn't expired
     final cacheKey =
         '$baseUrl|${auth.username}|$endpoint?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
     final cached = _apiCache[cacheKey];
 
-    if (cached != null &&
+    if (!forceRefresh &&
+        cached != null &&
         !cached.isExpired &&
         !excludedPingEndpoints.contains(endpoint)) {
       loggerPrint('Cache hit for $cacheKey');
@@ -68,7 +70,6 @@ class Subsonic {
     };
 
     final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
-    loggerPrint('Making API request to $uri');
     final response = await http
         .get(uri)
         .timeout(
@@ -82,8 +83,6 @@ class Subsonic {
             );
           },
         );
-
-    loggerPrint("made request!");
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
@@ -103,9 +102,12 @@ class Subsonic {
       final SubsonicError error = getErrorFromCode(
         (err['code'] as num).toInt(),
       );
-      loggerPrint(
-        'Subsonic API error from $endpoint: $error (${err['message']})',
-      );
+      // ignore if ping.view / ping
+      if (!endpoint.startsWith("ping")) {
+        loggerPrint(
+          'Subsonic API error from $endpoint: $error (${err['message']})',
+        );
+      }
       // throw string of useful error
       final usefulError = errorToSensibleNames(error);
       throw Exception(
