@@ -41,6 +41,18 @@ class IoLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
+  Future<void> deleteAccountCache(String accountId) {
+    // just delete the whole cache dir, it's simpler and should be fast enough
+    final dir = Directory('$_base/$accountId');
+    if (dir.existsSync()) {
+      return dir.delete(recursive: true);
+    }
+
+    // create empty dir to avoid issues with other methods assuming it exists
+    return dir.create(recursive: true);
+  }
+
+  @override
   Future<void> deleteCoverImage(String coverRef) async {
     final file = File(coverRef);
     if (await file.exists()) {

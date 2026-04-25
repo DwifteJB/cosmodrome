@@ -32,10 +32,9 @@ extension SubsonicBasicApi on Subsonic {
     int timeoutSeconds = 5,
   }) async {
     try {
-      await apiRequest('ping.view');
+      await apiRequest('ping.view', timeoutSeconds: timeoutSeconds);
       return (success: true, errorCode: null, errorMessage: null);
     } catch (e) {
-      loggerPrint('ping failed: $e');
       return (success: false, errorCode: null, errorMessage: e.toString());
     }
   }

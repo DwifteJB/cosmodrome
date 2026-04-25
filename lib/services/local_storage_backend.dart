@@ -5,6 +5,8 @@ abstract class LocalStorageBackend {
   String coverImageRef(String accountId, String imageId, String extension);
   Future<Uri?> coverImageUri(String coverRef);
 
+  Future<void> deleteAccountCache(String accountId);
+
   Future<void> deleteCoverImage(String coverRef);
   Future<void> deleteSong(String songRef);
   Future<void> ensureDirs(String accountId);

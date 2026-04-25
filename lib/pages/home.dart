@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:cosmodrome/components/home/featured_spotlight.dart';
+import 'package:cosmodrome/components/shared_views/no_account_view.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
@@ -59,26 +61,25 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _AlbumCard extends StatefulWidget {
+class _AlbumCard extends StatelessWidget {
   final Album album;
   final Subsonic subsonic;
+
+  static const double _cardWidth = 150.0;
 
   const _AlbumCard({required this.album, required this.subsonic});
 
   @override
-  State<_AlbumCard> createState() => _AlbumCardState();
-}
-
-class _AlbumCardState extends State<_AlbumCard> {
-  static const double _cardWidth = 150.0;
-  late String? _coverUrl;
-
-  @override
   Widget build(BuildContext context) {
     const cardWidth = _cardWidth;
+    // Always resolve the URL at build time so a cache clear immediately takes
+    // effect on the next rebuild rather than serving a stale file path.
+    final coverUrl = album.coverArt != null
+        ? subsonic.cachedCoverArtUrl(album.coverArt!, size: 300)
+        : null;
 
     return GestureDetector(
-      onTap: () => context.push('/library/album/${widget.album.id}'),
+      onTap: () => context.push('/library/album/${album.id}'),
       child: SizedBox(
         width: cardWidth,
         child: Column(
@@ -86,9 +87,9 @@ class _AlbumCardState extends State<_AlbumCard> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: _coverUrl != null
+              child: coverUrl != null
                   ? Image(
-                      image: coverArtProvider(_coverUrl!),
+                      image: coverArtProvider(coverUrl),
                       width: cardWidth,
                       height: cardWidth,
                       fit: BoxFit.cover,
@@ -122,7 +123,7 @@ class _AlbumCardState extends State<_AlbumCard> {
             ),
             const SizedBox(height: 6),
             Text(
-              widget.album.name,
+              album.name,
               style: context.theme.typography.sm.copyWith(
                 fontWeight: FontWeight.w400,
                 color: context.theme.colors.foreground,
@@ -131,7 +132,7 @@ class _AlbumCardState extends State<_AlbumCard> {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              widget.album.artist,
+              album.artist,
               style: context.theme.typography.xs.copyWith(
                 color: context.theme.colors.mutedForeground,
               ),
@@ -142,27 +143,6 @@ class _AlbumCardState extends State<_AlbumCard> {
         ),
       ),
     );
-  }
-
-  @override
-  void didUpdateWidget(_AlbumCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.album.id != widget.album.id ||
-        oldWidget.album.coverArt != widget.album.coverArt) {
-      _updateCoverUrl();
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _updateCoverUrl();
-  }
-
-  void _updateCoverUrl() {
-    _coverUrl = widget.album.coverArt != null
-        ? widget.subsonic.cachedCoverArtUrl(widget.album.coverArt!, size: 300)
-        : null;
   }
 }
 
@@ -218,7 +198,7 @@ class _HomePageState extends State<HomePage> {
     final provider = context.watch<SubsonicProvider>();
 
     if (provider.activeAccount == null) {
-      return _NoAccountView();
+      return NoAccountView();
     }
 
     if (_loading) {
@@ -255,6 +235,13 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 8),
+        FeaturedSpotlight(
+          key: ValueKey(provider.activeAccount?.id),
+          subsonic: provider.subsonic,
+          accountId: provider.activeAccount!.id,
+          isOffline: provider.isOffline,
         ),
         const SizedBox(height: 8),
         _HorizontalCarousel(
@@ -301,7 +288,9 @@ class _HomePageState extends State<HomePage> {
     homeRefreshNotifier.addListener(_onHomeRefreshRequested);
   }
 
-  Future<void> _fetchAlbums() async {
+  Future<void> _fetchAlbums({
+    bool forceRefresh = false,
+  }) async {
     final provider = context.read<SubsonicProvider>();
     final accountId = provider.activeAccount?.id;
     if (accountId == null) {
@@ -311,6 +300,10 @@ class _HomePageState extends State<HomePage> {
         _starredAlbums = null;
       });
       return;
+    }
+
+    if (forceRefresh) {
+      setState(() => _loading = true);
     }
 
     final cachedRecent = await offlineCacheService.loadRecentAlbums(accountId);
@@ -342,8 +335,8 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final results = await Future.wait([
-        provider.subsonic.getAlbumList2('newest', size: 20),
-        provider.subsonic.getAlbumList2('starred', size: 20),
+        provider.subsonic.getAlbumList2('newest', size: 20, forceRefresh: forceRefresh),
+        provider.subsonic.getAlbumList2('starred', size: 20, forceRefresh: forceRefresh),
       ]);
 
       await Future.wait([
@@ -374,7 +367,8 @@ class _HomePageState extends State<HomePage> {
     final completer = homeRefreshNotifier.value;
     if (completer == null || completer.isCompleted) return;
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      await _fetchAlbums();
+      // reset cache
+      await _fetchAlbums(forceRefresh: true);
       if (!completer.isCompleted) completer.complete();
     });
   }
@@ -490,36 +484,6 @@ class _HorizontalCarousel extends StatelessWidget {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _NoAccountView extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    // background of a bunch of shimmering album cards in a row
-    // so grid based layout that it looks like a music library, but the cards are just gray boxes with a shimmer effect
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'No account connected',
-            style: context.theme.typography.xl.copyWith(
-              fontWeight: FontWeight.bold,
-              color: context.theme.colors.foreground,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Please add an account to view your music library.',
-            style: context.theme.typography.md.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

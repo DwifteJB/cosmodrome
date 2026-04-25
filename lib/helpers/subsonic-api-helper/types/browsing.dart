@@ -296,6 +296,137 @@ class PlaylistDetail extends Playlist {
   };
 }
 
+/*
+<album id="13554" name="Black Angel" coverArt="al-13554" songCount="12" created="2002-11-16T15:37:20" duration="3160" artist="Savage Rose" artistId="6999"/>
+*/
+class SearchAlbum {
+  String id;
+  String name;
+  String coverArt;
+  int songCount;
+  int duration;
+  String artist;
+  String artistId;
+
+  SearchAlbum({
+    required this.id,
+    required this.name,
+    required this.coverArt,
+    required this.songCount,
+    required this.duration,
+    required this.artist,
+    required this.artistId,
+  });
+
+  factory SearchAlbum.fromJson(Map<String, dynamic> json) {
+    return SearchAlbum(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      coverArt: json['coverArt'] as String? ?? '',
+      songCount: (json['songCount'] as num?)?.toInt() ?? 0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      artist: json['artist'] as String? ?? '',
+      artistId: json['artistId'] as String? ?? '',
+    );
+  }
+}
+
+class SearchArtist {
+  String id;
+  String name;
+  String coverArt;
+  int albumCount;
+
+  SearchArtist({
+    required this.id,
+    required this.name,
+    required this.coverArt,
+    required this.albumCount,
+  });
+
+  factory SearchArtist.fromJson(Map<String, dynamic> json) {
+    return SearchArtist(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      coverArt: json['coverArt'] as String? ?? '',
+      albumCount: (json['albumCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class SearchResult {
+  List<SearchSong> songs;
+  List<SearchAlbum> albums;
+  List<SearchArtist> artists;
+
+  SearchResult({
+    required this.songs,
+    required this.albums,
+    required this.artists,
+  });
+
+  factory SearchResult.fromJson(Map<String, dynamic> json) {
+    final songsJson = json['song'] as List<dynamic>? ?? [];
+    final albumsJson = json['album'] as List<dynamic>? ?? [];
+    final artistsJson = json['artist'] as List<dynamic>? ?? [];
+
+    return SearchResult(
+      songs: songsJson
+          .map((s) => SearchSong.fromJson(s as Map<String, dynamic>))
+          .toList(),
+      albums: albumsJson
+          .map((a) => SearchAlbum.fromJson(a as Map<String, dynamic>))
+          .toList(),
+      artists: artistsJson
+          .map((a) => SearchArtist.fromJson(a as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+// <song id="84902" parent="84883" title="Black" album="Ten" artist="Pearl Jam" isDir="false" coverArt="84883" created="2001-06-11T22:15:52" duration="344" bitRate="160" year="1992" genre="Rock" size="6882991" suffix="mp3" contentType="audio/mpeg" isVideo="false" path="Pearl Jam/Ten/05 - Black.mp3" albumId="12944" artistId="6745" type="music"/>
+
+class SearchSong {
+  String id;
+  String title;
+  String album;
+  String artist;
+  String coverArt;
+  int duration;
+  int bitRate;
+  int year;
+  String genre;
+  String suffix;
+
+  SearchSong({
+    required this.id,
+    required this.title,
+    required this.album,
+    required this.artist,
+    required this.coverArt,
+    required this.duration,
+    required this.bitRate,
+    required this.year,
+    required this.genre,
+    required this.suffix,
+  });
+
+  factory SearchSong.fromJson(Map<String, dynamic> json) {
+    return SearchSong(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      album: json['album'] as String? ?? '',
+      artist: json['artist'] as String? ?? '',
+      coverArt: json['coverArt'] as String? ?? '',
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      bitRate: (json['bitRate'] as num?)?.toInt() ?? 0,
+      year: (json['year'] as num?)?.toInt() ?? 0,
+      genre: json['genre'] as String? ?? '',
+      suffix: json['suffix'] as String? ?? '',
+    );
+  }
+}
+
 class Shortcut {
   int id;
   String name;

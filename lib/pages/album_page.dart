@@ -141,12 +141,15 @@ class _AlbumHeader extends StatelessWidget {
 }
 
 class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
+  static const int _initialTrackRevealCount = 3;
   AlbumDetail? _album;
   String? _coverUrl;
   bool _loading = true;
   String? _error;
   bool _starred = false;
+  int _revealedTrackCount = 0;
 
+  bool _trackRevealScheduled = false;
   Color _localCoverColor = AppColors.auraColor;
 
   // mobile topbarbutton
@@ -359,6 +362,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   Widget _desktopLayout() {
     final album = _album!;
     final coverUrl = _coverUrl;
+    final visibleTrackCount = _visibleTrackCount(album.songs.length);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -374,16 +378,18 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               else
                 _wideHeader(album, coverUrl),
               const SizedBox(height: 20),
-              ...album.songs.asMap().entries.map(
-                (e) => MusicPageDesktopTrackTile(
-                  song: e.value,
-                  trackNumber: e.value.track ?? 0,
-                  index: e.key,
+              ...List.generate(visibleTrackCount, (index) {
+                final song = album.songs[index];
+                return MusicPageDesktopTrackTile(
+                  song: song,
+                  trackNumber: song.track ?? 0,
+                  index: index,
                   albumArtist: album.artist,
-                  enabled: _isSongPlayable(e.value),
+                  enabled: _isSongPlayable(song),
                   accentColor: accentColorNotifier.value ?? _localCoverColor,
-                  onTap: () => onClickSong(e.value),
-                ),
+                  onTap: () => onClickSong(song),
+                );
+              }, growable: false,
               ),
             ],
           ),
@@ -443,6 +449,14 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
         coverUrlNotifier.value = coverUrl;
         _pushPageButtons();
         _extractAccentColor();
+        if (_revealedTrackCount == 0 && album != null) {
+          _revealedTrackCount = album.songs.isEmpty
+              ? 0
+              : (album.songs.length < _initialTrackRevealCount
+                    ? album.songs.length
+                    : _initialTrackRevealCount);
+          _scheduleTrackReveal();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -463,6 +477,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   Widget _mobileLayout() {
     final album = _album!;
     final coverUrl = _coverUrl;
+    final visibleTrackCount = _visibleTrackCount(album.songs.length);
 
     final metaParts = <String>[
       if (album.genre != null) album.genre!,
@@ -577,16 +592,18 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           ),
         ),
         const SizedBox(height: 24),
-        ...album.songs.asMap().entries.map(
-          (e) => MusicPageMobileTrackTile(
-            song: e.value,
-            trackNumber: e.value.track ?? 0,
-            index: e.key,
-            enabled: _isSongPlayable(e.value),
+        ...List.generate(visibleTrackCount, (index) {
+          final song = album.songs[index];
+          return MusicPageMobileTrackTile(
+            song: song,
+            trackNumber: song.track ?? 0,
+            index: index,
+            enabled: _isSongPlayable(song),
             albumArtist: album.artist,
             accentColor: accentColorNotifier.value ?? AppColors.auraColor,
-            onTap: () => onClickSong(e.value),
-          ),
+            onTap: () => onClickSong(song),
+          );
+        }, growable: false,
         ),
 
         if (additionalDetails.isNotEmpty) ...[
@@ -622,6 +639,32 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     );
   }
 
+  void _scheduleTrackReveal() {
+    if (!mounted || _trackRevealScheduled || _album == null) return;
+    final totalTracks = _album!.songs.length;
+    if (_revealedTrackCount >= totalTracks) return;
+
+    _trackRevealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _trackRevealScheduled = false;
+      if (!mounted || _album == null) return;
+
+      final nextCount = _revealedTrackCount + 1;
+      final clampedCount = nextCount > _album!.songs.length
+          ? _album!.songs.length
+          : nextCount;
+      if (clampedCount == _revealedTrackCount) return;
+
+      setState(() {
+        _revealedTrackCount = clampedCount;
+      });
+
+      if (_revealedTrackCount < _album!.songs.length) {
+        _scheduleTrackReveal();
+      }
+    });
+  }
+
   Future<void> _starAlbum() async {
     if (_album == null) return;
     final provider = context.read<SubsonicProvider>();
@@ -637,6 +680,14 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     } else if (ok) {
       notifyStarredChanged();
     }
+  }
+
+  int _visibleTrackCount(int totalTracks) {
+    if (totalTracks == 0) return 0;
+    if (_revealedTrackCount == 0) return 0;
+    return _revealedTrackCount > totalTracks
+        ? totalTracks
+        : _revealedTrackCount;
   }
 
   Widget _wideHeader(AlbumDetail album, String? coverUrl) {

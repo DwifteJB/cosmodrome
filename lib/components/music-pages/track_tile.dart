@@ -96,109 +96,115 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
     final rowBg = isOdd ? const Color(0x0DFFFFFF) : Colors.transparent;
     final disabledText = context.theme.colors.mutedForeground;
 
-    return GestureDetector(
-      onTap: widget.enabled
-          ? (widget.onTap ?? () => context.read<PlayerProvider>().playNow(song))
-          : null,
-      child: MouseRegion(
-        cursor: widget.enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        onEnter: (_) {
-          if (widget.enabled) setState(() => _isHovered = true);
-        },
-        onExit: (_) {
-          if (widget.enabled) setState(() => _isHovered = false);
-        },
-        child: Container(
-          color: widget.enabled && _isHovered ? hoverBg : rowBg,
-          child: Opacity(
-            opacity: widget.enabled ? 1.0 : 0.45,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 32,
-                    child: Text(
-                      trackLabel,
-                      style: context.theme.typography.xs.copyWith(
-                        color: widget.enabled
-                            ? AppColors.trackNumber
-                            : disabledText,
-                        letterSpacing: -0.5,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          song.title,
-                          style: context.theme.typography.sm.copyWith(
-                            color: !widget.enabled
-                                ? disabledText
-                                : (isPlaying
-                                      ? widget.accentColor
-                                      : context.theme.colors.foreground),
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -0.05,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: widget.enabled
+            ? (widget.onTap ??
+                  () => context.read<PlayerProvider>().playNow(song))
+            : null,
+        child: MouseRegion(
+          cursor: widget.enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          onEnter: (_) {
+            if (widget.enabled) setState(() => _isHovered = true);
+          },
+          onExit: (_) {
+            if (widget.enabled) setState(() => _isHovered = false);
+          },
+          child: Container(
+            color: widget.enabled && _isHovered ? hoverBg : rowBg,
+            child: Opacity(
+              opacity: widget.enabled ? 1.0 : 0.45,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 32,
+                      child: Text(
+                        trackLabel,
+                        style: context.theme.typography.xs.copyWith(
+                          color: widget.enabled
+                              ? AppColors.trackNumber
+                              : disabledText,
+                          letterSpacing: -0.5,
+                          fontWeight: FontWeight.bold,
                         ),
-                        if (showArtist)
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            song.artist!,
-                            style: context.theme.typography.xs.copyWith(
-                              color: widget.enabled
-                                  ? AppColors.trackNumber
-                                  : disabledText,
+                            song.title,
+                            style: context.theme.typography.sm.copyWith(
+                              color: !widget.enabled
+                                  ? disabledText
+                                  : (isPlaying
+                                        ? widget.accentColor
+                                        : context.theme.colors.foreground),
+                              fontWeight: FontWeight.w400,
                               letterSpacing: -0.05,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                      ],
-                    ),
-                  ),
-                  if (song.duration != null)
-                    Text(
-                      formatTrackDuration(song.duration!),
-                      style: context.theme.typography.sm.copyWith(
-                        color: widget.enabled
-                            ? context.theme.colors.mutedForeground
-                            : disabledText,
+                          if (showArtist)
+                            Text(
+                              song.artist!,
+                              style: context.theme.typography.xs.copyWith(
+                                color: widget.enabled
+                                    ? AppColors.trackNumber
+                                    : disabledText,
+                                letterSpacing: -0.05,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
                     ),
-                  const SizedBox(width: 8),
-                  if (widget.enabled)
-                    DesktopSongPopover(
-                      song: song,
-                      onRemoveFromPlaylist: widget.onRemove,
-                      builder: (context, controller) => AnimatedOpacity(
-                        opacity: _isHovered ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 150),
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.more_horiz,
-                            size: 16,
-                            color: context.theme.colors.mutedForeground,
-                          ),
-                          onPressed: controller.toggle,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 28,
-                            minHeight: 28,
+                    if (song.duration != null)
+                      Text(
+                        formatTrackDuration(song.duration!),
+                        style: context.theme.typography.sm.copyWith(
+                          color: widget.enabled
+                              ? context.theme.colors.mutedForeground
+                              : disabledText,
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    if (widget.enabled)
+                      DesktopSongPopover(
+                        song: song,
+                        onRemoveFromPlaylist: widget.onRemove,
+                        builder: (context, controller) => AnimatedOpacity(
+                          opacity: _isHovered ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.more_horiz,
+                              size: 16,
+                              color: context.theme.colors.mutedForeground,
+                            ),
+                            onPressed: controller.toggle,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -222,144 +228,146 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
         ? song.artist
         : widget.albumArtist; 
 
-    return Dismissible(
-      key: ValueKey(
-        'mobile-track-${song.id}-${widget.trackNumber}-${widget.reorderIndex ?? 'na'}',
-      ),
-      direction: widget.enabled
-          ? DismissDirection.endToStart
-          : DismissDirection.none,
-      background: const SizedBox.shrink(),
-      secondaryBackground: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: context.theme.colors.secondary,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.queue_music, color: context.theme.colors.foreground),
-            const SizedBox(width: 8),
-            Text(
-              'Add to queue',
-              style: context.theme.typography.sm.copyWith(
-                color: context.theme.colors.foreground,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+    return RepaintBoundary(
+      child: Dismissible(
+        key: ValueKey(
+          'mobile-track-${song.id}-${widget.trackNumber}-${widget.reorderIndex ?? 'na'}',
         ),
-      ),
-      confirmDismiss: (direction) async {
-        if (!widget.enabled) return false;
-        if (direction != DismissDirection.endToStart) {
-          return false;
-        }
-
-        await context.read<PlayerProvider>().addToQueue(song);
-        if (!mounted) return false;
-
-        // ignore: use_build_context_synchronously
-        final messenger = ScaffoldMessenger.maybeOf(context);
-        messenger?.hideCurrentSnackBar();
-        messenger?.showSnackBar(
-          const SnackBar(
-            content: Text('Added to queue'),
-            duration: Duration(milliseconds: 1100),
-          ),
-        );
-
-        // keep the item in the list after queuing.
-        return false;
-      },
-      child: TapArea(
-        onTap: widget.enabled
-            ? (widget.onTap ??
-                  () => context.read<PlayerProvider>().playNow(song))
-            : null,
-        onLongTap: widget.enabled
-            ? () => showSongContextSheet(
-                context,
-                song,
-                onRemoveFromPlaylist: widget.onRemove,
-              )
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        direction: widget.enabled
+            ? DismissDirection.endToStart
+            : DismissDirection.none,
+        background: const SizedBox.shrink(),
+        secondaryBackground: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          color: context.theme.colors.secondary,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
-                width: 32,
-                child: Text(
-                  trackLabel,
-                  style: context.theme.typography.xs.copyWith(
-                    color: widget.enabled
-                        ? AppColors.trackNumber
-                        : context.theme.colors.mutedForeground,
-                    letterSpacing: -0.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
+              Icon(Icons.queue_music, color: context.theme.colors.foreground),
+              const SizedBox(width: 8),
+              Text(
+                'Add to queue',
+                style: context.theme.typography.sm.copyWith(
+                  color: context.theme.colors.foreground,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      song.title,
-                      style: context.theme.typography.sm.copyWith(
-                        color: !widget.enabled
-                            ? context.theme.colors.mutedForeground
-                            : (isPlaying
-                                  ? widget.accentColor
-                                  : context.theme.colors.foreground),
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.05,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+            ],
+          ),
+        ),
+        confirmDismiss: (direction) async {
+          if (!widget.enabled) return false;
+          if (direction != DismissDirection.endToStart) {
+            return false;
+          }
+
+          await context.read<PlayerProvider>().addToQueue(song);
+          if (!mounted) return false;
+
+          // ignore: use_build_context_synchronously
+          final messenger = ScaffoldMessenger.maybeOf(context);
+          messenger?.hideCurrentSnackBar();
+          messenger?.showSnackBar(
+            const SnackBar(
+              content: Text('Added to queue'),
+              duration: Duration(milliseconds: 1100),
+            ),
+          );
+
+          // keep the item in the list after queuing.
+          return false;
+        },
+        child: TapArea(
+          onTap: widget.enabled
+              ? (widget.onTap ??
+                    () => context.read<PlayerProvider>().playNow(song))
+              : null,
+          onLongTap: widget.enabled
+              ? () => showSongContextSheet(
+                  context,
+                  song,
+                  onRemoveFromPlaylist: widget.onRemove,
+                )
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    trackLabel,
+                    style: context.theme.typography.xs.copyWith(
+                      color: widget.enabled
+                          ? AppColors.trackNumber
+                          : context.theme.colors.mutedForeground,
+                      letterSpacing: -0.5,
+                      fontWeight: FontWeight.bold,
                     ),
-                    if (artistText != null && artistText.isNotEmpty)
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        artistText,
-                        style: context.theme.typography.xs.copyWith(
-                          color: widget.enabled
-                              ? AppColors.trackNumber
-                              : context.theme.colors.mutedForeground,
+                        song.title,
+                        style: context.theme.typography.sm.copyWith(
+                          color: !widget.enabled
+                              ? context.theme.colors.mutedForeground
+                              : (isPlaying
+                                    ? widget.accentColor
+                                    : context.theme.colors.foreground),
+                          fontWeight: FontWeight.w400,
                           letterSpacing: -0.05,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                  ],
-                ),
-              ),
-              if (song.duration != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Text(
-                    formatTrackDuration(song.duration!),
-                    style: context.theme.typography.sm.copyWith(
-                      color: context.theme.colors.mutedForeground,
-                    ),
+                      if (artistText != null && artistText.isNotEmpty)
+                        Text(
+                          artistText,
+                          style: context.theme.typography.xs.copyWith(
+                            color: widget.enabled
+                                ? AppColors.trackNumber
+                                : context.theme.colors.mutedForeground,
+                            letterSpacing: -0.05,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ),
-              if (widget.showDragHandle) ...[
-                const SizedBox(width: 8),
-                ReorderableDragStartListener(
-                  index: widget.reorderIndex!,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.drag_handle,
-                      size: 20,
-                      color: AppColors.trackNumber,
+                if (song.duration != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Text(
+                      formatTrackDuration(song.duration!),
+                      style: context.theme.typography.sm.copyWith(
+                        color: context.theme.colors.mutedForeground,
+                      ),
                     ),
                   ),
-                ),
+                if (widget.showDragHandle) ...[
+                  const SizedBox(width: 8),
+                  ReorderableDragStartListener(
+                    index: widget.reorderIndex!,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.drag_handle,
+                        size: 20,
+                        color: AppColors.trackNumber,
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
