@@ -6,6 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/user.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
+import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/logger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -195,6 +196,19 @@ class SubsonicProvider extends ChangeNotifier {
     }
   }
 
+  /// deletes cache for the active account and all known servers, then tries to ping them to refresh connectivity status
+  Future<void> deleteCacheForActiveAccount() async {
+    final active = activeAccount;
+    if (active == null) return;
+
+    await offlineCacheService.clearCacheForAccount(active.id);
+
+    active.subsonic.clearCache();
+
+    await _refreshKnownServersConnectivity();
+    await checkConnectivity();
+  }
+
   @override
   void dispose() {
     _connectivityPoller?.cancel();
@@ -282,7 +296,17 @@ class SubsonicProvider extends ChangeNotifier {
   }
 
   /// Switches the active account.
+  /// if [id] is "none", will switch to no account
   void switchAccount(String id) {
+    if (id == "none") {
+      _activeId = null;
+      _isOffline = false;
+      clearCoverArtCache();
+      _startConnectivityPolling();
+      loggerPrint('SubsonicProvider: switched to no active account');
+      _setState(AuthState.unauthenticated);
+      return;
+    }
     assert(_accounts.any((a) => a.id == id), 'switchAccount: unknown id $id');
     _activeId = id;
     _isOffline = false;

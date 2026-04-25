@@ -10,14 +10,14 @@ import 'package:http/http.dart' as http;
 const _coverArtManifestKey = 'cover_art_manifest';
 const _coverArtTTL = Duration(days: 1);
 String? _coverArtActiveAccountId;
+final _coverArtInitFutureByAccount = <String, Future<void>>{};
 final _coverArtLocalUriCache = <String, _CachedCoverArtLocal>{};
-final _coverArtManifestByAccount = <String, Map<String, dynamic>>{};
 
+final _coverArtManifestByAccount = <String, Map<String, dynamic>>{};
 // app wide cache for coverUrls, since they are deterministic based on token
 // not good, sicne lot of redraws
 final _coverArtUrlCache = <String, String>{};
 final _coverArtWarmInFlight = <String, Future<void>>{};
-final _coverArtInitFutureByAccount = <String, Future<void>>{};
 
 void clearCoverArtCache() {
   _coverArtUrlCache.clear();
@@ -42,7 +42,6 @@ extension SubsonicBrowsingApi on Subsonic {
   /// local cache in the background for next time. Note that the remote URL is
   /// deterministic based on token, but the password seems to make it keep
   /// refreshing, so caching is ESSENTIAL... :)
-
   String cachedCoverArtUrl(String id, {int size = 300}) {
     final accountId = _accountId;
     if (_coverArtActiveAccountId != accountId) {
@@ -141,6 +140,22 @@ extension SubsonicBrowsingApi on Subsonic {
           .toList();
     } catch (e) {
       loggerPrint('Error fetching album list ($type): $e');
+      return [];
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#getArtist
+  Future<List<Album>> getArtist(String id) async {
+    try {
+      final response = await apiRequest('getArtist', params: {'id': id});
+      final artist = response['artist'] as Map<String, dynamic>?;
+      if (artist == null) return [];
+      final albumsJson = artist['album'] as List<dynamic>? ?? [];
+      return albumsJson
+          .map((j) => Album.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      loggerPrint('Error fetching artist $id: $e');
       return [];
     }
   }
@@ -261,6 +276,18 @@ extension SubsonicBrowsingApi on Subsonic {
     }
   }
 
+  Future<Song?> getSong(String id) async {
+    try {
+      final response = await apiRequest('getSong', params: {'id': id});
+      final songJson = response['song'] as Map<String, dynamic>?;
+      if (songJson == null) return null;
+      return Song.fromJson(songJson);
+    } catch (e) {
+      loggerPrint('Error fetching song $id: $e');
+      return null;
+    }
+  }
+
   Future<void> initCoverArtCacheForAccount() async {
     final accountId = _accountId;
     _coverArtActiveAccountId = accountId;
@@ -325,6 +352,26 @@ extension SubsonicBrowsingApi on Subsonic {
     } catch (e) {
       loggerPrint('Error replacing playlist songs $playlistId: $e');
       rethrow;
+    }
+  }
+
+  // https://www.subsonic.org/pages/api.jsp#search3
+  Future<SearchResult> search3(String query) async {
+    // /rest/search3
+    try {
+      final response = await apiRequest(
+        'search3',
+        params: {
+          'query': query,
+          'artistCount': '5',
+          'albumCount': '5',
+          'songCount': '20',
+        },
+      );
+      return SearchResult.fromJson(response['searchResult3']);
+    } catch (e) {
+      loggerPrint('Error performing search: $e');
+      return SearchResult(songs: [], albums: [], artists: []);
     }
   }
 

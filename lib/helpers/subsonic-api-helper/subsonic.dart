@@ -154,6 +154,10 @@ class Subsonic {
     return response.bodyBytes;
   }
 
+  void clearCache() {
+    _apiCache.clear();
+  }
+
   void clearCacheStartingWith(String endpoint) {
     final prefix = '$baseUrl|${auth.username}|$endpoint';
     _apiCache.removeWhere((key, value) => key.startsWith(prefix));
@@ -179,7 +183,7 @@ class Subsonic {
     final response = await http
         .get(uri)
         .timeout(
-          Duration(seconds: timeoutSeconds),
+          Duration(seconds: timeoutSeconds.toInt()),
           onTimeout: () {
             throw Exception('API request to $endpoint timed out');
           },

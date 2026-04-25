@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:cosmodrome/services/local_storage_backend.dart';
 import 'package:cosmodrome/services/local_storage_backend_factory.dart';
-import 'package:cosmodrome/utils/logger.dart';
 
 class LocalStorageService {
   static final LocalStorageBackend _backend = createLocalStorageBackend();
@@ -34,6 +33,9 @@ class LocalStorageService {
   static Future<void> init() async {
     await _backend.init();
   }
+
+  static Future<void> clearAccountCache(String accountId) =>
+      _backend.deleteAccountCache(accountId);
 
   static String metaPath(String accountId, String key) =>
       _backend.metaRef(accountId, key);

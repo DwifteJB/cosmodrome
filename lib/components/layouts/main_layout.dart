@@ -32,9 +32,11 @@ import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_notifier.dart';
+import 'package:cosmodrome/utils/search_notifier.dart';
 import 'package:cosmodrome/utils/sidebar_notifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -74,7 +76,6 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
-  final _searchController = TextEditingController();
   final Map<String, bool> _desktopMenuExpanded = {};
   final Map<String, bool> _desktopMenuHovered = {};
 
@@ -89,6 +90,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   bool _isRefreshingPlaylists = false;
 
   LayoutConfig _layoutConfig = LayoutConfig.empty;
+  LayoutConfig? _frozenConfig;
 
   Color? _accentColor;
   bool _accentVisible = false;
@@ -100,7 +102,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   late AnimationController aniu;
   late AnimationController _searchAnim;
-  final _mobileSearchController = TextEditingController();
+  late final TextEditingController _mobileSearchController;
+  late final VoidCallback _searchQueryListener;
   final _mobileSearchFocus = FocusNode();
 
   final List<MainLayoutNavMenu> _navMenus = [
@@ -136,6 +139,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     return _buildDesktopLayout(context);
   }
 
+  // even more yikes
   @override
   void didUpdateWidget(MainLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -151,29 +155,31 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         accentColorNotifier.value = null;
         coverUrlNotifier.value = null;
       }
-      if (widget.selectedRoute == '/search') {
+      if (_isSearchRoute(widget.selectedRoute)) {
         _searchAnim.forward().then((_) {
           if (mounted) _mobileSearchFocus.requestFocus();
         });
-      } else if (oldWidget.selectedRoute == '/search') {
+      } else if (_isSearchRoute(oldWidget.selectedRoute)) {
         _mobileSearchFocus.unfocus();
-        _mobileSearchController.clear();
+        searchQuery.value = '';
         _searchAnim.reverse();
       }
     }
   }
 
+  // yikes
   @override
   void dispose() {
     _accentHideTimer?.cancel();
     _coverHideTimer?.cancel();
-    _searchController.dispose();
+    searchQuery.removeListener(_searchQueryListener);
     _mobileSearchController.dispose();
     _mobileSearchFocus.dispose();
     _mobileScrollController.dispose();
     _desktopScrollController.dispose();
 
     layoutConfig.removeListener(_onLayoutConfigChanged);
+    detailPageActive.removeListener(_onDetailPageActiveChanged);
     accentColorNotifier.removeListener(_onAccentChanged);
     coverUrlNotifier.removeListener(_onCoverUrlChanged);
     starredCountChanged.removeListener(_onStarredSidebarChanged);
@@ -194,11 +200,22 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 350),
       vsync: this,
     );
-    if (widget.selectedRoute == '/search') _searchAnim.value = 1.0;
+    _mobileSearchController = TextEditingController(text: searchQuery.value);
+    _searchQueryListener = () {
+      final value = searchQuery.value;
+      if (_mobileSearchController.text == value) return;
+      _mobileSearchController.value = TextEditingValue(
+        text: value,
+        selection: TextSelection.collapsed(offset: value.length),
+      );
+    };
+    searchQuery.addListener(_searchQueryListener);
+    if (_isSearchRoute(widget.selectedRoute)) _searchAnim.value = 1.0;
     _mobileScrollController.addListener(_onScroll);
     _desktopScrollController.addListener(_onScroll);
 
     layoutConfig.addListener(_onLayoutConfigChanged);
+    detailPageActive.addListener(_onDetailPageActiveChanged);
     accentColorNotifier.addListener(_onAccentChanged);
     coverUrlNotifier.addListener(_onCoverUrlChanged);
     starredCountChanged.addListener(_onStarredSidebarChanged);
@@ -263,7 +280,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                   child: FTextField(
                     hint: 'Search music...',
                     control: FTextFieldControl.managed(
-                      controller: _searchController,
+                      onChange: (value) => searchQuery.value = value.text,
                     ),
                     prefixBuilder: (ctx, style, variants) =>
                         FTextField.prefixIconBuilder(
@@ -478,7 +495,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             parent: _searchAnim,
             curve: Curves.easeOutCubic,
           ),
-          onRefresh: widget.selectedRoute == '/home' ? requestHomeRefresh : null,
+          onRefresh: widget.selectedRoute == '/home'
+              ? requestHomeRefresh
+              : null,
           child: widget.child,
         ),
       ),
@@ -540,8 +559,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                 ),
               ),
             const Spacer(),
-            // custom buttons
-            ..._layoutConfig.buttons.map(
+            // custom buttons — hidden when a detail page is on top
+            if (!detailPageActive.value)
+              ..._layoutConfig.buttons.map(
               (button) => FButton(
                 onPress: button.onPressed,
                 style: .delta(
@@ -791,16 +811,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
                       ),
+                      onChanged: (value) => searchQuery.value = value,
                       onSubmitted: (_) => _mobileSearchFocus.unfocus(),
                     ),
                   ),
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _mobileSearchController,
+                  ValueListenableBuilder<String>(
+                    valueListenable: searchQuery,
                     builder: (_, value, _) {
-                      if (value.text.isEmpty) return const SizedBox.shrink();
+                      if (value.isEmpty) return const SizedBox.shrink();
                       return GestureDetector(
                         onTap: () {
-                          _mobileSearchController.clear();
+                          searchQuery.value = '';
                           _mobileSearchFocus.requestFocus();
                         },
                         child: Padding(
@@ -976,6 +997,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
         route.startsWith('$playlistRoute/');
   }
 
+  bool _isSearchRoute(String? route) =>
+      route == '/search' ||
+      route?.startsWith('/search?') == true ||
+      route?.startsWith('/search/') == true;
+
   bool _isSelected(MainLayoutNavItem item) {
     if (widget.selectedRoute == null) return false;
     return widget.selectedRoute == item.route;
@@ -1006,12 +1032,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     _accentHideTimer?.cancel();
     final color = accentColorNotifier.value;
     if (color != null) {
-      setState(() {
+      _safeSetState(() {
         _accentColor = color;
         _accentVisible = true;
       });
     } else {
-      setState(() => _accentVisible = false);
+      _safeSetState(() => _accentVisible = false);
       _accentHideTimer = Timer(const Duration(milliseconds: 750), () {
         if (mounted && accentColorNotifier.value == null) {
           setState(() => _accentColor = null);
@@ -1024,12 +1050,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     _coverHideTimer?.cancel();
     final url = coverUrlNotifier.value;
     if (url != null) {
-      setState(() {
+      _safeSetState(() {
         _coverUrl = url;
         _coverVisible = true;
       });
     } else {
-      setState(() => _coverVisible = false);
+      _safeSetState(() => _coverVisible = false);
       _coverHideTimer = Timer(const Duration(milliseconds: 750), () {
         if (mounted && coverUrlNotifier.value == null) {
           setState(() => _coverUrl = null);
@@ -1038,8 +1064,21 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     }
   }
 
+  void _onDetailPageActiveChanged() {
+    if (!detailPageActive.value) {
+      _safeSetState(() {
+        _layoutConfig = _frozenConfig ?? LayoutConfig.empty;
+        _frozenConfig = null;
+      });
+    }
+  }
+
   void _onLayoutConfigChanged() {
-    setState(() {
+    if (detailPageActive.value) {
+      _frozenConfig ??= _layoutConfig;
+      return;
+    }
+    _safeSetState(() {
       _layoutConfig = layoutConfig.value;
     });
   }
@@ -1115,6 +1154,18 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       if (mounted) {
         setState(() => _isRefreshingStarred = false);
       }
+    }
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    if (!mounted) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(fn);
+      });
+    } else {
+      setState(fn);
     }
   }
 

@@ -391,13 +391,16 @@ class _PlaylistHeader extends StatelessWidget {
 }
 
 class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
+  static const int _initialTrackRevealCount = 3;
   PlaylistDetail? _playlist;
   List<Song> _songs = [];
   String? _coverUrl;
   bool _loading = true;
-  String? _error;
 
+  String? _error;
   Color _localCoverColor = AppColors.auraColor;
+  int _revealedTrackCount = 0;
+  bool _trackRevealScheduled = false;
 
   @override
   bool get isScrollable => false;
@@ -455,6 +458,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     final playlist = _playlist!;
     final coverUrl = _coverUrl;
     final accentColor = accentColorNotifier.value ?? AppColors.auraColor;
+    final visibleTrackCount = _visibleTrackCount(_songs.length);
 
     var cardWidth = MediaQuery.of(context).size.width * 0.8;
     if (cardWidth > 400) cardWidth = 400;
@@ -566,7 +570,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
         // reorderable song list
         SliverReorderableList(
-          itemCount: _songs.length,
+          itemCount: visibleTrackCount,
           itemBuilder: (ctx, i) => ReorderableDragStartListener(
             key: ValueKey(_songs[i].id),
             index: i,
@@ -713,6 +717,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   Widget _desktopLayout() {
     final playlist = _playlist!;
     final coverUrl = _coverUrl;
+    final visibleTrackCount = _visibleTrackCount(_songs.length);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -728,15 +733,17 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
               else
                 _widePlaylistHeader(playlist, coverUrl),
               const SizedBox(height: 20),
-              ..._songs.asMap().entries.map(
-                (e) => MusicPageDesktopTrackTile(
-                  song: e.value,
-                  trackNumber: e.key + 1,
-                  enabled: _isSongPlayable(e.value),
+              ...List.generate(visibleTrackCount, (index) {
+                final song = _songs[index];
+                return MusicPageDesktopTrackTile(
+                  song: song,
+                  trackNumber: index + 1,
+                  enabled: _isSongPlayable(song),
                   accentColor: accentColorNotifier.value ?? _localCoverColor,
-                  onTap: () => _playSongAt(e.key),
-                  onRemove: () => _removeAt(e.key),
-                ),
+                  onTap: () => _playSongAt(index),
+                  onRemove: () => _removeAt(index),
+                );
+              }, growable: false,
               ),
             ],
           ),
@@ -801,6 +808,14 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           isScrollable: false,
         );
         _extractAccentColor();
+        if (_revealedTrackCount == 0 && playlist != null) {
+          _revealedTrackCount = playlist.songs.isEmpty
+              ? 0
+              : (playlist.songs.length < _initialTrackRevealCount
+                    ? playlist.songs.length
+                    : _initialTrackRevealCount);
+          _scheduleTrackReveal();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -851,6 +866,14 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           buttons: pageButtons,
           isScrollable: false,
         );
+        if (_revealedTrackCount == 0) {
+          _revealedTrackCount = playlist.songs.isEmpty
+              ? 0
+              : (playlist.songs.length < _initialTrackRevealCount
+                    ? playlist.songs.length
+                    : _initialTrackRevealCount);
+          _scheduleTrackReveal();
+        }
       }
     } catch (_) {}
   }
@@ -900,6 +923,31 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
         notifyPlaylistsChanged();
       }
     } catch (_) {}
+  }
+
+  void _scheduleTrackReveal() {
+    if (!mounted || _trackRevealScheduled) return;
+    if (_revealedTrackCount >= _songs.length) return;
+
+    _trackRevealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _trackRevealScheduled = false;
+      if (!mounted) return;
+
+      final nextCount = _revealedTrackCount + 1;
+      final clampedCount = nextCount > _songs.length
+          ? _songs.length
+          : nextCount;
+      if (clampedCount == _revealedTrackCount) return;
+
+      setState(() {
+        _revealedTrackCount = clampedCount;
+      });
+
+      if (_revealedTrackCount < _songs.length) {
+        _scheduleTrackReveal();
+      }
+    });
   }
 
   void _showAddSongsSheet() {
@@ -1001,6 +1049,14 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     final provider = context.read<SubsonicProvider>();
     final ids = _songs.map((s) => s.id).toList();
     provider.subsonic.replacePlaylistSongs(widget.playlistId, ids);
+  }
+
+  int _visibleTrackCount(int totalTracks) {
+    if (totalTracks == 0) return 0;
+    if (_revealedTrackCount == 0) return 0;
+    return _revealedTrackCount > totalTracks
+        ? totalTracks
+        : _revealedTrackCount;
   }
 
   Widget _widePlaylistHeader(PlaylistDetail playlist, String? coverUrl) {

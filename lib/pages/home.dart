@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cosmodrome/components/home/featured_spotlight.dart';
 import 'package:cosmodrome/components/shared_views/no_account_view.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
@@ -60,26 +61,25 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _AlbumCard extends StatefulWidget {
+class _AlbumCard extends StatelessWidget {
   final Album album;
   final Subsonic subsonic;
+
+  static const double _cardWidth = 150.0;
 
   const _AlbumCard({required this.album, required this.subsonic});
 
   @override
-  State<_AlbumCard> createState() => _AlbumCardState();
-}
-
-class _AlbumCardState extends State<_AlbumCard> {
-  static const double _cardWidth = 150.0;
-  late String? _coverUrl;
-
-  @override
   Widget build(BuildContext context) {
     const cardWidth = _cardWidth;
+    // Always resolve the URL at build time so a cache clear immediately takes
+    // effect on the next rebuild rather than serving a stale file path.
+    final coverUrl = album.coverArt != null
+        ? subsonic.cachedCoverArtUrl(album.coverArt!, size: 300)
+        : null;
 
     return GestureDetector(
-      onTap: () => context.push('/library/album/${widget.album.id}'),
+      onTap: () => context.push('/library/album/${album.id}'),
       child: SizedBox(
         width: cardWidth,
         child: Column(
@@ -87,9 +87,9 @@ class _AlbumCardState extends State<_AlbumCard> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: _coverUrl != null
+              child: coverUrl != null
                   ? Image(
-                      image: coverArtProvider(_coverUrl!),
+                      image: coverArtProvider(coverUrl),
                       width: cardWidth,
                       height: cardWidth,
                       fit: BoxFit.cover,
@@ -123,7 +123,7 @@ class _AlbumCardState extends State<_AlbumCard> {
             ),
             const SizedBox(height: 6),
             Text(
-              widget.album.name,
+              album.name,
               style: context.theme.typography.sm.copyWith(
                 fontWeight: FontWeight.w400,
                 color: context.theme.colors.foreground,
@@ -132,7 +132,7 @@ class _AlbumCardState extends State<_AlbumCard> {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              widget.album.artist,
+              album.artist,
               style: context.theme.typography.xs.copyWith(
                 color: context.theme.colors.mutedForeground,
               ),
@@ -143,27 +143,6 @@ class _AlbumCardState extends State<_AlbumCard> {
         ),
       ),
     );
-  }
-
-  @override
-  void didUpdateWidget(_AlbumCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.album.id != widget.album.id ||
-        oldWidget.album.coverArt != widget.album.coverArt) {
-      _updateCoverUrl();
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _updateCoverUrl();
-  }
-
-  void _updateCoverUrl() {
-    _coverUrl = widget.album.coverArt != null
-        ? widget.subsonic.cachedCoverArtUrl(widget.album.coverArt!, size: 300)
-        : null;
   }
 }
 
@@ -256,6 +235,13 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 8),
+        FeaturedSpotlight(
+          key: ValueKey(provider.activeAccount?.id),
+          subsonic: provider.subsonic,
+          accountId: provider.activeAccount!.id,
+          isOffline: provider.isOffline,
         ),
         const SizedBox(height: 8),
         _HorizontalCarousel(

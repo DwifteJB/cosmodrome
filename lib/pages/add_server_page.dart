@@ -4,9 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
-class AddServerPage extends StatelessWidget {
+class AddServerPage extends StatefulWidget {
+
   const AddServerPage({super.key});
 
+  @override
+  State<AddServerPage> createState() => _AddServerPageState();
+}
+
+class _AddServerPageState extends State<AddServerPage> {
+
+  bool searchingForServers = false;
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;

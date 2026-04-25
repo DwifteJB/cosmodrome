@@ -203,6 +203,30 @@ class _ProfileSheetState extends State<ProfileSheet> {
                             )
                           : const SizedBox.shrink(),
                     ),
+                    // clear cache button
+                    if (activeAccount != null) ...[
+                      const SizedBox(height: 12),
+                      _buildNormalButton(context, 'Clear Cache', () async {
+                        await provider.deleteCacheForActiveAccount();
+
+                        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                          const SnackBar(
+                            content: Text('Cache cleared'),
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+
+                        // change active account to trigger a refresh of all data and UI
+                        final currentId = provider.activeAccount?.id;
+                        provider.switchAccount("none");
+                        // switch back after a short delay to ensure all listeners have reacted to the change
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (currentId != null) {
+                            provider.switchAccount(currentId);
+                          }
+                        });
+                      }),
+                    ],
                   ],
                 ),
               ),
@@ -297,7 +321,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
     );
   }
 
-  Widget _buildAddButton(
+Widget _buildAddButton(
     BuildContext context,
     String label,
     VoidCallback onTap,
@@ -350,6 +374,21 @@ class _ProfileSheetState extends State<ProfileSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNormalButton(
+    BuildContext context,
+    String label,
+    VoidCallback onTap,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+      child: FButton(
+        variant: FButtonVariant.outline,
+        onPress: onTap,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [Text(label)]),
       ),
     );
   }

@@ -66,6 +66,32 @@ class WebLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
+  Future<void> deleteAccountCache(String accountId) async {
+    final db = await _dbFuture;
+    final txn = db.transaction([_songsStore, _metaStore], idbModeReadWrite);
+    final songsStore = txn.objectStore(_songsStore);
+    final metaStore = txn.objectStore(_metaStore);
+
+    final songPrefixes = ['$accountId/songs/', '$accountId/cached-images/'];
+    await for (final cursor
+        in songsStore.openCursor(autoAdvance: true).asBroadcastStream()) {
+      final key = cursor.key.toString();
+      if (!songPrefixes.any(key.startsWith)) continue;
+      await cursor.delete();
+    }
+
+    final metaPrefix = '$accountId/cache/';
+    await for (final cursor
+        in metaStore.openCursor(autoAdvance: true).asBroadcastStream()) {
+      final key = cursor.key.toString();
+      if (!key.startsWith(metaPrefix)) continue;
+      await cursor.delete();
+    }
+
+    await txn.completed;
+  }
+
+  @override
   Future<void> deleteCoverImage(String coverRef) async {
     final db = await _dbFuture;
     final txn = db.transaction(_songsStore, idbModeReadWrite);

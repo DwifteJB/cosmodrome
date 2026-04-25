@@ -1,4 +1,6 @@
+import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/utils/scan_for_servers.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +20,9 @@ class _AddServerFormState extends State<AddServerForm> {
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isLoading = false;
+  List<Subsonic> foundServers = [];
+  bool searchingForServers = true;
+
   String? _error;
 
   @override
@@ -28,6 +33,63 @@ class _AddServerFormState extends State<AddServerForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (searchingForServers || foundServers.isNotEmpty) ...[
+          FCard(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      if (searchingForServers)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        const Icon(Icons.check_circle_outline, size: 16),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          searchingForServers
+                              ? foundServers.isEmpty
+                                    ? 'Searching for servers on your network...'
+                                    : 'Searching for more servers...'
+                              : 'Found ${foundServers.length} server${foundServers.length == 1 ? '' : 's'} on your network.',
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (foundServers.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 50,
+                      child: ListView.separated(
+                        itemCount: foundServers.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final server = foundServers[index];
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(server.baseUrl),
+                            onTap: () {
+                              _urlController.text = server.baseUrl;
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+        ],
         FTextField(
           label: const Text('Server URL'),
           hint: 'https://...',
@@ -83,6 +145,28 @@ class _AddServerFormState extends State<AddServerForm> {
     super.initState();
     // most people will use this URL
     _urlController.text = 'http://localhost:4533';
+    searchForServers();
+  }
+
+  void searchForServers() async {
+    setState(() {
+      foundServers = [];
+      searchingForServers = true;
+      _error = null;
+    });
+    final seenServers = <String>{};
+    await scanForServers(
+      onFound: (server) {
+        if (!mounted || !seenServers.add(server.baseUrl)) return;
+        setState(() {
+          foundServers.add(server);
+        });
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      searchingForServers = false;
+    });
   }
 
   Future<void> _submit() async {

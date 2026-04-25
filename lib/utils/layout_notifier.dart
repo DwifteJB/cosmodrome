@@ -36,3 +36,5 @@ class LayoutConfig {
 final ValueNotifier<LayoutConfig> layoutConfig = ValueNotifier(
   LayoutConfig.empty,
 );
+
+final ValueNotifier<bool> detailPageActive = ValueNotifier(false);

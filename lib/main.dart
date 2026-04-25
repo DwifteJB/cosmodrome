@@ -9,10 +9,12 @@ import 'package:cosmodrome/components/music_player/fullscreen_player.dart';
 import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/album_page.dart';
+import 'package:cosmodrome/pages/artist_detail_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
 import 'package:cosmodrome/pages/playlist_page.dart';
 import 'package:cosmodrome/pages/search_page.dart';
+import 'package:cosmodrome/services/offline_cache_service.dart' show SpotlightItem;
 //
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -86,6 +88,8 @@ void main() async {
     final id = subsonicProvider.activeAccount?.id;
     if (id != null) downloadProvider.loadForAccount(id);
   });
+
+  
   final initialId = subsonicProvider.activeAccount?.id;
   if (initialId != null) await downloadProvider.loadForAccount(initialId);
 
@@ -143,6 +147,12 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
               child: PlaylistPage(playlistId: state.pathParameters['id']!),
             ),
           ),
+          GoRoute(
+            path: '/artist-detail/:id',
+            pageBuilder: (context, state) => CupertinoPage(
+              child: ArtistDetailPage(item: state.extra as SpotlightItem),
+            ),
+          ),
         ],
       ],
       navigatorKey: _shellNavigatorKey,
@@ -170,6 +180,13 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
             isScrollable: false,
             child: PlaylistPage(playlistId: state.pathParameters['id']!),
           ),
+        ),
+      ),
+      GoRoute(
+        path: '/artist-detail/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => CupertinoPage(
+          child: ArtistDetailPage(item: state.extra as SpotlightItem),
         ),
       ),
     ],
