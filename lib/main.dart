@@ -137,19 +137,19 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         if (isDesktop) ...[
           GoRoute(
             path: '/library/album/:id',
-            pageBuilder: (context, state) => CupertinoPage(
+            pageBuilder: (context, state) => NoTransitionPage(
               child: AlbumPage(albumId: state.pathParameters['id']!),
             ),
           ),
           GoRoute(
             path: '/library/playlist/:id',
-            pageBuilder: (context, state) => CupertinoPage(
+            pageBuilder: (context, state) => NoTransitionPage(
               child: PlaylistPage(playlistId: state.pathParameters['id']!),
             ),
           ),
           GoRoute(
             path: '/artist-detail/:id',
-            pageBuilder: (context, state) => CupertinoPage(
+            pageBuilder: (context, state) => NoTransitionPage(
               child: ArtistDetailPage(item: state.extra as SpotlightItem),
             ),
           ),
