@@ -60,19 +60,19 @@ If you would like to support me, currently you can contact me at [me@rmfosho.me]
 ## Platform Support
 Current support for the client is as following (order of what is focused):
 
+ - [X] iOS
+ - [X] Android
  - [X] Linux
  - [X] MacOS 
- - [X] iOS
+ - [X] Windows
  - [ ] Apple Carplay 
- - [X] Android
  - [ ] Android Auto
- - [ ] Windows (unknown, probably yes lol)
  - [X] Web
 
 
 ## Whats the plans for when this releases?
 
-When/If this releases, the iOS & Android app will be listed on the appstore for £2/$2. The subscription cost of the iOS developer account is quite a lot, so this will be my way of trying to get the costs back for development & my time.
+When/If this releases, the iOS & Android app will be listed on the appstore for £2/$2. The subscription cost of the iOS developer account is quite a lot, so this will be my way of trying to get the costs back for the development & my overall time.
 
 The app will be free & open source, free to compile and run as long as you can install an APK or an IPA file.
 
