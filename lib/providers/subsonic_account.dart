@@ -12,7 +12,6 @@ class SubsonicAccount {
     0,
   ); // fetched separately and cached in memory, not stored in json
 
-  // Kept in memory and storage to allow recreating the Subsonic instance.
   final String _password;
 
   final SubsonicUser user;

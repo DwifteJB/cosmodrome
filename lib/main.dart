@@ -4,6 +4,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:cosmodrome/components/custom_scroll_behaviour.dart';
 import 'package:cosmodrome/components/layouts/main_layout.dart';
 import 'package:cosmodrome/components/layouts/mobile_detail_layout.dart';
+import 'package:cosmodrome/components/music_player/fullscreen_player.dart';
 // PAGES
 import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
@@ -249,7 +250,19 @@ class _ApplicationState extends State<Application>
             color: AppColors.background,
             child: FTheme(
               data: theme,
-              child: FToaster(child: FTooltipGroup(child: child!)),
+              child: FToaster(
+                child: FTooltipGroup(
+                  child: Stack(
+                    children: [
+                      child!,
+                      if (!isDesktop)
+                        Positioned.fill(
+                          child: const _FullscreenPlayerOverlay(),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -300,4 +313,69 @@ class _NoTransition extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) => child;
+}
+
+class _FullscreenPlayerOverlay extends StatefulWidget {
+  const _FullscreenPlayerOverlay();
+
+  @override
+  State<_FullscreenPlayerOverlay> createState() =>
+      _FullscreenPlayerOverlayState();
+}
+
+class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
+  double _dragOffset = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PlayerProvider>(
+      builder: (_, player, _) {
+        if (!player.hasCurrentSong) return const SizedBox.shrink();
+
+        return IgnorePointer(
+          ignoring: !player.isFullscreenOpen,
+          child: AnimatedSlide(
+            offset: Offset(0, player.isFullscreenOpen ? 0 : 1),
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
+            child: Transform.translate(
+              offset: Offset(0, _dragOffset),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (details) {
+                  final delta = details.primaryDelta ?? 0;
+                  if (_dragOffset > 0 || delta > 0) {
+                    setState(() {
+                      _dragOffset = (_dragOffset + delta).clamp(
+                        0,
+                        double.infinity,
+                      );
+                    });
+                  }
+                },
+                onVerticalDragEnd: (details) {
+                  final velocity = details.primaryVelocity ?? 0;
+                  final screenHeight = MediaQuery.of(context).size.height;
+                  if (velocity > 500 ||
+                      _dragOffset > screenHeight * 0.25) {
+                    // Close without resetting _dragOffset first — AnimatedSlide
+                    // continues from the dragged position instead of flashing
+                    // back to the top. Reset after the animation completes.
+                    player.closeFullscreen();
+                    Future.delayed(const Duration(milliseconds: 350), () {
+                      if (mounted) setState(() => _dragOffset = 0);
+                    });
+                  } else {
+                    setState(() => _dragOffset = 0);
+                  }
+                },
+                onVerticalDragCancel: () => setState(() => _dragOffset = 0),
+                child: const RepaintBoundary(child: FullscreenPlayer()),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

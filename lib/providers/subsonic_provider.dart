@@ -167,7 +167,7 @@ class SubsonicProvider extends ChangeNotifier {
         } else {
           _recordServerSuccess(account.baseUrl);
         }
-      } catch (_) {
+      } catch (e) {
         offline = true;
         _recordServerFailure(account.baseUrl, now);
       }
@@ -508,7 +508,10 @@ class SubsonicProvider extends ChangeNotifier {
       final before = server.canConnect;
       final after = await server.tryConnect(timeoutSeconds: 3);
       if (after) {
-        _recordServerSuccess(server.baseUrl);
+        _connectivityFailureCounts.remove(server.baseUrl);
+        _connectivityDebounceUntil[server.baseUrl] = now.add(
+          const Duration(minutes: 3),
+        );
       } else {
         _recordServerFailure(server.baseUrl, now);
       }

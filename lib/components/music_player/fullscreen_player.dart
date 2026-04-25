@@ -9,18 +9,13 @@ import 'dart:ui';
 import 'package:cosmodrome/components/music_player/queue_sheet.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
-import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art_provider.dart';
-import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:cosmodrome/utils/logger.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
 class FullscreenPlayer extends StatefulWidget {
@@ -71,13 +66,6 @@ class _FadingAlbumArt extends StatelessWidget {
 class _FullscreenPlayerState extends State<FullscreenPlayer> {
   bool _seeking = false;
   double _seekValue = 0.0;
-  bool _dismissScheduled = false;
-  bool _closing = false;
-  String? _lastAccentSongId;
-
-  Color? _accentColor;
-  Color? _prevAccentColor;
-  String? _cacheId;
 
   bool _isStarred = false;
   String? _starredSongId;
@@ -107,12 +95,9 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
             } catch (_) {}
           }
 
-          if (song != null) {
-            _maybeExtractAccentColor(song);
-            if (_starredSongId != song.id) {
-              _starredSongId = song.id;
-              _isStarred = song.starred != null;
-            }
+          if (song != null && _starredSongId != song.id) {
+            _starredSongId = song.id;
+            _isStarred = song.starred != null;
           }
 
           final totalMs = player.duration.inMilliseconds.toDouble();
@@ -121,7 +106,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
               ? _seekValue
               : (totalMs > 0 ? (posMs / totalMs).clamp(0.0, 1.0) : 0.0);
 
-          final accent = _accentColor ?? Colors.white;
+          final accent = player.accentColor ?? Colors.white;
 
           return Stack(
             children: [
@@ -148,7 +133,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                              if ((_accentColor?.computeLuminance() ?? 0) <
+                              if ((player.accentColor?.computeLuminance() ?? 0) <
                                   0.15)
                                 const DecoratedBox(
                                   decoration: BoxDecoration(
@@ -179,7 +164,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                               color: Colors.white,
                               size: 28,
                             ),
-                            onPressed: () => Navigator.of(context).maybePop(),
+                            onPressed: () => player.closeFullscreen(),
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -393,18 +378,18 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                           activeColor: accent,
                                           inactiveColor: Colors.white24,
                                           onChangeStart: (v) {
-                                            if (_closing || !mounted) return;
+                                            if (!mounted) return;
                                             setState(() {
                                               _seeking = true;
                                               _seekValue = v;
                                             });
                                           },
                                           onChanged: (v) {
-                                            if (_closing || !mounted) return;
+                                            if (!mounted) return;
                                             setState(() => _seekValue = v);
                                           },
                                           onChangeEnd: (v) {
-                                            if (_closing || !mounted) return;
+                                            if (!mounted) return;
                                             setState(() => _seeking = false);
                                             final seekMs = (v * totalMs)
                                                 .round();
@@ -485,7 +470,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                             child: TweenAnimationBuilder<Color?>(
                                               tween: ColorTween(
                                                 begin:
-                                                    _prevAccentColor ?? accent,
+                                                    player.prevAccentColor ?? accent,
                                                 end: accent,
                                               ),
                                               duration: const Duration(
@@ -558,23 +543,11 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (isMobileView(context)) {
-      _dismissScheduled = false;
-      return;
-    }
-
-    _scheduleDismiss();
-  }
-
-  @override
   void initState() {
     super.initState();
     final player = Provider.of<PlayerProvider>(context, listen: false);
     final song = player.currentSong;
     if (song != null) {
-      _maybeExtractAccentColor(song);
       _isStarred = song.starred != null;
       _starredSongId = song.id;
     }
@@ -587,96 +560,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
       color: Colors.grey[800],
       child: Icon(Icons.album, color: Colors.white38, size: size * 0.4),
     );
-  }
-
-  Future<Color?> _extractAccentColor(Song song) async {
-    if (_closing) return _accentColor ?? AppColors.background;
-    final sp = Provider.of<SubsonicProvider>(context, listen: false);
-    if (_accentColor != null && _cacheId == song.id) return _accentColor!;
-
-    if (song.coverArt == null) {
-      if (mounted && !_closing) {
-        final prev = _accentColor;
-        setState(() {
-          _prevAccentColor = prev;
-          _accentColor = AppColors.background;
-          _cacheId = song.id;
-        });
-      }
-
-      return AppColors.background;
-    }
-
-    final saveCoverArtURL = sp.subsonic.cachedCoverArtUrl(
-      song.coverArt!,
-      size: 1200,
-    );
-
-    try {
-      final generator = await PaletteGenerator.fromImageProvider(
-        coverArtProvider(saveCoverArtURL),
-        size: const Size(200, 200),
-      );
-
-      final raw =
-          generator.vibrantColor?.color ??
-          generator.lightVibrantColor?.color ??
-          generator.mutedColor?.color ??
-          generator.lightMutedColor?.color ??
-          generator.dominantColor?.color;
-
-      Color? color;
-      if (raw != null) {
-        final hsl = HSLColor.fromColor(raw);
-        color = hsl.lightness < 0.25 ? hsl.withLightness(0.35).toColor() : raw;
-      }
-
-      if (mounted && !_closing && _lastAccentSongId == song.id) {
-        final prev = _accentColor;
-        setState(() {
-          _prevAccentColor = prev;
-          _accentColor = color;
-          _cacheId = song.id;
-        });
-      }
-
-      loggerPrint(
-        'Accent color extracted for song: ${song.id}, luminance is ${color?.computeLuminance()}',
-      );
-
-      return color;
-    } catch (_) {}
-
-    return AppColors.background;
-  }
-
-  void _maybeExtractAccentColor(Song song) {
-    if (_closing) return;
-    if (_lastAccentSongId == song.id) return;
-    _lastAccentSongId = song.id;
-    _extractAccentColor(song);
-  }
-
-  void _scheduleDismiss() {
-    if (_dismissScheduled || _closing) return;
-    _dismissScheduled = true;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (isMobileView(context)) {
-        _dismissScheduled = false;
-        return;
-      }
-
-      final navigator = Navigator.of(context);
-      if (!navigator.canPop()) {
-        _dismissScheduled = false;
-        return;
-      }
-
-      _closing = true;
-      navigator.maybePop();
-    });
   }
 
   Future<void> _toggleStar() async {

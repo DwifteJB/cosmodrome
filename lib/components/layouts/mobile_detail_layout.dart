@@ -239,6 +239,8 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
 
   Widget _buildNavPill(BuildContext context) {
     final colors = context.theme.colors;
+    final collapsed = _aniu.value > 0.3;
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: colors.border, width: 1),
@@ -251,14 +253,45 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: GestureDetector(
-              onTap: () =>
-                  context.canPop() ? context.pop() : context.go('/home'),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Icon(FIcons.house, size: 24, color: colors.mutedForeground),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () =>
+                      context.canPop() ? context.pop() : context.go('/home'),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Icon(
+                      FIcons.house,
+                      size: 24,
+                      color: colors.mutedForeground,
+                    ),
+                  ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: collapsed ? 0.0 : 1.0,
+                    child: collapsed
+                        ? const SizedBox.shrink()
+                        : GestureDetector(
+                            onTap: () => context.go('/library'),
+                            behavior: HitTestBehavior.opaque,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Icon(
+                                FIcons.library,
+                                size: 24,
+                                color: colors.mutedForeground,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
