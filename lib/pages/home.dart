@@ -290,6 +290,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
     starredCountChanged.removeListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.removeListener(_onStarOrPlaylistChanged);
+    homeRefreshNotifier.removeListener(_onHomeRefreshRequested);
   }
 
   @override
@@ -297,6 +298,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     starredCountChanged.addListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.addListener(_onStarOrPlaylistChanged);
+    homeRefreshNotifier.addListener(_onHomeRefreshRequested);
   }
 
   Future<void> _fetchAlbums() async {
@@ -366,6 +368,15 @@ class _HomePageState extends State<HomePage> {
       }
       unawaited(provider.checkConnectivity());
     }
+  }
+
+  void _onHomeRefreshRequested() {
+    final completer = homeRefreshNotifier.value;
+    if (completer == null || completer.isCompleted) return;
+    SchedulerBinding.instance.addPostFrameCallback((_) async {
+      await _fetchAlbums();
+      if (!completer.isCompleted) completer.complete();
+    });
   }
 
   void _onStarOrPlaylistChanged() {

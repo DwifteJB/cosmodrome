@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:cosmodrome/components/custom_scroll_behaviour.dart';
 import 'package:cosmodrome/components/layouts/main_layout.dart';
+import 'package:cosmodrome/components/layouts/mobile_detail_layout.dart';
 // PAGES
 import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
@@ -18,6 +19,7 @@ import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
@@ -35,11 +37,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   JustAudioMediaKit.ensureInitialized(
-    linux: true, // default: true  - dependency: media_kit_libs_linux
-    windows: true, // default: true  - dependency: media_kit_libs_windows_audio
+    linux: true,
+    windows: true,
     android: false,
-    iOS: true, // default: false - dependency: media_kit_libs_ios_audio
-    macOS: true, // default: false - dependency: media_kit_libs_macos_audio
+    iOS: true, 
+    macOS: true, 
   );
 
   JustAudioMediaKit.title = "Cosmodrome";
@@ -120,25 +122,49 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
               const NoTransitionPage(child: LibraryPage()),
         ),
 
-        GoRoute(
-          path: '/library/album/:id',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: AlbumPage(albumId: state.pathParameters['id']!),
+        if (isDesktop) ...[
+          GoRoute(
+            path: '/library/album/:id',
+            pageBuilder: (context, state) => CupertinoPage(
+              child: AlbumPage(albumId: state.pathParameters['id']!),
+            ),
           ),
-        ),
-
-        GoRoute(
-          path: '/library/playlist/:id',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: PlaylistPage(playlistId: state.pathParameters['id']!),
+          GoRoute(
+            path: '/library/playlist/:id',
+            pageBuilder: (context, state) => CupertinoPage(
+              child: PlaylistPage(playlistId: state.pathParameters['id']!),
+            ),
           ),
-        ),
+        ],
       ],
       navigatorKey: _shellNavigatorKey,
       builder: (context, state, child) {
         return MainLayout(selectedRoute: state.uri.toString(), child: child);
       },
     ),
+
+    if (!isDesktop) ...[
+      GoRoute(
+        path: '/library/album/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => CupertinoPage(
+          child: MobileDetailLayout(
+            isScrollable: true,
+            child: AlbumPage(albumId: state.pathParameters['id']!),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/library/playlist/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => CupertinoPage(
+          child: MobileDetailLayout(
+            isScrollable: false,
+            child: PlaylistPage(playlistId: state.pathParameters['id']!),
+          ),
+        ),
+      ),
+    ],
 
     GoRoute(
       path: '/addserver',

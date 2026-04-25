@@ -572,16 +572,9 @@ class SubsonicServer {
         );
       }
 
-      // log error
-      loggerPrint(
-        "SubsonicServer: ping to $baseUrl failed with error: ${res.errorMessage}, code: ${res.errorCode}",
-      );
-
       if (res.errorMessage != null &&
           res.errorMessage!.contains('Subsonic API error')) {
-        loggerPrint(
-          'SubsonicServer: received expected API error from $baseUrl, server is reachable',
-        );
+        
         canConnect = true;
         return true; // server is reachable and responded with an API error, which is expected
       } else if (res.errorMessage != null) {

@@ -412,6 +412,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       topBar: _buildMobileTopBar(context),
       expandedMiniPlayer: expandedMiniPlayer,
       floatingNav: floatingNav,
+      onRefresh: widget.selectedRoute == '/home' ? requestHomeRefresh : null,
       child: widget.child,
     );
   }
