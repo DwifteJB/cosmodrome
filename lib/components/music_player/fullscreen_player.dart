@@ -6,12 +6,11 @@
 
 import 'dart:ui';
 
-import 'package:cosmodrome/components/music_player/queue_sheet.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -19,7 +18,9 @@ import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
 class FullscreenPlayer extends StatefulWidget {
-  const FullscreenPlayer({super.key});
+  final VoidCallback? onQueueOpen;
+
+  const FullscreenPlayer({super.key, this.onQueueOpen});
 
   @override
   State<FullscreenPlayer> createState() => _FullscreenPlayerState();
@@ -133,7 +134,8 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                              if ((player.accentColor?.computeLuminance() ?? 0) <
+                              if ((player.accentColor?.computeLuminance() ??
+                                      0) <
                                   0.15)
                                 const DecoratedBox(
                                   decoration: BoxDecoration(
@@ -181,12 +183,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                             child: Material(
                               color: Colors.white12,
                               child: InkWell(
-                                onTap: () => showFSheet(
-                                  context: context,
-                                  side: FLayout.btt,
-                                  mainAxisMaxRatio: 0.7,
-                                  builder: (_) => const QueueSheet(),
-                                ),
+                                onTap: widget.onQueueOpen,
                                 child: const Padding(
                                   padding: EdgeInsets.all(10),
                                   child: Icon(
@@ -470,7 +467,8 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                             child: TweenAnimationBuilder<Color?>(
                                               tween: ColorTween(
                                                 begin:
-                                                    player.prevAccentColor ?? accent,
+                                                    player.prevAccentColor ??
+                                                    accent,
                                                 end: accent,
                                               ),
                                               duration: const Duration(
@@ -535,6 +533,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                   ],
                 ),
               ),
+
             ],
           );
         },

@@ -8,8 +8,8 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/cover_art_provider.dart';
-import 'package:cosmodrome/utils/sidebar_notifier.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -288,9 +288,7 @@ class _HomePageState extends State<HomePage> {
     homeRefreshNotifier.addListener(_onHomeRefreshRequested);
   }
 
-  Future<void> _fetchAlbums({
-    bool forceRefresh = false,
-  }) async {
+  Future<void> _fetchAlbums({bool forceRefresh = false}) async {
     final provider = context.read<SubsonicProvider>();
     final accountId = provider.activeAccount?.id;
     if (accountId == null) {
@@ -335,8 +333,16 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final results = await Future.wait([
-        provider.subsonic.getAlbumList2('newest', size: 20, forceRefresh: forceRefresh),
-        provider.subsonic.getAlbumList2('starred', size: 20, forceRefresh: forceRefresh),
+        provider.subsonic.getAlbumList2(
+          'newest',
+          size: 20,
+          forceRefresh: forceRefresh,
+        ),
+        provider.subsonic.getAlbumList2(
+          'starred',
+          size: 20,
+          forceRefresh: forceRefresh,
+        ),
       ]);
 
       await Future.wait([

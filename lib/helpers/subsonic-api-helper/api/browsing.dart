@@ -4,7 +4,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:http/http.dart' as http;
 
 const _coverArtManifestKey = 'cover_art_manifest';

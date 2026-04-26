@@ -1,11 +1,10 @@
 import 'package:cosmodrome/components/forms/add_server_form.dart';
-import 'package:cosmodrome/components/pill_header.dart';
+import 'package:cosmodrome/components/mobile/pill_header.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
 class AddServerPage extends StatefulWidget {
-
   const AddServerPage({super.key});
 
   @override
@@ -13,7 +12,6 @@ class AddServerPage extends StatefulWidget {
 }
 
 class _AddServerPageState extends State<AddServerPage> {
-
   bool searchingForServers = false;
   @override
   Widget build(BuildContext context) {

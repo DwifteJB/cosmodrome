@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
 class NoAccountView extends StatelessWidget {
+  const NoAccountView({super.key});
   @override
   Widget build(BuildContext context) {
     // background of a bunch of shimmering album cards in a row

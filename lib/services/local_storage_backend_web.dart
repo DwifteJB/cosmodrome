@@ -18,7 +18,11 @@ class WebLocalStorageBackend implements LocalStorageBackend {
     final db = await _dbFuture;
     final txn = db.transaction(_songsStore, idbModeReadOnly);
     final store = txn.objectStore(_songsStore);
-    final prefixes = ['$accountId/songs/', '$accountId/cached-images/'];
+    final prefixes = [
+      '$accountId/songs/',
+      '$accountId/cached-images/',
+      '$accountId/cache/',
+    ];
 
     var total = 0;
     await for (final cursor

@@ -2,7 +2,7 @@
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/subsonic-user.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 
 final Map<String, Uint8List> _avatarCache = {};

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/errors.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic_auth.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 

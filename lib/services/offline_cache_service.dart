@@ -2,7 +2,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/material.dart';
 
 const _offlineTTL = Duration(hours: 24);
@@ -25,6 +25,20 @@ class OfflineCacheService {
 
   // tracks accounts whose dirs are confirmed to exist this session
   final _initializedAccounts = <String>{};
+
+  Future<void> addRecentSearch(String accountId, RecentSearch search) async {
+    final recentSearches = await loadRecentSearches(accountId) ?? [];
+    // remove any existing entry for this id to avoid duplicates, then add to front of list
+    recentSearches.removeWhere(
+      (e) => e.id == search.id && e.type == search.type,
+    );
+    recentSearches.insert(0, search);
+    // keep only 10 recent searches
+    if (recentSearches.length > 10) {
+      recentSearches.removeRange(10, recentSearches.length);
+    }
+    await saveRecentSearches(accountId, recentSearches);
+  }
 
   Future<void> clearCacheForAccount(String accountId) async {
     try {
@@ -112,6 +126,15 @@ class OfflineCacheService {
 
   Future<void> saveRecentAlbums(String accountId, List<Album> items) =>
       _write(accountId, _recentAlbums, items.map((e) => e.toJson()).toList());
+
+  Future<void> saveRecentSearches(
+    String accountId,
+    List<RecentSearch> searches,
+  ) => _write(
+    accountId,
+    _recentSearches,
+    searches.map((e) => e.toJson()).toList(),
+  );
 
   Future<void> saveSongs(String accountId, List<Song> items) =>
       _write(accountId, _songs, items.map((e) => e.toJson()).toList());

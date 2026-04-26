@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 
 import 'package:cosmodrome/components/shared_views/no_account_view.dart';
@@ -6,9 +8,9 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
-import 'package:cosmodrome/utils/search_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/search_notifier.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -26,6 +28,7 @@ class _RecentSearchsItem extends StatelessWidget {
   final RecentSearch search;
 
   const _RecentSearchsItem({required this.search});
+
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +141,19 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
   @override
   bool get isScrollable => true;
 
+  void addRecentSearch(RecentSearch search) {
+    final provider = context.read<SubsonicProvider>();
+    if (provider.activeAccount == null) return;
+
+    offlineCacheService.addRecentSearch(provider.activeAccount!.id, search);
+    // add to local list to update UI immediately
+    if (mounted) {
+      setState(() {
+        recentSearches = [search, ...?recentSearches];
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SubsonicProvider>();
@@ -180,8 +196,18 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
                   title: album.name,
                   subtitle: album.artist,
                   trailing: '${album.songCount} songs',
-                  onTap: () =>
-                      GoRouter.of(context).push('/library/album/${album.id}'),
+                  onTap: () {
+                    addRecentSearch(
+                      RecentSearch(
+                        id: album.id,
+                        type: RecentSearchEnum.album,
+                        title: album.name,
+                        subtitle: album.artist,
+                        artId: album.coverArt,
+                      ),
+                    );
+                    GoRouter.of(context).push('/library/album/${album.id}');
+                  }
                 ),
               ),
             ],
@@ -209,6 +235,17 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
                 onPlay: (songId) async {
                   final song = await provider.subsonic.getSong(songId);
                   if (song != null && mounted) {
+
+                    addRecentSearch(
+                      RecentSearch(
+                        id: song.id,
+                        type: RecentSearchEnum.song,
+                        title: song.title,
+                        subtitle: '${song.artist} • ${song.album}',
+                        artId: song.coverArt ?? '',
+                      ),
+                    );
+
                     context.read<PlayerProvider>().playNow(song);
                   }
                 },

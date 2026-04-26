@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cosmodrome/utils/layout_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 
 int _layoutGeneration = 0;
 
