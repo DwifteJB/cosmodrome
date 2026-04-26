@@ -18,7 +18,7 @@ This project is under the [GPL-2.0 License](https://github.com/DwifteJB/cosmodro
 
 ## Downloads
 
-You can get android and linux builds in the artifacts sections. 
+You can get android, linux, ios & windows builds in the [Actions Page](https://github.com/DwifteJB/cosmodrome/actions). 
 
 The MacOS builds are regularly added to the [Releases Page](https://github.com/DwifteJB/cosmodrome/releases).
 
@@ -39,7 +39,6 @@ You can fully play through & search for whatever albums you have on your subsoni
 ### Playlists
 
 You can fully play, browse, create & edit playlists in the app.
-
 
 ### Downloads
 
@@ -69,6 +68,13 @@ Current support for the client is as following (order of what is focused):
  - [ ] Android Auto
  - [X] Web
 
+Current support for known servers (subsonic-like servers) are as following:
+
+* [Subsonic](https://www.subsonic.org/pages/index.jsp)
+* [Open Subsonic](https://github.com/opensubsonic/open-subsonic-api) (including, [Navidrome](https://github.com/navidrome/navidrome))
+* [Octo-fiesta](https://github.com/V1ck3s/octo-fiesta)
+
+There is a project I do want to work on, that creates a subsonic server from apple music using something like [MusicKit](https://developer.apple.com/musickit/) and [GAMDL](https://github.com/glomatico/gamdl). So expect something like that at some point of time
 
 ## Whats the plans for when this releases?
 
@@ -77,20 +83,6 @@ When/If this releases, the iOS & Android app will be listed on the appstore for 
 The app will be free & open source, free to compile and run as long as you can install an APK or an IPA file.
 
 The desktop apps I am not too sure about, they will most likely also just be free with no paywall.
-
-## TODO list
-- [X] create installers for windows & linux
-- [X] discord rich presence via golang sub-process using ipcs
-- [X] ability to refresh subsonic songs
-- [X] playlists yes
-- [X] library view
-- [ ] searching
-- [ ] bookmarks
-- [X] shuffling
-- [X] repeating
-- [X] starring
-- [X] downloads
-- [ ] settings page
 
 ## Contributions
 To contribute, create a fork and create a pull request whenever ready for it to be reviewed!

@@ -27,11 +27,13 @@ class ApiResultCache<T> {
 class Subsonic {
   final String baseUrl; // includes port e.g. localhost:4455
   late final SubsonicAuth auth;
+  int timeoutSeconds;
 
   Subsonic({
     required String baseUrl,
     required String username,
     required String password,
+    this.timeoutSeconds = 15,
   }) : baseUrl = baseUrl.replaceFirst(RegExp(r'^https?://'), '') {
     auth = SubsonicAuth(username: username, password: password);
   }
@@ -39,7 +41,7 @@ class Subsonic {
   Future<Map<String, dynamic>> apiRequest(
     String endpoint, {
     Map<String, String> params = const {},
-    int timeoutSeconds = 5,
+    int? timeoutSeconds,
     bool forceRefresh = false,
   }) async {
     // check to see if theres a cached result that isn't expired
@@ -73,13 +75,13 @@ class Subsonic {
     final response = await http
         .get(uri)
         .timeout(
-          Duration(seconds: timeoutSeconds),
+          Duration(seconds: timeoutSeconds ?? this.timeoutSeconds),
           onTimeout: () {
             loggerPrint(
-              'API request to $endpoint timed out after $timeoutSeconds seconds',
+              'API request to $endpoint timed out after ${timeoutSeconds ?? this.timeoutSeconds} seconds',
             );
             throw Exception(
-              'API request to $endpoint timed out after $timeoutSeconds seconds',
+              'API request to $endpoint timed out after ${timeoutSeconds ?? this.timeoutSeconds} seconds',
             );
           },
         );
@@ -166,7 +168,6 @@ class Subsonic {
   Future<Map<String, dynamic>> multiParamRequest(
     String endpoint, {
     Map<String, dynamic> params = const {},
-    int timeoutSeconds = 5,
   }) async {
     final tok = auth.generateToken();
     final query = <String, dynamic>{
@@ -183,7 +184,7 @@ class Subsonic {
     final response = await http
         .get(uri)
         .timeout(
-          Duration(seconds: timeoutSeconds.toInt()),
+          Duration(seconds: timeoutSeconds),
           onTimeout: () {
             throw Exception('API request to $endpoint timed out');
           },

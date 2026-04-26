@@ -113,7 +113,7 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
   Future<SpotlightItem?> _buildSpotlightItem(Album album) async {
     try {
       final mbFuture = _fetchMusicBrainzDisambiguation(album.artist);
-      final wikiFuture = _fetchWikipediaExtract(album.artist);
+      final wikiFuture = _fetchWikipediaExtract(album.name);
 
       final mbdesc = await mbFuture;
       final wikidesc = await wikiFuture;
@@ -196,19 +196,17 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
     }
   }
 
-  Future<String?> _fetchWikipediaExtract(String artistName) async {
+  Future<String?> _fetchWikipediaExtract(String whatever) async {
     try {
-      loggerPrint("get Wikipedia extract for '$artistName'");
+      loggerPrint("get Wikipedia extract for '$whatever'");
       final uri = Uri.parse(
-        'https://en.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(artistName)}',
+        'https://en.wikipedia.org/api/rest_v1/page/summary/${Uri.encodeComponent(whatever)}',
       );
       final response = await http
           .get(uri, headers: {'User-Agent': 'Cosmodrome/1.0 (cosmodrome-app)'})
           .timeout(const Duration(seconds: 8));
 
-      loggerPrint(
-        "Wikipedia response for '$artistName': ${response.statusCode}",
-      );
+      loggerPrint("Wikipedia response for '$whatever': ${response.statusCode}");
 
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body) as Map<String, dynamic>;

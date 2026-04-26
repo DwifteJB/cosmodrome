@@ -14,10 +14,8 @@ void openSettings(BuildContext context) {
     showDialog<void>(
       context: context,
       barrierColor: Colors.black54,
-      builder: (_) => FTheme(
-        data: context.theme,
-        child: const _SettingsDesktopShell(),
-      ),
+      builder: (_) =>
+          FTheme(data: context.theme, child: const _SettingsDesktopShell()),
     );
   } else {
     showFSheet(
@@ -30,7 +28,6 @@ void openSettings(BuildContext context) {
     );
   }
 }
-
 
 class _SettingsDesktopShell extends StatefulWidget {
   const _SettingsDesktopShell();
@@ -99,16 +96,10 @@ class _SettingsDesktopShellState extends State<_SettingsDesktopShell> {
                 ),
 
                 // divider
-                VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: colors.border,
-                ),
+                VerticalDivider(width: 1, thickness: 1, color: colors.border),
 
                 // right content
-                Expanded(
-                  child: items[_selectedIndex].content,
-                ),
+                Expanded(child: items[_selectedIndex].content),
               ],
             ),
           ),
@@ -172,8 +163,9 @@ class _NavItemState extends State<_NavItem> {
                 widget.label,
                 style: context.theme.typography.sm.copyWith(
                   color: fg,
-                  fontWeight:
-                      widget.selected ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: widget.selected
+                      ? FontWeight.w600
+                      : FontWeight.normal,
                 ),
               ),
             ],
@@ -183,7 +175,6 @@ class _NavItemState extends State<_NavItem> {
     );
   }
 }
-
 
 /// Wraps any settings content widget with the standard mobile sheet chrome
 /// (background, rounded top corners, drag handle). Use this in onMobileTap
@@ -278,7 +269,6 @@ class _SettingsMobileShell extends StatelessWidget {
                 itemBuilder: (ctx, i) {
                   final item = items[i];
                   return ListTile(
-              
                     tileColor: AppColors.sidebarSelected,
                     leading: item.icon != null
                         ? Icon(item.icon, size: 20, color: colors.foreground)

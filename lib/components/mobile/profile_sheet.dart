@@ -1,4 +1,6 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
+import 'package:cosmodrome/components/forms/add_server_form.dart';
+import 'package:cosmodrome/components/forms/add_user_form.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
@@ -47,15 +49,15 @@ class _ProfileSheetState extends State<ProfileSheet> {
               // only show on mobile
               if (isMobile(context))
                 Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 12),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.border,
-                    borderRadius: BorderRadius.circular(2),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
                 )
               else
                 const SizedBox(height: 16),
@@ -454,8 +456,29 @@ class _ProfileSheetState extends State<ProfileSheet> {
                         ],
                       ),
                     ),
-                    if (isActive)
-                      Icon(FIcons.check, size: 16, color: colors.primary),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            _openEditAccountSheet(context, account);
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Icon(
+                              FIcons.pencil,
+                              size: 16,
+                              color: colors.mutedForeground,
+                            ),
+                          ),
+                        ),
+                        if (isActive) ...[
+                          const SizedBox(width: 8),
+                          Icon(FIcons.check, size: 16, color: colors.primary),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -463,6 +486,53 @@ class _ProfileSheetState extends State<ProfileSheet> {
           );
         }),
       ],
+    );
+  }
+
+  void _openEditAccountSheet(BuildContext context, SubsonicAccount account) {
+    showFSheet(
+      context: context,
+      side: FLayout.btt,
+      mainAxisMaxRatio: 0.75,
+      builder: (sheetCtx) => Material(
+        color: const Color(0xFF101012),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).dividerColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Edit Account',
+                  style: sheetCtx.theme.typography.xl.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: sheetCtx.theme.colors.foreground,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AddUserForm(
+                  initialAccount: account,
+                  onSuccess: () => Navigator.pop(sheetCtx),
+                  onCancel: () => Navigator.pop(sheetCtx),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -508,13 +578,77 @@ class _ProfileSheetState extends State<ProfileSheet> {
                 ],
               ),
             ),
-            Text(
-              _statusText(connected),
-              style: context.theme.typography.xs.copyWith(
-                color: _statusColor(context, connected),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _statusText(connected),
+                  style: context.theme.typography.xs.copyWith(
+                    color: _statusColor(context, connected),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    _openEditServerSheet(context, server);
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: Icon(
+                    FIcons.pencil,
+                    size: 16,
+                    color: colors.mutedForeground,
+                  ),
+                ),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _openEditServerSheet(BuildContext context, SubsonicServer server) {
+    showFSheet(
+      context: context,
+      side: FLayout.btt,
+      mainAxisMaxRatio: 0.75,
+      builder: (sheetCtx) => Material(
+        color: const Color(0xFF101012),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).dividerColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Edit Server',
+                  style: sheetCtx.theme.typography.xl.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: sheetCtx.theme.colors.foreground,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AddServerForm(
+                  initialServer: server,
+                  onSuccess: (_) => Navigator.pop(sheetCtx),
+                  onCancel: () => Navigator.pop(sheetCtx),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

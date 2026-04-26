@@ -20,6 +20,7 @@ import 'package:cosmodrome/services/offline_cache_service.dart'
 //
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
+import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
@@ -195,15 +196,19 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
     GoRoute(
       path: '/addserver',
       parentNavigatorKey: _rootNavigatorKey,
-      pageBuilder: (context, state) =>
-          MaterialPage(key: state.pageKey, child: const AddServerPage()),
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        child: AddServerPage(initialServer: state.extra as SubsonicServer?),
+      ),
     ),
 
     GoRoute(
       path: '/adduser',
       parentNavigatorKey: _rootNavigatorKey,
-      pageBuilder: (context, state) =>
-          MaterialPage(key: state.pageKey, child: const AddUserPage()),
+      pageBuilder: (context, state) => MaterialPage(
+        key: state.pageKey,
+        child: AddUserPage(initialAccount: state.extra as SubsonicAccount?),
+      ),
     ),
   ],
 );
@@ -404,11 +409,10 @@ class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
                       final delta = details.primaryDelta ?? 0;
                       if (_playerDragOffset > 0 || delta > 0) {
                         setState(() {
-                          _playerDragOffset =
-                              (_playerDragOffset + delta).clamp(
-                                0,
-                                double.infinity,
-                              );
+                          _playerDragOffset = (_playerDragOffset + delta).clamp(
+                            0,
+                            double.infinity,
+                          );
                         });
                       }
                     },

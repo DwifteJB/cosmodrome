@@ -29,7 +29,6 @@ class _RecentSearchsItem extends StatelessWidget {
 
   const _RecentSearchsItem({required this.search});
 
-
   @override
   Widget build(BuildContext context) {
     // get string
@@ -207,7 +206,7 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
                       ),
                     );
                     GoRouter.of(context).push('/library/album/${album.id}');
-                  }
+                  },
                 ),
               ),
             ],
@@ -235,7 +234,6 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
                 onPlay: (songId) async {
                   final song = await provider.subsonic.getSong(songId);
                   if (song != null && mounted) {
-
                     addRecentSearch(
                       RecentSearch(
                         id: song.id,

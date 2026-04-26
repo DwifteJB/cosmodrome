@@ -5,12 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 
-// form for adding a new server
+// form for adding or editing a server
 class AddServerForm extends StatefulWidget {
   final ValueChanged<SubsonicServer> onSuccess;
   final VoidCallback? onCancel;
+  // if initial, then we are editing
+  final SubsonicServer? initialServer;
 
-  const AddServerForm({super.key, required this.onSuccess, this.onCancel});
+  const AddServerForm({
+    super.key,
+    required this.onSuccess,
+    this.onCancel,
+    this.initialServer,
+  });
 
   @override
   State<AddServerForm> createState() => _AddServerFormState();
@@ -21,9 +28,13 @@ class _AddServerFormState extends State<AddServerForm> {
   final _nameController = TextEditingController();
   bool _isLoading = false;
   List<Subsonic> foundServers = [];
-  bool searchingForServers = true;
+  bool searchingForServers = false;
+
+  int timeoutSeconds = 15;
 
   String? _error;
+
+  bool get _isEditing => widget.initialServer != null;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +44,8 @@ class _AddServerFormState extends State<AddServerForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (searchingForServers || foundServers.isNotEmpty) ...[
+        if (!_isEditing &&
+            (searchingForServers || foundServers.isNotEmpty)) ...[
           FCard(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -103,6 +115,36 @@ class _AddServerFormState extends State<AddServerForm> {
           hint: 'My Server',
           control: FTextFieldControl.managed(controller: _nameController),
         ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            FTooltip(
+              tipBuilder: (context, controller) =>
+                  const Text('How long to wait before giving up.'),
+              child: Text("Timeout:"),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                children: [
+                  Slider(
+                    value: timeoutSeconds.toDouble(),
+                    min: 5,
+                    max: 60,
+                    divisions: 11,
+                    label: '$timeoutSeconds seconds',
+                    onChanged: (value) {
+                      setState(() {
+                        timeoutSeconds = value.toInt();
+                      });
+                    },
+                  ),
+                  Text('$timeoutSeconds seconds'),
+                ],
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 24),
         if (_error != null) ...[
           Text(
@@ -119,7 +161,7 @@ class _AddServerFormState extends State<AddServerForm> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Add Server'),
+              : Text(_isEditing ? 'Save Changes' : 'Add Server'),
         ),
         if (widget.onCancel != null) ...[
           const SizedBox(height: 8),
@@ -143,9 +185,17 @@ class _AddServerFormState extends State<AddServerForm> {
   @override
   void initState() {
     super.initState();
-    // most people will use this URL
-    _urlController.text = 'http://localhost:4533';
-    searchForServers();
+    if (_isEditing) {
+      _urlController.text = widget.initialServer!.baseUrl;
+      _nameController.text =
+          widget.initialServer!.name == widget.initialServer!.baseUrl
+          ? ''
+          : widget.initialServer!.name;
+      timeoutSeconds = widget.initialServer!.timeoutSeconds;
+    } else {
+      _urlController.text = 'http://localhost:4533';
+      searchForServers();
+    }
   }
 
   void searchForServers() async {
@@ -183,28 +233,51 @@ class _AddServerFormState extends State<AddServerForm> {
 
     final name = _nameController.text.trim();
     final provider = context.read<SubsonicProvider>();
-
-    // remove trailing slash if present, since it causes issues with some servers
     final normalizedUrl = url.endsWith('/')
         ? url.substring(0, url.length - 1)
         : url;
-    final success = await provider.addKnownServer(
-      normalizedUrl,
-      name: name.isEmpty ? null : name,
-    );
 
-    if (!mounted) return;
-
-    if (success) {
-      final server = provider.knownServers.firstWhere(
-        (s) => s.baseUrl == normalizedUrl,
+    if (_isEditing) {
+      final success = await provider.updateKnownServer(
+        widget.initialServer!.baseUrl,
+        newName: name.isEmpty ? normalizedUrl : name,
+        newBaseUrl: normalizedUrl,
       );
-      widget.onSuccess(server);
+
+      if (!mounted) return;
+
+      if (success) {
+        final server = provider.knownServers.firstWhere(
+          (s) => s.baseUrl == normalizedUrl,
+          orElse: () =>
+              SubsonicServer(baseUrl: normalizedUrl, name: normalizedUrl),
+        );
+        widget.onSuccess(server);
+      } else {
+        setState(() {
+          _error = 'Could not connect to server. Check the URL and try again.';
+          _isLoading = false;
+        });
+      }
     } else {
-      setState(() {
-        _error = 'Could not connect to server. Check the URL and try again.';
-        _isLoading = false;
-      });
+      final success = await provider.addKnownServer(
+        normalizedUrl,
+        name: name.isEmpty ? null : name,
+      );
+
+      if (!mounted) return;
+
+      if (success) {
+        final server = provider.knownServers.firstWhere(
+          (s) => s.baseUrl == normalizedUrl,
+        );
+        widget.onSuccess(server);
+      } else {
+        setState(() {
+          _error = 'Could not connect to server. Check the URL and try again.';
+          _isLoading = false;
+        });
+      }
     }
   }
 }
