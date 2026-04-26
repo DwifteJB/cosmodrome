@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cosmodrome/components/album_card.dart';
 import 'package:cosmodrome/components/home/featured_spotlight.dart';
 import 'package:cosmodrome/components/shared_views/no_account_view.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
@@ -8,7 +9,6 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/gestures.dart';
@@ -44,9 +44,32 @@ final fakePlaylists = List.generate(
 );
 
 final homeItems = [
-  _HomeCard(icon: FIcons.history, title: 'Recently Added', onTap: null),
-  _HomeCard(icon: FIcons.shuffle, title: 'Random', onTap: null),
-  _HomeCard(icon: FIcons.star, title: 'Starred', onTap: null),
+  _HomeCard(
+    icon: FIcons.history,
+    title: 'Recently Added',
+    onTap: (context) => {context.push('/library/recent')},
+  ),
+  _HomeCard(
+    icon: FIcons.shuffle,
+    title: 'Random',
+    onTap: (context) => {
+      // send snackbar message saying "grabbing random album..." that disappears when the album is loaded or fails to load
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Grabbing random album...'))),
+      context.read<SubsonicProvider>().subsonic.getRandomAlbum().then((album) {
+        if (album != null) {
+          // ignore: use_build_context_synchronously
+          GoRouter.of(context).push('/library/album/${album.id}');
+        }
+      }),
+    },
+  ),
+  _HomeCard(
+    icon: FIcons.star,
+    title: 'Starred',
+    onTap: (context) => {context.push('/library/starred')},
+  ),
   _HomeCard(
     icon: FIcons.clockArrowDown,
     title: 'Frequently played',
@@ -61,95 +84,10 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _AlbumCard extends StatelessWidget {
-  final Album album;
-  final Subsonic subsonic;
-
-  static const double _cardWidth = 150.0;
-
-  const _AlbumCard({required this.album, required this.subsonic});
-
-  @override
-  Widget build(BuildContext context) {
-    const cardWidth = _cardWidth;
-    // Always resolve the URL at build time so a cache clear immediately takes
-    // effect on the next rebuild rather than serving a stale file path.
-    final coverUrl = album.coverArt != null
-        ? subsonic.cachedCoverArtUrl(album.coverArt!, size: 300)
-        : null;
-
-    return GestureDetector(
-      onTap: () => context.push('/library/album/${album.id}'),
-      child: SizedBox(
-        width: cardWidth,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: coverUrl != null
-                  ? Image(
-                      image: coverArtProvider(coverUrl),
-                      width: cardWidth,
-                      height: cardWidth,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (ctx, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          width: cardWidth,
-                          height: cardWidth,
-                          decoration: BoxDecoration(
-                            color: context.theme.colors.muted,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        );
-                      },
-                      errorBuilder: (ctx, err, stack) => Container(
-                        width: cardWidth,
-                        height: cardWidth,
-                        color: context.theme.colors.muted,
-                        child: Icon(
-                          Icons.album,
-                          color: context.theme.colors.mutedForeground,
-                          size: 40,
-                        ),
-                      ),
-                    )
-                  : Container(
-                      width: cardWidth,
-                      height: cardWidth,
-                      color: context.theme.colors.muted,
-                    ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              album.name,
-              style: context.theme.typography.sm.copyWith(
-                fontWeight: FontWeight.w400,
-                color: context.theme.colors.foreground,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            Text(
-              album.artist,
-              style: context.theme.typography.xs.copyWith(
-                color: context.theme.colors.mutedForeground,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _HomeCard extends StatelessWidget {
   final IconData icon;
   final String title;
-  final VoidCallback? onTap;
+  final Function(BuildContext)? onTap;
 
   const _HomeCard({required this.icon, required this.title, this.onTap});
 
@@ -157,7 +95,7 @@ class _HomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     return GestureDetector(
-      onTap: onTap,
+      onTap: onTap != null ? () => onTap!(context) : null,
       child: Container(
         height: 52,
         decoration: BoxDecoration(
@@ -312,8 +250,8 @@ class _HomePageState extends State<HomePage> {
     if (provider.isOffline) {
       if (mounted) {
         setState(() {
-          _recentAlbums = cachedRecent;
-          _starredAlbums = cachedStarred;
+          _recentAlbums = cachedRecent?.take(10).toList();
+          _starredAlbums = cachedStarred?.take(10).toList();
           _loading = false;
         });
       }
@@ -322,8 +260,8 @@ class _HomePageState extends State<HomePage> {
 
     if (mounted && (cachedRecent != null || cachedStarred != null)) {
       setState(() {
-        _recentAlbums = cachedRecent;
-        _starredAlbums = cachedStarred;
+        _recentAlbums = cachedRecent?.take(10).toList();
+        _starredAlbums = cachedStarred?.take(10).toList();
         _loading = false;
       });
     }
@@ -352,16 +290,16 @@ class _HomePageState extends State<HomePage> {
 
       if (mounted) {
         setState(() {
-          _recentAlbums = results[0];
-          _starredAlbums = results[1];
+          _recentAlbums = results[0].take(10).toList();
+          _starredAlbums = results[1].take(10).toList();
           _loading = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _recentAlbums = cachedRecent;
-          _starredAlbums = cachedStarred;
+          _recentAlbums = cachedRecent?.take(10).toList();
+          _starredAlbums = cachedStarred?.take(10).toList();
           _loading = false;
         });
       }
@@ -432,7 +370,13 @@ class _HorizontalCarousel extends StatelessWidget {
                     letterSpacing: -0.1,
                   ),
                 ),
-                onTap: () {},
+                onTap: () {
+                  if (title == 'Recently Added') {
+                    context.push('/library/recent');
+                  } else if (title == 'Starred') {
+                    context.push('/library/starred');
+                  }
+                },
               ),
             ],
           ),
@@ -477,7 +421,7 @@ class _HorizontalCarousel extends StatelessWidget {
                       itemBuilder: (context, index) {
                         return Padding(
                           padding: EdgeInsets.only(right: 12),
-                          child: _AlbumCard(
+                          child: AlbumCard(
                             album: albums.isNotEmpty
                                 ? albums[index]
                                 : fakeAlbums[index - albums.length],

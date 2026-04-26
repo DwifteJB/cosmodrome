@@ -443,6 +443,7 @@ class Song {
   final String title;
   final String? artist;
   final String? album;
+  final String albumId;
   final int? track;
   final int? duration;
   final String? coverArt;
@@ -454,6 +455,7 @@ class Song {
   Song({
     required this.id,
     required this.title,
+    this.albumId = '',
     this.artist,
     this.album,
     this.track,
@@ -480,12 +482,14 @@ class Song {
       starred: json['starred'] != null
           ? DateTime.tryParse(json['starred'] as String)
           : null,
+      albumId: json['albumId'] as String? ?? '',
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
+    'albumId': albumId,
     if (artist != null) 'artist': artist,
     if (album != null) 'album': album,
     if (track != null) 'track': track,
@@ -495,5 +499,6 @@ class Song {
     if (bitRate != null) 'bitRate': bitRate,
     if (suffix != null) 'suffix': suffix,
     if (starred != null) 'starred': starred!.toIso8601String(),
+
   };
 }

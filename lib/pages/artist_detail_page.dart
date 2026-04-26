@@ -8,6 +8,7 @@ import 'package:cosmodrome/services/offline_cache_service.dart'
     show SpotlightItem;
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
+import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -137,9 +138,13 @@ class _AlbumRow extends StatelessWidget {
   }
 }
 
-class _ArtistDetailPageState extends State<ArtistDetailPage> {
+class _ArtistDetailPageState extends State<ArtistDetailPage>
+    with LayoutPageMixin {
   List<Album>? _albums;
   bool _loadingAlbums = true;
+
+  @override
+  bool get ignoreTopSpacing => true;
 
   @override
   Widget build(BuildContext context) {
@@ -196,121 +201,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF111111),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 340,
-            pinned: true,
-            backgroundColor: const Color(0xFF111111),
-            automaticallyImplyLeading: false,
-            leading: _BackButton(accentColor: accentColor),
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (coverUrl != null)
-                    Image(
-                      image: coverArtProvider(coverUrl),
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, e, st) => ColoredBox(
-                        color: accentColor ?? const Color(0xFF1A1A1A),
-                      ),
-                    )
-                  else
-                    ColoredBox(color: accentColor ?? const Color(0xFF1A1A1A)),
-                  if (accentColor != null)
-                    ColoredBox(color: accentColor.withValues(alpha: 0.25)),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: [0.35, 1.0],
-                        colors: [Colors.transparent, Color(0xFF111111)],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 20,
-                    right: 20,
-                    bottom: 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          item.artistName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.6,
-                            shadows: [
-                              Shadow(blurRadius: 10, color: Colors.black54),
-                            ],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          item.albumName,
-                          style: const TextStyle(
-                            color: Color(0xCCFFFFFF),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (item.description != null)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: Text(
-                  item.description!,
-                  style: const TextStyle(
-                    color: Color(0xCCFFFFFF),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    height: 1.6,
-                  ),
-                ),
-              ),
-            ),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 28, 20, 14),
-              child: Text(
-                'Related Albums',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.4,
-                ),
-              ),
-            ),
-          ),
-
-          SliverToBoxAdapter(
-            child: _buildAlbumSection(context, subsonic, accentColor),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 40)),
-        ],
-      ),
-    );
+    return _mobileLayout(item, coverUrl, accentColor, subsonic);
   }
 
   @override
@@ -387,34 +278,114 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
       if (mounted) setState(() => _loadingAlbums = false);
     }
   }
-}
 
-class _BackButton extends StatelessWidget {
-  final Color? accentColor;
-
-  const _BackButton({this.accentColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.pop(),
-      child: Container(
-        margin: const EdgeInsets.all(8),
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.45),
-          shape: BoxShape.circle,
+  Widget _mobileLayout(
+    SpotlightItem item,
+    String? coverUrl,
+    Color? accentColor,
+    Subsonic subsonic,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 300,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (coverUrl != null)
+                Image(
+                  image: coverArtProvider(coverUrl),
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, e, st) =>
+                      ColoredBox(color: accentColor ?? const Color(0xFF1A1A1A)),
+                )
+              else
+                ColoredBox(color: accentColor ?? const Color(0xFF1A1A1A)),
+              if (accentColor != null)
+                ColoredBox(color: accentColor.withValues(alpha: 0.25)),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.35, 1.0],
+                    colors: [Colors.transparent, Color(0xFF111111)],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item.artistName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        shadows: [
+                          Shadow(blurRadius: 10, color: Colors.black54),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.albumName,
+                      style: const TextStyle(
+                        color: Color(0xCCFFFFFF),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-        child: const Icon(
-          Icons.arrow_back_ios_new,
-          color: Colors.white,
-          size: 16,
+        if (item.description != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Text(
+              item.description!,
+              style: const TextStyle(
+                color: Color(0xCCFFFFFF),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 1.6,
+              ),
+            ),
+          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 28, 20, 14),
+          child: Text(
+            'Related Albums',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.4,
+            ),
+          ),
         ),
-      ),
+        _buildAlbumSection(context, subsonic, accentColor),
+        const SizedBox(height: 40),
+      ],
     );
   }
 }
+
 
 class _DesktopHero extends StatelessWidget {
   final SpotlightItem item;
