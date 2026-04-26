@@ -5,19 +5,15 @@ import 'dart:ui';
 
 import 'package:cosmodrome/components/music_player/mini_player.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
-import 'package:cosmodrome/utils/accent_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/layout_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-/// Full-screen layout for detail pages (album, playlist) on mobile.
-/// Lives on the root navigator so swipe-back slides it away cleanly,
-/// revealing the shell (home/library) underneath.
-/// this is much better because beforehand it would have the previous page pop in with no details, so this is a compromise...
 class MobileDetailLayout extends StatefulWidget {
   final Widget child;
   final bool isScrollable;
@@ -185,7 +181,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
       color: colors.background,
       child: Stack(
         children: [
-          // Accent gradient
+          // accent gradient
           Positioned(
             top: 0,
             left: 0,
@@ -193,7 +189,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
             height: topPadding + MediaQuery.of(context).size.height * 0.38,
             child: _AccentGradientLayer(backgroundColor: colors.background),
           ),
-          // Content
+          // content
           if (widget.isScrollable)
             Positioned.fill(
               child: SingleChildScrollView(
@@ -217,7 +213,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
             )
           else
             Positioned.fill(child: widget.child),
-          // Bottom fade
+          // bottom fade
           Positioned(
             left: 0,
             right: 0,
@@ -238,7 +234,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
               ),
             ),
           ),
-          // Top fade (appears on scroll)
+          // top fade (appears on scroll)
           Positioned(
             top: 0,
             left: 0,
@@ -262,7 +258,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
               ),
             ),
           ),
-          // Top bar
+          // top bar
           Positioned(
             top: 0,
             left: 0,
@@ -270,14 +266,14 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
             height: 56 + topPadding,
             child: _buildTopBar(context),
           ),
-          // Mini player
+          // mini player
           Positioned(
             bottom: bottomPadding + 18 + 48 + 20,
             left: 16,
             right: 16,
             child: expandedMiniPlayer,
           ),
-          // Nav
+          // nav/search pills
           Positioned(
             bottom: bottomPadding + 18,
             left: 16,
@@ -407,8 +403,11 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
               behavior: HitTestBehavior.opaque,
               child: Padding(
                 padding: const EdgeInsets.all(10),
-                child:
-                    Icon(FIcons.search, size: 24, color: colors.mutedForeground),
+                child: Icon(
+                  FIcons.search,
+                  size: 24,
+                  color: colors.mutedForeground,
+                ),
               ),
             ),
           ),

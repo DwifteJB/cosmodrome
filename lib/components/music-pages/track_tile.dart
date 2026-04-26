@@ -1,5 +1,5 @@
-import 'package:cosmodrome/components/desktop_song_popover.dart';
-import 'package:cosmodrome/components/song_context_sheet.dart';
+import 'package:cosmodrome/components/desktop/desktop_song_popover.dart';
+import 'package:cosmodrome/components/mobile/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
@@ -226,7 +226,7 @@ class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
     final trackLabel = widget.trackNumber > 0 ? '${widget.trackNumber}' : '—';
     final artistText = song.artist?.isNotEmpty == true
         ? song.artist
-        : widget.albumArtist; 
+        : widget.albumArtist;
 
     return RepaintBoundary(
       child: Dismissible(

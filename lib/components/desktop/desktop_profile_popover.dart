@@ -1,13 +1,12 @@
 // ignore_for_file: deprecated_member_use
+import 'package:cosmodrome/components/settings/settings_shell.dart';
 import 'package:cosmodrome/components/forms/add_server_form.dart';
 import 'package:cosmodrome/components/forms/add_user_form.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
-import 'package:cosmodrome/pages/downloads_page.dart';
-import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/scan_notifier.dart';
+import 'package:cosmodrome/utils/scanning/scan_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -23,11 +22,13 @@ class _DesktopAccountPopoverContent extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onAddServer;
   final VoidCallback onAddAccount;
+  final VoidCallback? onSettingsPressed;
 
   const _DesktopAccountPopoverContent({
     required this.onClose,
     required this.onAddServer,
     required this.onAddAccount,
+    this.onSettingsPressed,
   });
 
   @override
@@ -100,9 +101,6 @@ class _DesktopAccountPopoverContentState
                   : _buildNoAccountPill(context, colors),
             ),
             Container(height: 1, color: colors.border),
-            _buildDownloadsShortcut(context),
-            // all profiles
-            Container(height: 1, color: colors.border),
             _buildSectionHeader(
               context,
               'Profiles',
@@ -134,7 +132,7 @@ class _DesktopAccountPopoverContentState
                   : const SizedBox.shrink(),
             ),
             const SizedBox(height: 8),
-            // Servers section
+            // servers section
             Container(height: 1, color: colors.border),
             _buildSectionHeader(
               context,
@@ -163,6 +161,30 @@ class _DesktopAccountPopoverContentState
                   : const SizedBox.shrink(),
             ),
             const SizedBox(height: 8),
+            Container(height: 1, color: colors.border),
+            _buildSettingsRow(context, colors),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsRow(BuildContext context, dynamic colors) {
+    return GestureDetector(
+      onTap: widget.onSettingsPressed,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(FIcons.settings, size: 16, color: colors.mutedForeground),
+            const SizedBox(width: 10),
+            Text(
+              'Settings',
+              style: context.theme.typography.sm.copyWith(
+                color: colors.foreground,
+              ),
+            ),
           ],
         ),
       ),
@@ -261,59 +283,6 @@ class _DesktopAccountPopoverContentState
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDownloadsShortcut(BuildContext context) {
-    return Consumer<DownloadProvider>(
-      builder: (ctx, dl, _) {
-        final colors = context.theme.colors;
-        final count = dl.completedDownloads.length;
-        final active = dl.activeDownloads.length;
-
-        return GestureDetector(
-          onTap: () {
-            widget.onClose();
-            showDownloadsSheet(context);
-          },
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.download_rounded,
-                  size: 18,
-                  color: colors.foreground,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Downloads',
-                    style: context.theme.typography.sm.copyWith(
-                      color: colors.foreground,
-                    ),
-                  ),
-                ),
-                Text(
-                  active > 0
-                      ? '$count downloaded · $active active'
-                      : '$count song${count == 1 ? '' : 's'}',
-                  style: context.theme.typography.xs.copyWith(
-                    color: colors.mutedForeground,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  FIcons.chevronRight,
-                  size: 14,
-                  color: colors.mutedForeground,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -599,11 +568,15 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
         onClose: _ctrl.hide,
         onAddServer: () {
           _ctrl.hide();
-          _showAddServerDialog(context);
+          showAddServerDialog(context);
         },
         onAddAccount: () {
           _ctrl.hide();
-          _showAddAccountDialog(context);
+          showAddAccountDialog(context);
+        },
+        onSettingsPressed: () {
+          _ctrl.hide();
+          openSettings(context);
         },
       ),
       child: GestureDetector(
@@ -624,6 +597,76 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
   void initState() {
     super.initState();
     _ctrl = FPopoverController(vsync: this);
+  }
+
+  void showAddAccountDialog(BuildContext ctx) {
+    showFDialog(
+      context: ctx,
+      builder: (dialogCtx, _, animation) => FDialog.raw(
+        animation: animation,
+        builder: (innerCtx, style) => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Add Account',
+                  style: innerCtx.theme.typography.xl.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: innerCtx.theme.colors.foreground,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AddUserForm(
+                  onSuccess: () => Navigator.pop(dialogCtx),
+                  onCancel: () => Navigator.pop(dialogCtx),
+                  onAddServerPressed: () => showAddServerDialog(ctx),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<SubsonicServer?> showAddServerDialog(BuildContext ctx) async {
+    SubsonicServer? result;
+    await showFDialog(
+      context: ctx,
+      builder: (dialogCtx, _, animation) => FDialog.raw(
+        animation: animation,
+        builder: (innerCtx, style) => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Add Server',
+                  style: innerCtx.theme.typography.xl.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: innerCtx.theme.colors.foreground,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AddServerForm(
+                  onSuccess: (server) {
+                    result = server;
+                    Navigator.pop(dialogCtx);
+                  },
+                  onCancel: () => Navigator.pop(dialogCtx),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    return result;
   }
 
   Widget _buildFooterTrigger(
@@ -678,75 +721,5 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
         ],
       ),
     );
-  }
-
-  void _showAddAccountDialog(BuildContext ctx) {
-    showFDialog(
-      context: ctx,
-      builder: (dialogCtx, _, animation) => FDialog.raw(
-        animation: animation,
-        builder: (innerCtx, style) => SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Add Account',
-                  style: innerCtx.theme.typography.xl.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: innerCtx.theme.colors.foreground,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AddUserForm(
-                  onSuccess: () => Navigator.pop(dialogCtx),
-                  onCancel: () => Navigator.pop(dialogCtx),
-                  onAddServerPressed: () => _showAddServerDialog(ctx),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<SubsonicServer?> _showAddServerDialog(BuildContext ctx) async {
-    SubsonicServer? result;
-    await showFDialog(
-      context: ctx,
-      builder: (dialogCtx, _, animation) => FDialog.raw(
-        animation: animation,
-        builder: (innerCtx, style) => SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Add Server',
-                  style: innerCtx.theme.typography.xl.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: innerCtx.theme.colors.foreground,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AddServerForm(
-                  onSuccess: (server) {
-                    result = server;
-                    Navigator.pop(dialogCtx);
-                  },
-                  onCancel: () => Navigator.pop(dialogCtx),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    return result;
   }
 }

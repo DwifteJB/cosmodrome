@@ -1,10 +1,9 @@
-// ignore_for_file: deprecated_member_use
-import 'package:cosmodrome/pages/downloads_page.dart';
-import 'package:cosmodrome/providers/download_provider.dart';
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/scan_notifier.dart';
+import 'package:cosmodrome/utils/isMobileView.dart';
+import 'package:cosmodrome/utils/scanning/scan_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
@@ -45,7 +44,9 @@ class _ProfileSheetState extends State<ProfileSheet> {
         child: Consumer<SubsonicProvider>(
           builder: (context, value, child) => Column(
             children: [
-              Center(
+              // only show on mobile
+              if (isMobile(context))
+                Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 12),
                   width: 36,
@@ -55,7 +56,9 @@ class _ProfileSheetState extends State<ProfileSheet> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
+                )
+              else
+                const SizedBox(height: 16),
 
               // header
               Padding(
@@ -96,56 +99,6 @@ class _ProfileSheetState extends State<ProfileSheet> {
                 child: ListView(
                   padding: const EdgeInsets.only(bottom: 32),
                   children: [
-                    Container(height: 1, color: context.theme.colors.border),
-                    // shortcut to the downloads section
-                    Consumer<DownloadProvider>(
-                      builder: (ctx, dl, _) {
-                        final count = dl.completedDownloads.length;
-                        final active = dl.activeDownloads.length;
-                        return GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                            showDownloadsSheet(ctx);
-                          },
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.download_rounded,
-                                  size: 18,
-                                  color: colors.foreground,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Downloads',
-                                    style: context.theme.typography.sm.copyWith(
-                                      color: colors.foreground,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  active > 0
-                                      ? '$count downloaded · $active active'
-                                      : '$count song${count == 1 ? '' : 's'}',
-                                  style: context.theme.typography.xs.copyWith(
-                                    color: colors.mutedForeground,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  FIcons.chevronRight,
-                                  size: 14,
-                                  color: colors.mutedForeground,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
                     Container(height: 1, color: context.theme.colors.border),
                     _buildSectionHeader(
                       context,
@@ -321,7 +274,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
     );
   }
 
-Widget _buildAddButton(
+  Widget _buildAddButton(
     BuildContext context,
     String label,
     VoidCallback onTap,

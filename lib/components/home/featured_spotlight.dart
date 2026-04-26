@@ -6,8 +6,8 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart'
     show SpotlightItem, offlineCacheService;
-import 'package:cosmodrome/utils/cover_art_provider.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -22,7 +22,8 @@ final _fakeSpotlightItems = List.generate(
     artistName: 'Artist Name',
     artistId: null,
     coverArt: null,
-    description: 'A short description about this artist and their unique sound.',
+    description:
+        'A short description about this artist and their unique sound.',
     accentColorValue: null,
   ),
 );
@@ -49,7 +50,6 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
 
   @override
   Widget build(BuildContext context) {
-    // Hide entirely if offline with no cache, or if loaded with nothing to show
     if (_items == null && widget.isOffline) return const SizedBox.shrink();
     if (!_loading && (_items == null || _items!.isEmpty)) {
       return const SizedBox.shrink();
@@ -112,16 +112,15 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
 
   Future<SpotlightItem?> _buildSpotlightItem(Album album) async {
     try {
-      // keep this light: network metadata only; color extraction is skipped
-      // to avoid expensive decode/palette work on the UI isolate.
       final mbFuture = _fetchMusicBrainzDisambiguation(album.artist);
       final wikiFuture = _fetchWikipediaExtract(album.artist);
 
       final mbdesc = await mbFuture;
       final wikidesc = await wikiFuture;
 
-      final description =
-          (wikidesc != null && wikidesc.isNotEmpty) ? wikidesc : mbdesc;
+      final description = (wikidesc != null && wikidesc.isNotEmpty)
+          ? wikidesc
+          : mbdesc;
 
       return SpotlightItem(
         albumId: album.id,
@@ -176,10 +175,13 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
 
       loggerPrint("MB lookup for '$artistName' at $uri");
       final response = await http
-          .get(uri, headers: {
-            'User-Agent': 'Cosmodrome/1.0 (cosmodrome-app)',
-            'Accept': 'application/json',
-          })
+          .get(
+            uri,
+            headers: {
+              'User-Agent': 'Cosmodrome/1.0 (cosmodrome-app)',
+              'Accept': 'application/json',
+            },
+          )
           .timeout(const Duration(seconds: 8));
 
       loggerPrint("MB response for '$artistName': ${response.statusCode}");
@@ -204,7 +206,9 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
           .get(uri, headers: {'User-Agent': 'Cosmodrome/1.0 (cosmodrome-app)'})
           .timeout(const Duration(seconds: 8));
 
-      loggerPrint("Wikipedia response for '$artistName': ${response.statusCode}");
+      loggerPrint(
+        "Wikipedia response for '$artistName': ${response.statusCode}",
+      );
 
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -263,7 +267,8 @@ class _SpotlightCard extends StatelessWidget {
 
     return RepaintBoundary(
       child: GestureDetector(
-        onTap: () => context.push('/artist-detail/${item.albumId}', extra: item),
+        onTap: () =>
+            context.push('/artist-detail/${item.albumId}', extra: item),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
           child: SizedBox(
@@ -370,4 +375,3 @@ class _SpotlightCardPlaceholder extends StatelessWidget {
     );
   }
 }
-

@@ -66,7 +66,7 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
     } catch (_) {}
     if (mounted) controller.hide();
   }
-  
+
   Widget _buildMain(FPopoverController controller) {
     final dl = context.watch<DownloadProvider>();
     final sp = context.watch<SubsonicProvider>();
@@ -254,6 +254,7 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
     } catch (_) {}
     if (mounted) controller.hide();
   }
+
   Future<void> _goToPlaylistPicker() async {
     setState(() {
       _mode = _PopoverMode.playlistPicker;

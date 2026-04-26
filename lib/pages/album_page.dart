@@ -6,13 +6,13 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/utils/accent_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:cosmodrome/utils/layout_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
-import 'package:cosmodrome/utils/sidebar_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
@@ -389,8 +389,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
                   accentColor: accentColorNotifier.value ?? _localCoverColor,
                   onTap: () => onClickSong(song),
                 );
-              }, growable: false,
-              ),
+              }, growable: false),
             ],
           ),
         );
@@ -603,8 +602,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             accentColor: accentColorNotifier.value ?? AppColors.auraColor,
             onTap: () => onClickSong(song),
           );
-        }, growable: false,
-        ),
+        }, growable: false),
 
         if (additionalDetails.isNotEmpty) ...[
           const Divider(),

@@ -1,6 +1,6 @@
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/utils/scan_for_servers.dart';
+import 'package:cosmodrome/utils/scanning/scan_for_servers.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';

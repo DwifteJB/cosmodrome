@@ -11,6 +11,7 @@ class DesktopTitlebar extends StatefulWidget {
   final VoidCallback? onBack;
   final bool queueOpen;
   final VoidCallback? onToggleQueue;
+  final VoidCallback? onSettingsPressed;
 
   const DesktopTitlebar({
     super.key,
@@ -19,6 +20,7 @@ class DesktopTitlebar extends StatefulWidget {
     this.onBack,
     this.queueOpen = false,
     this.onToggleQueue,
+    this.onSettingsPressed,
   });
 
   @override
@@ -74,6 +76,10 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _TitlebarButton(
+                  icon: FIcons.settings,
+                  onPressed: widget.onSettingsPressed ?? () {},
+                ),
                 // queue toggle top right
                 _TitlebarButton(
                   icon: FIcons.listMusic,

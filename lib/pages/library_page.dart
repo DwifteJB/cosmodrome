@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:cosmodrome/components/library/library_grid_item.dart';
 import 'package:cosmodrome/components/library/song_grid_item.dart';
-import 'package:cosmodrome/components/song_context_sheet.dart';
+import 'package:cosmodrome/components/mobile/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/main.dart';
@@ -10,7 +10,7 @@ import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/layout_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';

@@ -1,4 +1,4 @@
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 

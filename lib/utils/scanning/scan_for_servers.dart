@@ -2,7 +2,7 @@
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/basic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 
 const _scanBatchSize = 50;
 const _scanTimeoutSeconds = 2;
@@ -64,7 +64,7 @@ Future<List<Subsonic>> _scanForServersImpl() async {
   for (var i = 1; i < 255; i++) {
     final ip1 = '192.168.1.$i';
     // final ip2 = '10.0.0.$i';
-    // final ip3 = '100.64.0.$i';
+    final ip3 = '100.64.0.$i';
 
     candidates.add(
       Subsonic(
@@ -80,13 +80,13 @@ Future<List<Subsonic>> _scanForServersImpl() async {
     //     password: 'dummy',
     //   ),
     // );
-    // candidates.add(
-    //   Subsonic(
-    //     baseUrl: 'http://$ip3:4533',
-    //     username: 'dummy',
-    //     password: 'dummy',
-    //   ),
-    // );
+    candidates.add(
+      Subsonic(
+        baseUrl: 'http://$ip3:4533',
+        username: 'dummy',
+        password: 'dummy',
+      ),
+    );
   }
 
   loggerPrint('searching for servers... (${candidates.length} candidates)');

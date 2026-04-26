@@ -7,7 +7,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/user.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -601,7 +601,6 @@ class SubsonicServer {
 
       if (res.errorMessage != null &&
           res.errorMessage!.contains('Subsonic API error')) {
-        
         canConnect = true;
         return true; // server is reachable and responded with an API error, which is expected
       } else if (res.errorMessage != null) {

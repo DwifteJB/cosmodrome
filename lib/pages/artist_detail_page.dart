@@ -6,7 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart'
     show SpotlightItem;
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -16,8 +16,9 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 class ArtistDetailPage extends StatefulWidget {
   final SpotlightItem item;
+  final String? artistId;
 
-  const ArtistDetailPage({super.key, required this.item});
+  const ArtistDetailPage({super.key, required this.item, this.artistId});
 
   @override
   State<ArtistDetailPage> createState() => _ArtistDetailPageState();
@@ -376,11 +377,12 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
       final subsonic = context.read<SubsonicProvider>().subsonic;
       final albums = await subsonic.getArtist(id);
       albums.sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
-      if (mounted)
+      if (mounted) {
         setState(() {
           _albums = albums;
           _loadingAlbums = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingAlbums = false);
     }

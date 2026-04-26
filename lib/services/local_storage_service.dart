@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:cosmodrome/services/local_storage_backend.dart';
-import 'package:cosmodrome/services/local_storage_backend_factory.dart';
+import 'package:cosmodrome/services/storage_backend_factories/local_storage_backend_factory.dart';
 
 class LocalStorageService {
   static final LocalStorageBackend _backend = createLocalStorageBackend();

@@ -4,7 +4,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -17,7 +17,7 @@ void showDownloadsSheet(BuildContext context) {
       side: FLayout.btt,
       mainAxisMaxRatio: 0.92,
       useSafeArea: true,
-      builder: (_) => const _DownloadsContent(),
+      builder: (_) => const DownloadsSettingsPage(),
     );
   } else {
     showDialog(
@@ -31,7 +31,7 @@ void showDownloadsSheet(BuildContext context) {
           child: const SizedBox(
             width: 520,
             height: 600,
-            child: _DownloadsContent(),
+            child: DownloadsSettingsPage(),
           ),
         ),
       ),
@@ -238,8 +238,8 @@ class _CompletedDownloadTile extends StatelessWidget {
   }
 }
 
-class _DownloadsContent extends StatelessWidget {
-  const _DownloadsContent();
+class DownloadsSettingsPage extends StatelessWidget {
+  const DownloadsSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {

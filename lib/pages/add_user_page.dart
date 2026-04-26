@@ -1,5 +1,5 @@
 import 'package:cosmodrome/components/forms/add_user_form.dart';
-import 'package:cosmodrome/components/pill_header.dart';
+import 'package:cosmodrome/components/mobile/pill_header.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';

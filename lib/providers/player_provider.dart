@@ -6,7 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -582,8 +582,7 @@ class PlayerProvider extends ChangeNotifier {
       Color? color;
       if (raw != null) {
         final hsl = HSLColor.fromColor(raw);
-        color =
-            hsl.lightness < 0.25 ? hsl.withLightness(0.35).toColor() : raw;
+        color = hsl.lightness < 0.25 ? hsl.withLightness(0.35).toColor() : raw;
       }
 
       _accentCache[song.id] = color;

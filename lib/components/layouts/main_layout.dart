@@ -13,27 +13,29 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
-import 'package:cosmodrome/components/desktop_profile_popover.dart';
-import 'package:cosmodrome/components/desktop_titlebar.dart';
-import 'package:cosmodrome/components/layouts/desktop_layout.dart';
+import 'package:cosmodrome/components/desktop/desktop_profile_popover.dart';
+import 'package:cosmodrome/components/desktop/desktop_titlebar.dart';
+import 'package:cosmodrome/components/desktop/desktop_layout.dart';
 import 'package:cosmodrome/components/layouts/main_layout_sidebar.dart';
 import 'package:cosmodrome/components/layouts/mobile_layout.dart';
 import 'package:cosmodrome/components/music_player/desktop_player_bar.dart';
 import 'package:cosmodrome/components/music_player/desktop_queue_panel.dart';
 import 'package:cosmodrome/components/music_player/mini_player.dart';
-import 'package:cosmodrome/components/profile_sheet.dart';
+import 'package:cosmodrome/components/mobile/profile_sheet.dart';
+import 'package:cosmodrome/components/settings/settings_shell.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/theme/sidebar_item_style.dart';
-import 'package:cosmodrome/utils/accent_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:cosmodrome/utils/layout_notifier.dart';
-import 'package:cosmodrome/utils/search_notifier.dart';
-import 'package:cosmodrome/utils/sidebar_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/search_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
+import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -327,6 +329,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             },
             queueOpen: _queueOpen,
             onToggleQueue: () => setState(() => _queueOpen = !_queueOpen),
+            onSettingsPressed: () => openSettings(context),
           )
         : (kIsWeb ? const SizedBox(height: 32) : const SizedBox.shrink());
 
@@ -562,34 +565,40 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             // custom buttons — hidden when a detail page is on top
             if (!detailPageActive.value)
               ..._layoutConfig.buttons.map(
-              (button) => FButton(
-                onPress: button.onPressed,
-                style: .delta(
-                  decoration: .delta([
-                    FVariantOperation.all(
-                      .boxDelta(
-                        color: AppColors.mutedButtonColor,
-                        borderRadius: BorderRadius.circular(40),
-                        border: Border.all(color: colors.border, width: 1),
+                (button) => FButton(
+                  onPress: button.onPressed,
+                  style: .delta(
+                    decoration: .delta([
+                      FVariantOperation.all(
+                        .boxDelta(
+                          color: AppColors.mutedButtonColor,
+                          borderRadius: BorderRadius.circular(40),
+                          border: Border.all(color: colors.border, width: 1),
+                        ),
+                      ),
+                    ]),
+                    contentStyle: .delta(
+                      padding: EdgeInsetsGeometryDelta.value(
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
                       ),
                     ),
-                  ]),
-                  contentStyle: .delta(
-                    padding: EdgeInsetsGeometryDelta.value(
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                    ),
+                  ),
+                  child: Icon(
+                    button.icon,
+                    size: 24,
+                    color: button.color ?? Colors.white,
                   ),
                 ),
-                child: Icon(
-                  button.icon,
-                  size: 24,
-                  color: button.color ?? Colors.white,
-                ),
               ),
-            ),
 
-            if (widget.selectedRoute == '/home' || widget.selectedRoute == '/')
-              GestureDetector(
+            if (widget.selectedRoute == '/home' ||
+                widget.selectedRoute == '/') ...[
+              TapArea(
+                child: const Icon(FIcons.settings),
+                onTap: () => openSettings(context),
+              ),
+              SizedBox(width: 8),
+              TapArea(
                 onTap: () => showFSheet(
                   context: context,
                   side: FLayout.btt,
@@ -605,6 +614,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                       : Image.asset("assets/logo.png").image,
                 ),
               ),
+            ],
           ],
         ),
       ),
@@ -768,7 +778,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     );
   }
 
-  // The expanded search TextField shown inside the Expanded slot when searching
   Widget _buildSearchPillExpanded(BuildContext context) {
     final colors = context.theme.colors;
 

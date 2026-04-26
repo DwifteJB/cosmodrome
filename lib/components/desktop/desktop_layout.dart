@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import 'package:cosmodrome/utils/cover_art_provider.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:flutter/material.dart';
 
 class DesktopLayout extends StatelessWidget {

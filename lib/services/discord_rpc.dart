@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 // desktop platforms only, bundled in
 // ignore: depend_on_referenced_packages

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cosmodrome/services/local_storage_backend.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
 class IoLocalStorageBackend implements LocalStorageBackend {
@@ -17,10 +18,15 @@ class IoLocalStorageBackend implements LocalStorageBackend {
     final roots = [
       Directory('$_base/$accountId/songs'),
       Directory('$_base/$accountId/cached-images'),
+      Directory('$_base/$accountId/cache'),
     ];
     for (final dir in roots) {
+      loggerPrint('Checking directory: ${dir.path}'); 
       if (!await dir.exists()) continue;
+
+      loggerPrint(" Directory exists: ${dir.path}"); 
       await for (final entity in dir.list(recursive: true)) {
+        loggerPrint('  Found entity: ${entity.path}, bytes: ${entity is File ? await entity.length() : 'N/A'}');
         if (entity is File) total += await entity.length();
       }
     }
@@ -77,7 +83,6 @@ class IoLocalStorageBackend implements LocalStorageBackend {
 
   @override
   Future<void> init() async {
-
     // if linux use ~/.local/share/me.rmfosho.me (APP INSTALL) instead of documents directory
     if (Platform.isLinux) {
       // find current install path
@@ -86,7 +91,6 @@ class IoLocalStorageBackend implements LocalStorageBackend {
       _basePath = '${installDir.path}/cache';
       return;
     }
-
 
     final dir = await getApplicationDocumentsDirectory();
     _basePath = '${dir.path}/cosmodrome';

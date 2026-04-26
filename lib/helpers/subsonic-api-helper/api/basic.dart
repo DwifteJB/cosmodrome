@@ -1,7 +1,7 @@
 // basic api like ping, etc
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
-import 'package:cosmodrome/utils/logger.dart';
+import 'package:cosmodrome/utils/logger/logger.dart';
 
 extension SubsonicBasicApi on Subsonic {
   // via navidrome this should always be "valid" (since the license cannot expire)
