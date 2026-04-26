@@ -21,12 +21,14 @@ class IoLocalStorageBackend implements LocalStorageBackend {
       Directory('$_base/$accountId/cache'),
     ];
     for (final dir in roots) {
-      loggerPrint('Checking directory: ${dir.path}'); 
+      loggerPrint('Checking directory: ${dir.path}');
       if (!await dir.exists()) continue;
 
-      loggerPrint(" Directory exists: ${dir.path}"); 
+      loggerPrint(" Directory exists: ${dir.path}");
       await for (final entity in dir.list(recursive: true)) {
-        loggerPrint('  Found entity: ${entity.path}, bytes: ${entity is File ? await entity.length() : 'N/A'}');
+        loggerPrint(
+          '  Found entity: ${entity.path}, bytes: ${entity is File ? await entity.length() : 'N/A'}',
+        );
         if (entity is File) total += await entity.length();
       }
     }

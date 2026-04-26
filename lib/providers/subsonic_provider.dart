@@ -64,10 +64,17 @@ class SubsonicProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    // try get timeout seconds from servers list if it exists, otherwise use default
+    final existingServer = knownServers.firstWhere(
+      (s) => baseUrl.contains(s.baseUrl),
+      orElse: () => SubsonicServer(baseUrl: baseUrl, name: baseUrl),
+    );
+
     final sub = Subsonic(
       baseUrl: baseUrl,
       username: username,
       password: password,
+      timeoutSeconds: existingServer.timeoutSeconds,
     );
 
     final ping = await sub.ping();
@@ -116,7 +123,11 @@ class SubsonicProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> addKnownServer(String baseUrl, {String? name}) async {
+  Future<bool> addKnownServer(
+    String baseUrl, {
+    String? name,
+    int? timeoutSeconds = 15,
+  }) async {
     if (knownServers.any((s) => s.baseUrl == baseUrl)) {
       loggerPrint('SubsonicProvider: server $baseUrl already known');
       return true; // already known, consider it a success
@@ -248,6 +259,83 @@ class SubsonicProvider extends ChangeNotifier {
     await _storage.delete(key: _keyActiveId);
     loggerPrint('SubsonicProvider: all accounts removed');
     _setState(AuthState.unauthenticated);
+  }
+
+  /// Updates an existing server's name (and optionally URL).
+  /// If the URL changes, the new URL is pinged to verify it works, and all
+  /// accounts tied to the old URL are removed (their baseUrl is immutable).
+  /// Returns false if the new URL cannot be reached.
+  Future<bool> updateKnownServer(
+    String oldBaseUrl, {
+    required String newName,
+    String? newBaseUrl,
+  }) async {
+    final idx = knownServers.indexWhere((s) => s.baseUrl == oldBaseUrl);
+    if (idx == -1) return false;
+
+    final old = knownServers[idx];
+    String normalizedUrl = (newBaseUrl?.trim().isNotEmpty == true)
+        ? newBaseUrl!
+        : oldBaseUrl;
+    if (normalizedUrl.endsWith('/')) {
+      normalizedUrl = normalizedUrl.substring(0, normalizedUrl.length - 1);
+    }
+
+    if (normalizedUrl != oldBaseUrl) {
+      final newServer = SubsonicServer(baseUrl: normalizedUrl, name: newName);
+      final success = await newServer.tryConnect();
+      if (!success) return false;
+
+      newServer.canConnect = true;
+      knownServers[idx] = newServer;
+
+      final hadActive = activeAccount?.baseUrl == oldBaseUrl;
+      _accounts.removeWhere((a) => a.baseUrl == oldBaseUrl);
+      if (hadActive) {
+        _activeId = _accounts.firstOrNull?.id;
+        clearCoverArtCache();
+      }
+    } else {
+      knownServers[idx] = SubsonicServer(
+        baseUrl: old.baseUrl,
+        name: newName,
+        timeoutSeconds: old.timeoutSeconds,
+        canConnect: old.canConnect,
+      );
+    }
+
+    await _persist();
+    if (normalizedUrl != oldBaseUrl && _accounts.isEmpty) {
+      _setState(AuthState.unauthenticated);
+    } else {
+      notifyListeners();
+    }
+    return true;
+  }
+
+  /// Updates an existing account's credentials. If the username changes the
+  /// old account record is removed after the new one is successfully added.
+  Future<String?> updateAccount({
+    required String oldId,
+    required String baseUrl,
+    required String username,
+    required String password,
+  }) async {
+    final error = await addAccount(
+      baseUrl: baseUrl,
+      username: username,
+      password: password,
+    );
+    if (error == null) {
+      final newId = '$username@$baseUrl';
+      if (oldId != newId) {
+        _accounts.removeWhere((a) => a.id == oldId);
+        if (_activeId == oldId) _activeId = newId;
+        await _persist();
+        notifyListeners();
+      }
+    }
+    return error;
   }
 
   Future<void> removeKnownServer(String baseUrl) async {
@@ -568,17 +656,19 @@ class SubsonicProvider extends ChangeNotifier {
 class SubsonicServer {
   final String name;
   final String baseUrl;
+  final int timeoutSeconds;
   bool canConnect = false;
 
   SubsonicServer({
     required this.baseUrl,
     required this.name,
+    this.timeoutSeconds = 15,
     this.canConnect = false,
   });
 
   bool get isLocal => baseUrl.contains('localhost') || baseUrl.contains('100');
 
-  Future<bool> tryConnect({int timeoutSeconds = 3}) async {
+  Future<bool> tryConnect({int? timeoutSeconds}) async {
     // just do a simple get check to see if the server is reachable & we get an error response (since we don't have credentials yet)
     final sub = Subsonic(
       baseUrl: baseUrl,
@@ -590,7 +680,9 @@ class SubsonicServer {
     // Subsonic API error
 
     try {
-      final res = await sub.ping(timeoutSeconds: timeoutSeconds);
+      final res = await sub.ping(
+        timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
+      );
 
       if (res.success) {
         // this should never happen so if it does its funny

@@ -171,10 +171,9 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundImage:
-                            account.avatar.isNotEmpty
-                                ? MemoryImage(account.avatar)
-                                : Image.asset('assets/logo.png').image,
+                        backgroundImage: account.avatar.isNotEmpty
+                            ? MemoryImage(account.avatar)
+                            : Image.asset('assets/logo.png').image,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -219,7 +218,9 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
                       const SizedBox(width: 10),
                       FButton(
                         variant: FButtonVariant.outline,
-                        onPress: _clearing ? null : () => _clearAccount(account.id),
+                        onPress: _clearing
+                            ? null
+                            : () => _clearAccount(account.id),
                         child: const Text('Clear'),
                       ),
                     ],

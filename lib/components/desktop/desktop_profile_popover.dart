@@ -191,6 +191,72 @@ class _DesktopAccountPopoverContentState
     );
   }
 
+  void showEditAccountDialog(BuildContext ctx, SubsonicAccount account) {
+    showFDialog(
+      context: ctx,
+      builder: (dialogCtx, _, animation) => FDialog.raw(
+        animation: animation,
+        builder: (innerCtx, style) => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Edit Account',
+                  style: innerCtx.theme.typography.xl.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: innerCtx.theme.colors.foreground,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AddUserForm(
+                  initialAccount: account,
+                  onSuccess: () => Navigator.pop(dialogCtx),
+                  onCancel: () => Navigator.pop(dialogCtx),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void showEditServerDialog(BuildContext ctx, SubsonicServer server) {
+    showFDialog(
+      context: ctx,
+      builder: (dialogCtx, _, animation) => FDialog.raw(
+        animation: animation,
+        builder: (innerCtx, style) => SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Edit Server',
+                  style: innerCtx.theme.typography.xl.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: innerCtx.theme.colors.foreground,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                AddServerForm(
+                  initialServer: server,
+                  onSuccess: (_) => Navigator.pop(dialogCtx),
+                  onCancel: () => Navigator.pop(dialogCtx),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     isScanningNotifier.removeListener(_onScanChanged);
@@ -436,13 +502,30 @@ class _DesktopAccountPopoverContentState
                       ),
                     ),
                     if (_hoveredItems.contains(key))
-                      GestureDetector(
-                        onTap: () => provider.removeAccount(account.id),
-                        child: const Icon(
-                          FIcons.trash2,
-                          size: 16,
-                          color: Colors.red,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              widget.onClose();
+                              showEditAccountDialog(context, account);
+                            },
+                            child: Icon(
+                              FIcons.pencil,
+                              size: 16,
+                              color: colors.mutedForeground,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => provider.removeAccount(account.id),
+                            child: const Icon(
+                              FIcons.trash2,
+                              size: 16,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ],
                       )
                     else if (isActive)
                       Icon(FIcons.check, size: 16, color: colors.primary),
@@ -495,9 +578,30 @@ class _DesktopAccountPopoverContentState
               ),
             ),
             if (_hoveredItems.contains(key))
-              GestureDetector(
-                onTap: () => provider.removeKnownServer(server.baseUrl),
-                child: const Icon(FIcons.trash2, size: 16, color: Colors.red),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      widget.onClose();
+                      showEditServerDialog(context, server);
+                    },
+                    child: Icon(
+                      FIcons.pencil,
+                      size: 16,
+                      color: colors.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => provider.removeKnownServer(server.baseUrl),
+                    child: const Icon(
+                      FIcons.trash2,
+                      size: 16,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
               )
             else
               Text(

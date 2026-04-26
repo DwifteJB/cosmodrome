@@ -1,20 +1,24 @@
+import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 
-// form for adding a new user account
+// form for adding or editing a user account
 class AddUserForm extends StatefulWidget {
   final VoidCallback onSuccess;
   final VoidCallback? onCancel;
   final Future<SubsonicServer?> Function()? onAddServerPressed;
+  // if initial, then we are editing
+  final SubsonicAccount? initialAccount;
 
   const AddUserForm({
     super.key,
     required this.onSuccess,
     this.onCancel,
     this.onAddServerPressed,
+    this.initialAccount,
   });
 
   @override
@@ -30,6 +34,8 @@ class _AddUserFormState extends State<AddUserForm>
   String? _error;
   late final FPopoverController _serverPopoverCtrl;
 
+  bool get _isEditing => widget.initialAccount != null;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
@@ -38,8 +44,13 @@ class _AddUserFormState extends State<AddUserForm>
     final serverContainer = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: colors.border),
+        border: Border.all(
+          color: _isEditing
+              ? colors.border.withValues(alpha: 0.5)
+              : colors.border,
+        ),
         borderRadius: BorderRadius.circular(12),
+        color: _isEditing ? colors.muted : null,
       ),
       child: Row(
         children: [
@@ -65,7 +76,8 @@ class _AddUserFormState extends State<AddUserForm>
               ],
             ),
           ),
-          Icon(FIcons.chevronDown, size: 18, color: colors.mutedForeground),
+          if (!_isEditing)
+            Icon(FIcons.chevronDown, size: 18, color: colors.mutedForeground),
         ],
       ),
     );
@@ -74,7 +86,9 @@ class _AddUserFormState extends State<AddUserForm>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (isMobile(context))
+        if (_isEditing)
+          serverContainer
+        else if (isMobile(context))
           GestureDetector(
             onTap: () => _openServerPicker(context, provider),
             child: serverContainer,
@@ -156,7 +170,7 @@ class _AddUserFormState extends State<AddUserForm>
         ),
         const SizedBox(height: 16),
         FTextField.password(
-          label: const Text('Password'),
+          label: Text(_isEditing ? 'New Password' : 'Password'),
           control: FTextFieldControl.managed(controller: _passwordCtrl),
         ),
         const SizedBox(height: 24),
@@ -175,7 +189,7 @@ class _AddUserFormState extends State<AddUserForm>
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Add Account'),
+              : Text(_isEditing ? 'Save Changes' : 'Add Account'),
         ),
         if (widget.onCancel != null) ...[
           const SizedBox(height: 8),
@@ -201,6 +215,22 @@ class _AddUserFormState extends State<AddUserForm>
   void initState() {
     super.initState();
     _serverPopoverCtrl = FPopoverController(vsync: this);
+    if (_isEditing) {
+      _usernameCtrl.text = widget.initialAccount!.username;
+      _passwordCtrl.text = widget.initialAccount!.password;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final provider = context.read<SubsonicProvider>();
+        final server = provider.knownServers.firstWhere(
+          (s) => s.baseUrl == widget.initialAccount!.baseUrl,
+          orElse: () => SubsonicServer(
+            baseUrl: widget.initialAccount!.baseUrl,
+            name: widget.initialAccount!.baseUrl,
+          ),
+        );
+        setState(() => _selectedServer = server);
+      });
+    }
   }
 
   void _openServerPicker(BuildContext context, SubsonicProvider provider) {
@@ -234,9 +264,19 @@ class _AddUserFormState extends State<AddUserForm>
       return;
     }
     final username = _usernameCtrl.text.trim();
+    if (username.isEmpty) {
+      setState(() => _error = 'Please enter a username.');
+      return;
+    }
+
     final password = _passwordCtrl.text;
-    if (username.isEmpty || password.isEmpty) {
-      setState(() => _error = 'Please enter your username and password.');
+    // in edit mode, if password is empty, keep existing password
+    final effectivePassword = (_isEditing && password.isEmpty)
+        ? widget.initialAccount!.password
+        : password;
+
+    if (effectivePassword.isEmpty) {
+      setState(() => _error = 'Please enter a password.');
       return;
     }
 
@@ -245,11 +285,23 @@ class _AddUserFormState extends State<AddUserForm>
       _error = null;
     });
 
-    final error = await context.read<SubsonicProvider>().addAccount(
-      baseUrl: _selectedServer!.baseUrl,
-      username: username,
-      password: password,
-    );
+    final provider = context.read<SubsonicProvider>();
+    String? error;
+
+    if (_isEditing) {
+      error = await provider.updateAccount(
+        oldId: widget.initialAccount!.id,
+        baseUrl: _selectedServer!.baseUrl,
+        username: username,
+        password: effectivePassword,
+      );
+    } else {
+      error = await provider.addAccount(
+        baseUrl: _selectedServer!.baseUrl,
+        username: username,
+        password: effectivePassword,
+      );
+    }
 
     if (!mounted) return;
 

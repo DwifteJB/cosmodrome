@@ -13,21 +13,26 @@ class SubsonicAccount {
   ); // fetched separately and cached in memory, not stored in json
 
   final String _password;
+  String get password => _password;
 
   final SubsonicUser user;
   late final Subsonic subsonic;
+
+  int timeoutSeconds = 15;
 
   SubsonicAccount({
     required this.baseUrl,
     required this.username,
     required String password,
     required this.user,
+    this.timeoutSeconds = 15,
   }) : id = '$username@$baseUrl',
        _password = password {
     subsonic = Subsonic(
       baseUrl: baseUrl,
       username: username,
       password: password,
+      timeoutSeconds: timeoutSeconds,
     );
   }
 

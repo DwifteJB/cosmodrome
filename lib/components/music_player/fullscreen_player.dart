@@ -108,6 +108,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
               : (totalMs > 0 ? (posMs / totalMs).clamp(0.0, 1.0) : 0.0);
 
           final accent = player.accentColor ?? Colors.white;
+          final luminance = accent.computeLuminance();
 
           return Stack(
             children: [
@@ -134,9 +135,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                   fit: BoxFit.cover,
                                 ),
                               ),
-                              if ((player.accentColor?.computeLuminance() ??
-                                      0) <
-                                  0.15)
+                              if ((luminance) < 0.7)
                                 const DecoratedBox(
                                   decoration: BoxDecoration(
                                     color: Colors.black26,
@@ -533,7 +532,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                   ],
                 ),
               ),
-
             ],
           );
         },

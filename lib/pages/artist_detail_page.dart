@@ -179,7 +179,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
               const Padding(
                 padding: EdgeInsets.only(top: 28, bottom: 14),
                 child: Text(
-                  'Featured Albums',
+                  'Related Albums',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -293,7 +293,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(20, 28, 20, 14),
               child: Text(
-                'Featured Albums',
+                'Related Albums',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
