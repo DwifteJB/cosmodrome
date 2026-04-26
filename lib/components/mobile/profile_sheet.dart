@@ -2,6 +2,7 @@
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/scanning/scan_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -43,7 +44,9 @@ class _ProfileSheetState extends State<ProfileSheet> {
         child: Consumer<SubsonicProvider>(
           builder: (context, value, child) => Column(
             children: [
-              Center(
+              // only show on mobile
+              if (isMobile(context))
+                Center(
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 12),
                   width: 36,
@@ -53,7 +56,9 @@ class _ProfileSheetState extends State<ProfileSheet> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
+                )
+              else
+                const SizedBox(height: 16),
 
               // header
               Padding(
