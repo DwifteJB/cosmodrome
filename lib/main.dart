@@ -14,9 +14,9 @@ import 'package:cosmodrome/pages/artist_detail_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
 import 'package:cosmodrome/pages/playlist_page.dart';
+import 'package:cosmodrome/pages/recent_albums.dart';
 import 'package:cosmodrome/pages/search_page.dart';
-import 'package:cosmodrome/services/offline_cache_service.dart'
-    show SpotlightItem;
+import 'package:cosmodrome/pages/starred_albums.dart';
 //
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
@@ -24,6 +24,8 @@ import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
+import 'package:cosmodrome/services/offline_cache_service.dart'
+    show SpotlightItem;
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/cupertino.dart';
@@ -111,6 +113,7 @@ final subsonicProvider = SubsonicProvider();
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+
 GoRouter _buildRouter(String initialLocation) => GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: initialLocation,
@@ -155,6 +158,17 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
               child: ArtistDetailPage(item: state.extra as SpotlightItem),
             ),
           ),
+
+          GoRoute(
+            path: '/library/recent',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: RecentAlbumsPage()),
+          ),
+          GoRoute(
+            path: '/library/starred',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: StarredAlbumsPage()),
+          ),
         ],
       ],
       navigatorKey: _shellNavigatorKey,
@@ -188,7 +202,30 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         path: '/artist-detail/:id',
         parentNavigatorKey: _rootNavigatorKey,
         pageBuilder: (context, state) => CupertinoPage(
-          child: ArtistDetailPage(item: state.extra as SpotlightItem),
+          child: MobileDetailLayout(
+            isScrollable: true,
+            child: ArtistDetailPage(item: state.extra as SpotlightItem),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/library/recent',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: MobileDetailLayout(
+            isScrollable: true,
+            child: RecentAlbumsPage(),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/library/starred',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => const CupertinoPage(
+          child: MobileDetailLayout(
+            isScrollable: true,
+            child: StarredAlbumsPage(),
+          ),
         ),
       ),
     ],
@@ -352,38 +389,6 @@ class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
   late PlayerProvider _playerProvider;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
-    _playerProvider.addListener(_onPlayerChanged);
-  }
-
-  @override
-  void dispose() {
-    _playerProvider.removeListener(_onPlayerChanged);
-    super.dispose();
-  }
-
-  void _onPlayerChanged() {
-    if (!_playerProvider.isFullscreenOpen && _queueOpen && mounted) {
-      _closeQueue();
-    }
-  }
-
-  void _openQueue() {
-    if (!_queueOpen) setState(() => _queueOpen = true);
-  }
-
-  void _closeQueue() {
-    if (!_queueOpen) return;
-    setState(() => _queueOpen = false);
-    // reset drag after exit animation finishes
-    Future.delayed(const Duration(milliseconds: 310), () {
-      if (mounted) setState(() => _queueDragOffset = 0);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (_, player, _) {
@@ -499,6 +504,38 @@ class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
         );
       },
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
+    _playerProvider.addListener(_onPlayerChanged);
+  }
+
+  @override
+  void dispose() {
+    _playerProvider.removeListener(_onPlayerChanged);
+    super.dispose();
+  }
+
+  void _closeQueue() {
+    if (!_queueOpen) return;
+    setState(() => _queueOpen = false);
+    // reset drag after exit animation finishes
+    Future.delayed(const Duration(milliseconds: 310), () {
+      if (mounted) setState(() => _queueDragOffset = 0);
+    });
+  }
+
+  void _onPlayerChanged() {
+    if (!_playerProvider.isFullscreenOpen && _queueOpen && mounted) {
+      _closeQueue();
+    }
+  }
+
+  void _openQueue() {
+    if (!_queueOpen) setState(() => _queueOpen = true);
   }
 }
 

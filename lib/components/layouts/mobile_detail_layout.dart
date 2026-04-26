@@ -196,13 +196,22 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
                 controller: _scrollController,
                 child: Column(
                   children: [
-                    SizedBox(height: topPadding + 20),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight:
-                            MediaQuery.of(context).size.height -
-                            (topPadding + 20) -
-                            (navHeight + bottomPadding),
+                    ValueListenableBuilder<LayoutConfig>(
+                      valueListenable: layoutConfig,
+                      builder: (_, config, _) => config.ignoreTopSpacing
+                          ? const SizedBox.shrink()
+                          : SizedBox(height: topPadding + 20),
+                    ),
+                    ValueListenableBuilder<LayoutConfig>(
+                      valueListenable: layoutConfig,
+                      builder: (_, config, child) => ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight:
+                              MediaQuery.of(context).size.height -
+                              (config.ignoreTopSpacing ? 0 : topPadding + 20) -
+                              (navHeight + bottomPadding),
+                        ),
+                        child: child,
                       ),
                       child: widget.child,
                     ),
@@ -459,7 +468,24 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
                 ),
               ),
             ),
-            const Spacer(),
+            Expanded(
+              child: ValueListenableBuilder<LayoutConfig>(
+                valueListenable: layoutConfig,
+                builder: (_, config, _) {
+                  if (config.title == null) return const SizedBox.shrink();
+                  return Text(
+                    config.title!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.3,
+                    ),
+                  );
+                },
+              ),
+            ),
             ValueListenableBuilder<LayoutConfig>(
               valueListenable: layoutConfig,
               builder: (_, config, _) {

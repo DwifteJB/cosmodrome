@@ -20,6 +20,8 @@ class LayoutConfig {
   final bool hidePill;
   // whether the main content should be wrapped in a scroll view (with padding) or not. if false, the page is responsible for its own scrolling and padding.
   final bool isScrollable;
+  // skips the topPadding+20 spacer so content bleeds behind the top bar.
+  final bool ignoreTopSpacing;
 
   const LayoutConfig({
     this.title,
@@ -28,6 +30,7 @@ class LayoutConfig {
     this.searchPillBuilder,
     this.hidePill = false,
     this.isScrollable = true,
+    this.ignoreTopSpacing = false,
   });
 
   static const empty = LayoutConfig();

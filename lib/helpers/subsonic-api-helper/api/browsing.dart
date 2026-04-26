@@ -259,12 +259,28 @@ extension SubsonicBrowsingApi on Subsonic {
     }
   }
 
+  Future<AlbumDetail?> getRandomAlbum() async {
+    // get a random album by getting 1 random song and then fetching its album
+    try {
+      final songs = await getRandomSongs(count: 1);
+      if (songs.isEmpty) throw Exception('No random songs found');
+      final song = songs.first;
+      final album = await getAlbum(song.albumId);
+      if (album == null) throw Exception('Album not found for random song');
+      return album;
+    } catch (e) {
+      loggerPrint('Error fetching random album: $e');
+      return null;
+    }
+  }
+
   // https://www.subsonic.org/pages/api.jsp#getRandomSongs
   Future<List<Song>> getRandomSongs({int count = 10}) async {
     try {
       final root = await apiRequest(
         'getRandomSongs',
         params: {'size': '$count'},
+        forceRefresh: true, // never want to cache this lol
       );
       final songs = root['randomSongs']?['song'] as List<dynamic>? ?? [];
       return songs

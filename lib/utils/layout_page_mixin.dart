@@ -11,6 +11,7 @@ mixin LayoutPageMixin<T extends StatefulWidget> on State<T> {
   Widget Function(BuildContext)? get searchPillBuilder => null;
   bool get hidePill => false;
   bool get isScrollable => true;
+  bool get ignoreTopSpacing => false;
 
   int _myGeneration = 0;
 
@@ -27,6 +28,7 @@ mixin LayoutPageMixin<T extends StatefulWidget> on State<T> {
         searchPillBuilder: searchPillBuilder,
         hidePill: hidePill,
         isScrollable: isScrollable,
+        ignoreTopSpacing: ignoreTopSpacing,
       );
     });
   }
