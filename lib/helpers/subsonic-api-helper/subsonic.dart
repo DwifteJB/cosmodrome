@@ -29,6 +29,8 @@ class Subsonic {
   late final SubsonicAuth auth;
   int timeoutSeconds;
 
+  SubsonicLoginMethod loginMethod = SubsonicLoginMethod.undetermined;
+
   Subsonic({
     required String baseUrl,
     required String username,
@@ -36,6 +38,7 @@ class Subsonic {
     this.timeoutSeconds = 15,
   }) : baseUrl = baseUrl.replaceFirst(RegExp(r'^https?://'), '') {
     auth = SubsonicAuth(username: username, password: password);
+  
   }
 
   Future<Map<String, dynamic>> apiRequest(
@@ -44,6 +47,7 @@ class Subsonic {
     int? timeoutSeconds,
     bool forceRefresh = false,
   }) async {
+    await determineLoginMethod();
     // check to see if theres a cached result that isn't expired
     final cacheKey =
         '$baseUrl|${auth.username}|$endpoint?${params.entries.map((e) => '${e.key}=${e.value}').join('&')}';
@@ -60,11 +64,8 @@ class Subsonic {
     // cleanup old cache entries
     _apiCache.removeWhere((key, value) => value.isExpired);
 
-    final tok = auth.generateToken();
     final query = {
-      'u': auth.username,
-      't': tok.token,
-      's': tok.salt,
+      ...getLoginParams(loginMethod),
       'v': _apiVersion,
       'c': _clientName,
       'p': auth.password,
@@ -133,12 +134,9 @@ class Subsonic {
     String endpoint, {
     Map<String, String> params = const {},
   }) async {
-    final tok = auth.generateToken();
+    await determineLoginMethod();
     final query = {
-      'p': auth.password,
-      'u': auth.username,
-      't': tok.token,
-      's': tok.salt,
+      ...getLoginParams(loginMethod),
       'v': _apiVersion,
       'c': _clientName,
       ...params,
@@ -167,22 +165,184 @@ class Subsonic {
     _apiCache.removeWhere((key, value) => key.startsWith(prefix));
   }
 
+  Future<SubsonicLoginMethod> determineLoginMethod() async {
+    if (auth.password == 'dummy' && auth.username == 'dummy') {
+      loggerPrint(
+        'Using dummy credentials, skipping login method determination',
+      );
+      loginMethod = SubsonicLoginMethod.token;
+      return loginMethod;
+    }
+
+    if (loginMethod != SubsonicLoginMethod.undetermined) {
+      return loginMethod;
+    }
+    // try token first
+    try {
+      var query = getLoginParams(SubsonicLoginMethod.token);
+
+      final uri = Uri.http(baseUrl, '/rest/ping.view', query);
+      loggerPrint('Determining login method: trying token login at $uri');
+      final response = await http
+          .get(uri)
+          .timeout(
+            Duration(seconds: timeoutSeconds),
+            onTimeout: () {
+              loggerPrint(
+                'Token login attempt timed out after $timeoutSeconds seconds',
+              );
+              throw Exception(
+                'Token login attempt timed out after $timeoutSeconds seconds',
+              );
+            },
+          );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final root = body['subsonic-response'] as Map<String, dynamic>;
+        if (root['status'] == 'ok') {
+          loginMethod = SubsonicLoginMethod.token;
+          return loginMethod;
+        } else {
+          loggerPrint(
+            'Token login attempt failed with status ${root['status']}',
+          );
+        }
+      }
+    } catch (e) {
+      loggerPrint('Token login failed: $e');
+    }
+
+    // try password login
+    try {
+      final query = getLoginParams(SubsonicLoginMethod.password);
+
+      final uri = Uri.http(baseUrl, '/rest/ping.view', query);
+      loggerPrint('Determining login method: trying password login at $uri');
+      final response = await http
+          .get(uri)
+          .timeout(
+            Duration(seconds: timeoutSeconds),
+            onTimeout: () {
+              loggerPrint(
+                'Password login attempt timed out after $timeoutSeconds seconds',
+              );
+              throw Exception(
+                'Password login attempt timed out after $timeoutSeconds seconds',
+              );
+            },
+          );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final root = body['subsonic-response'] as Map<String, dynamic>;
+        if (root['status'] == 'ok') {
+          loginMethod = SubsonicLoginMethod.password;
+          return loginMethod;
+        }
+      }
+    } catch (e) {
+      loggerPrint('Password login failed: $e');
+    }
+
+    // try encrypted password login
+    // (note: subsonic doesn't actually support this, some forks tho do)
+    /*
+if strings.HasPrefix(p, "enc:") {
+		decoded, err := hex.DecodeString(p[4:])
+		if err != nil {
+			return nil, 40, "Wrong username or password."
+		}
+		password = string(decoded)
+	}
+    */
+
+    try {
+      final query = getLoginParams(SubsonicLoginMethod.encryptedPassword);
+
+      final uri = Uri.http(baseUrl, '/rest/ping.view', query);
+      loggerPrint(
+        'Determining login method: trying encrypted password login at $uri',
+      );
+      final response = await http
+          .get(uri)
+          .timeout(
+            Duration(seconds: timeoutSeconds),
+            onTimeout: () {
+              loggerPrint(
+                'Encrypted password login attempt timed out after $timeoutSeconds seconds',
+              );
+              throw Exception(
+                'Encrypted password login attempt timed out after $timeoutSeconds seconds',
+              );
+            },
+          );
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final root = body['subsonic-response'] as Map<String, dynamic>;
+        if (root['status'] == 'ok') {
+          loginMethod = SubsonicLoginMethod.encryptedPassword;
+          return loginMethod;
+        }
+      }
+    } catch (e) {
+      loggerPrint('Encrypted password login failed: $e');
+    }
+
+    return SubsonicLoginMethod.undetermined;
+  }
+
+  Map<String, String> getLoginParams(SubsonicLoginMethod loginMethod) {
+    // get login params based on login method
+    switch (loginMethod) {
+      case SubsonicLoginMethod.password:
+        return {
+          'u': auth.username,
+          'p': auth.password,
+          'v': _apiVersion,
+          'c': _clientName,
+          'f': 'json',
+        };
+      case SubsonicLoginMethod.encryptedPassword:
+        var encryptedPassword = 'enc:';
+        // encode string with hex
+        final bytes = utf8.encode(auth.password);
+        final hexString = bytes
+            .map((b) => b.toRadixString(16).padLeft(2, '0'))
+            .join();
+        encryptedPassword += hexString;
+        return {
+          'u': auth.username,
+          'p': encryptedPassword,
+          'v': _apiVersion,
+          'c': _clientName,
+          'f': 'json',
+        };
+      // assume default is TOKEN, since it usually is
+      default:
+        final tok = auth.generateToken();
+        return {'u': auth.username, 't': tok.token, 's': tok.salt, 'f': 'json'};
+    }
+  }
+
   Future<Map<String, dynamic>> multiParamRequest(
     String endpoint, {
     Map<String, dynamic> params = const {},
   }) async {
-    final tok = auth.generateToken();
+    await determineLoginMethod();
+    
     final query = <String, dynamic>{
-      'u': auth.username,
-      't': tok.token,
-      's': tok.salt,
+      ...getLoginParams(loginMethod),
       'v': _apiVersion,
       'c': _clientName,
       'f': 'json',
       ...params,
     };
+
     final uri = Uri.http(baseUrl, '/rest/$endpoint', query);
+
     loggerPrint('Making multi-param API request to $uri');
+
     final response = await http
         .get(uri)
         .timeout(
@@ -211,14 +371,14 @@ class Subsonic {
   /// Builds a stream URL without making an HTTP request.
   /// Safe to use directly in just_audio's setUrl().
   String streamUrl(String id) {
-    final tok = auth.generateToken();
+
     return Uri.http(baseUrl, '/rest/stream', {
       'id': id,
-      'u': auth.username,
-      't': tok.token,
-      's': tok.salt,
+      ...getLoginParams(loginMethod),
       'v': _apiVersion,
       'c': _clientName,
     }).toString();
   }
 }
+
+enum SubsonicLoginMethod { password, encryptedPassword, token, undetermined }

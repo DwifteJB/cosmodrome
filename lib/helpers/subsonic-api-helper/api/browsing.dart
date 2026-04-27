@@ -80,16 +80,14 @@ extension SubsonicBrowsingApi on Subsonic {
   /// Prefer [cachedCoverArtUrl] in UI paths so offline/local URI fallbacks can
   /// be used when available.
   String coverArtUrl(String id, {int size = 300}) {
-    final tok = auth.generateToken();
+    
     final query = {
-      'u': auth.username,
-      't': tok.token,
-      's': tok.salt,
+      ...getLoginParams(loginMethod),
       'v': '1.16.1',
       'c': 'cosmodrome',
       'id': id,
-      'p': auth.password,
       'size': '$size',
+      
     };
     return Uri.http(baseUrl, '/rest/getCoverArt', query).toString();
   }
