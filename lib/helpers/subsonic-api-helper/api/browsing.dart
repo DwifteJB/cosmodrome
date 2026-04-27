@@ -59,10 +59,7 @@ extension SubsonicBrowsingApi on Subsonic {
     betterId = betterId.replaceAll(RegExp(r'[^\w\s-]'), '');
 
     final local = _coverArtLocalUriCache['$accountId|$betterId'];
-    // try get a local one that is better or the same size, or else we can get shitty looking images
-    loggerPrint(
-      "cachedCoverArtUrl: local cache for $betterId is ${local?.uri} with size ${local?.size}, remote size is $size",
-    );
+
     if (local != null && local.size >= size - 50) {
       return local.uri;
     }
