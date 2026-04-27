@@ -51,18 +51,29 @@ extension SubsonicBrowsingApi on Subsonic {
       _coverArtInitFutureByAccount[accountId] = initCoverArtCacheForAccount();
     }
 
-    final local = _coverArtLocalUriCache['$accountId|$id'];
+    var betterId = id;
+
+    // remove every special character from ID (some servers include URLs as IDs (cough cough, my own, so annoying) and those URLs can have query params that break the caching)
+
+    // this regex keeps letters, numbers, underscores, hyphens, and spaces. it removes everything else.
+    betterId = betterId.replaceAll(RegExp(r'[^\w\s-]'), '');
+
+    final local = _coverArtLocalUriCache['$accountId|$betterId'];
     // try get a local one that is better or the same size, or else we can get shitty looking images
-    if (local != null && local.size >= size) {
+    loggerPrint(
+      "cachedCoverArtUrl: local cache for $betterId is ${local?.uri} with size ${local?.size}, remote size is $size",
+    );
+    if (local != null && local.size >= size - 50) {
       return local.uri;
     }
 
-    final key = '$accountId|$id|$size';
+    final key = '$accountId|$betterId|$size';
     final remote = _coverArtUrlCache.putIfAbsent(
       key,
       () => coverArtUrl(id, size: size),
     );
-    unawaited(_warmCoverArtCache(id, size: size));
+
+    unawaited(_warmCoverArtCache(id, cacheId: betterId, size: size));
     return remote;
   }
 
@@ -80,6 +91,7 @@ extension SubsonicBrowsingApi on Subsonic {
       'v': '1.16.1',
       'c': 'cosmodrome',
       'id': id,
+      'p': auth.password,
       'size': '$size',
     };
     return Uri.http(baseUrl, '/rest/getCoverArt', query).toString();
@@ -533,9 +545,13 @@ extension SubsonicBrowsingApi on Subsonic {
     } catch (_) {}
   }
 
-  Future<void> _warmCoverArtCache(String id, {int size = 300}) async {
+  Future<void> _warmCoverArtCache(
+    String id, {
+    required String cacheId,
+    int size = 300,
+  }) async {
     final accountId = _accountId;
-    final inFlightKey = '$accountId|$id|$size';
+    final inFlightKey = '$accountId|$cacheId|$size';
     if (_coverArtWarmInFlight.containsKey(inFlightKey)) return;
 
     _coverArtWarmInFlight[inFlightKey] = Future<void>(() async {
@@ -550,7 +566,7 @@ extension SubsonicBrowsingApi on Subsonic {
           accountId,
           () => <String, dynamic>{},
         );
-        final prior = manifest[id] as Map<String, dynamic>?;
+        final prior = manifest[cacheId] as Map<String, dynamic>?;
         final priorRef = prior?['ref'] as String?;
         final priorSize = (prior?['size'] as num?)?.toInt() ?? 0;
 
@@ -569,7 +585,7 @@ extension SubsonicBrowsingApi on Subsonic {
         );
         final ref = LocalStorageService.coverImagePath(
           accountId,
-          id,
+          cacheId,
           extension,
         );
 
@@ -577,7 +593,7 @@ extension SubsonicBrowsingApi on Subsonic {
         final uri = await LocalStorageService.coverImageUriForRef(ref);
         if (uri == null) return;
 
-        _coverArtLocalUriCache['$accountId|$id'] = _CachedCoverArtLocal(
+        _coverArtLocalUriCache['$accountId|$cacheId'] = _CachedCoverArtLocal(
           uri: uri.toString(),
           size: size,
         );
@@ -586,7 +602,7 @@ extension SubsonicBrowsingApi on Subsonic {
           accountId,
           () => <String, dynamic>{},
         );
-        currentManifest[id] = {
+        currentManifest[cacheId] = {
           'ref': ref,
           'fetchedAt': DateTime.now().toIso8601String(),
           'size': size,

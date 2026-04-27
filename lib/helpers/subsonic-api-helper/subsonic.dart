@@ -67,6 +67,7 @@ class Subsonic {
       's': tok.salt,
       'v': _apiVersion,
       'c': _clientName,
+      'p': auth.password,
       'f': 'json',
       ...params,
     };
@@ -134,6 +135,7 @@ class Subsonic {
   }) async {
     final tok = auth.generateToken();
     final query = {
+      'p': auth.password,
       'u': auth.username,
       't': tok.token,
       's': tok.salt,
