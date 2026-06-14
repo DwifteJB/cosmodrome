@@ -21,10 +21,8 @@ class RpcBridge extends ChangeNotifier {
   String? _lastSongId;
   bool? _lastIsPlaying;
   bool _lastSendHadZeroDuration = false;
-  final Map<String, String> _coverUrlCache =
-      {}; // coverArtId remote http(s) URL
   final Map<String, String> _coverBase64Cache =
-      {}; // coverArtId base64-encoded local image
+      {}; // coverArtId -> base64-encoded image (remote or local)
   String? get connectedUser => _connectedUser;
 
   bool get isConnected => _connected;
@@ -118,34 +116,19 @@ class RpcBridge extends ChangeNotifier {
       return;
     }
 
-    String coverUrl = '';
     String coverBase64 = '';
     final artId = song.coverArt ?? '';
     if (artId.isNotEmpty) {
-      if (_coverUrlCache.containsKey(artId)) {
-        coverUrl = _coverUrlCache[artId]!;
-      } else if (_coverBase64Cache.containsKey(artId)) {
+      if (_coverBase64Cache.containsKey(artId)) {
         coverBase64 = _coverBase64Cache[artId]!;
       } else {
         final candidate = player.currentCoverArtUrl;
         if (candidate != null && candidate.isNotEmpty) {
-          final parsed = Uri.tryParse(candidate);
-          final isRemoteHttp =
-              parsed != null &&
-              (parsed.scheme == 'http' || parsed.scheme == 'https');
-          if (isRemoteHttp) {
-            coverUrl = candidate;
-            _coverUrlCache[artId] = coverUrl;
-          } else {
-            // this is a local file, so we gotta base64 it for the discord_rpc process :)
-            final file = _resolveLocalImageFile(candidate);
-            if (file != null && await file.exists()) {
-              try {
-                coverBase64 = base64Encode(await file.readAsBytes());
-                if (coverBase64.isNotEmpty) {
-                  _coverBase64Cache[artId] = coverBase64;
-                }
-              } catch (_) {}
+          final bytes = await _loadCoverBytes(candidate);
+          if (bytes != null && bytes.isNotEmpty) {
+            coverBase64 = base64Encode(bytes);
+            if (coverBase64.isNotEmpty) {
+              _coverBase64Cache[artId] = coverBase64;
             }
           }
         }
@@ -157,7 +140,6 @@ class RpcBridge extends ChangeNotifier {
       'title': song.title,
       'artist': song.artist ?? '',
       'album': song.album ?? '',
-      'coverUrl': coverUrl,
       'coverBase64': coverBase64,
       'coverArtId': artId,
       'elapsed': player.position.inSeconds,
@@ -244,6 +226,37 @@ class RpcBridge extends ChangeNotifier {
           break;
       }
     } catch (_) {}
+  }
+
+  Future<List<int>?> _loadCoverBytes(String candidate) async {
+    final parsed = Uri.tryParse(candidate);
+    final isRemoteHttp =
+        parsed != null &&
+        (parsed.scheme == 'http' || parsed.scheme == 'https');
+
+    if (isRemoteHttp) {
+      try {
+        final client = HttpClient();
+        try {
+          final request = await client.getUrl(parsed);
+          final response = await request.close();
+          if (response.statusCode != 200) return null;
+          return await consolidateHttpClientResponseBytes(response);
+        } finally {
+          client.close();
+        }
+      } catch (_) {
+        return null;
+      }
+    }
+
+    final file = _resolveLocalImageFile(candidate);
+    if (file != null && await file.exists()) {
+      try {
+        return await file.readAsBytes();
+      } catch (_) {}
+    }
+    return null;
   }
 
   File? _resolveLocalImageFile(String candidate) {
