@@ -188,7 +188,7 @@ extension SubsonicBrowsingApi on Subsonic {
   // https://www.subsonic.org/pages/api.jsp#getPlaylists
   Future<List<Playlist>> getPlaylists() async {
     try {
-      final response = await apiRequest('getPlaylists');
+      final response = await apiRequest('getPlaylists', forceRefresh: true);
       final raw = response['playlists']?['playlist'];
       if (raw == null) return [];
       // Some servers return a single object instead of an array when there's 1
@@ -266,16 +266,21 @@ extension SubsonicBrowsingApi on Subsonic {
   }
 
   // https://www.subsonic.org/pages/api.jsp#search3
-  Future<SearchResult> search3(String query) async {
+  Future<SearchResult> search3(
+    String query, {
+    int artistCount = 5,
+    int albumCount = 5,
+    int songCount = 20,
+  }) async {
     // /rest/search3
     try {
       final response = await apiRequest(
         'search3',
         params: {
           'query': query,
-          'artistCount': '5',
-          'albumCount': '5',
-          'songCount': '20',
+          'artistCount': '$artistCount',
+          'albumCount': '$albumCount',
+          'songCount': '$songCount',
         },
       );
       return SearchResult.fromJson(response['searchResult3']);

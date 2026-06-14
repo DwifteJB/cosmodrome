@@ -14,6 +14,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:cosmodrome/components/desktop/desktop_profile_popover.dart';
+import 'package:cosmodrome/components/desktop/desktop_search_field.dart';
 import 'package:cosmodrome/components/desktop/desktop_titlebar.dart';
 import 'package:cosmodrome/components/desktop/desktop_layout.dart';
 import 'package:cosmodrome/components/layouts/main_layout_sidebar.dart';
@@ -277,21 +278,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                         }
                       }
                     : null,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
-                  child: FTextField(
-                    hint: 'Search music...',
-                    control: FTextFieldControl.managed(
-                      onChange: (value) => searchQuery.value = value.text,
-                    ),
-                    prefixBuilder: (ctx, style, variants) =>
-                        FTextField.prefixIconBuilder(
-                          ctx,
-                          style,
-                          variants,
-                          const Icon(FIcons.search),
-                        ),
-                  ),
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(12, 5, 12, 5),
+                  child: DesktopSearchField(),
                 ),
               ),
               const Divider(),

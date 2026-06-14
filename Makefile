@@ -18,6 +18,8 @@ macos-local:
 	flutter pub get
 	flutter build macos --release
 
+	find "$(APP_PATH)" \( -name "._*" -o -name "*.cstemp" \) -delete
+
 	# build universal cosmodrome-rpc binary
 	cd ./discord-rpc && GOARCH=amd64 GOOS=darwin go build -o cosmodrome-rpc-amd64 main.go
 	cd ./discord-rpc && GOARCH=arm64 GOOS=darwin go build -o cosmodrome-rpc-arm64 main.go
@@ -40,6 +42,7 @@ macos-local:
 	find "$(APP_PATH)/Contents/Frameworks" -maxdepth 1 \
 		\( -name "*.framework" -o -name "*.dylib" \) | \
 		while read f; do \
+			find "$$f" \( -name "._*" -o -name "*.cstemp" \) -delete; \
 			codesign --sign "$(IDENTITY)" \
 				--options runtime --timestamp --force "$$f"; \
 		done
@@ -62,9 +65,12 @@ macos-local:
 		--options runtime --timestamp --force \
 		"$(APP_PATH)"
 
+	# fail early if the seal is broken
+	codesign --verify --deep --strict --verbose=2 "$(APP_PATH)"
+
 	# output to app-unnotarized.zip for testing without notarization step
 	mkdir -p ./output
-	ditto -c -k --keepParent "$(APP_PATH)" ./output/app-unnotarized.zip
+	ditto -c -k --keepParent --norsrc --noextattr --noqtn "$(APP_PATH)" ./output/app-unnotarized.zip
 
 	@echo "Build complete: $(APP_PATH)"#
 
@@ -98,8 +104,9 @@ macos-notarize:
 	@echo "Notarization complete: $(APP_PATH)"
 
 	# create output & ditto zip the app for distribution
+	# strip xattrs/resource-forks/quarantine so the bundle can't gain ._* files
 	mkdir -p ./output
-	ditto -c -k --keepParent "$(APP_PATH)" ./output/cosmodrome-macos.zip
+	ditto -c -k --keepParent --norsrc --noextattr --noqtn "$(APP_PATH)" ./output/cosmodrome-macos.zip
 	@echo "Packaged app: ./output/cosmodrome-macos.zip"
 
 linux-local:
