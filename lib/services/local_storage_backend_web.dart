@@ -70,6 +70,19 @@ class WebLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
+  Future<List<int>?> readCoverImageBytes(String coverRef) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(_songsStore, idbModeReadOnly);
+    final value = await txn.objectStore(_songsStore).getObject(coverRef);
+    await txn.completed;
+
+    if (value == null) return null;
+    if (value is Uint8List) return value;
+    if (value is List<int>) return value;
+    return null;
+  }
+
+  @override
   Future<void> deleteAccountCache(String accountId) async {
     final db = await _dbFuture;
     final txn = db.transaction([_songsStore, _metaStore], idbModeReadWrite);

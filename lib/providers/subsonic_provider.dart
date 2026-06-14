@@ -109,7 +109,6 @@ class SubsonicProvider extends ChangeNotifier {
       _activeId = account.id;
       _isOffline = false;
       clearCoverArtCache();
-      unawaited(account.subsonic.initCoverArtCacheForAccount());
       _startConnectivityPolling();
       await _persist();
       _setState(AuthState.authenticated);
@@ -235,10 +234,6 @@ class SubsonicProvider extends ChangeNotifier {
     if (_activeId == id) {
       _activeId = _accounts.firstOrNull?.id;
       clearCoverArtCache();
-      final active = activeAccount;
-      if (active != null) {
-        unawaited(active.subsonic.initCoverArtCacheForAccount());
-      }
     }
 
     await _persist();
@@ -347,10 +342,6 @@ class SubsonicProvider extends ChangeNotifier {
     if (activeAccount != null && activeAccount!.baseUrl == baseUrl) {
       _activeId = _accounts.where((a) => a.baseUrl != baseUrl).firstOrNull?.id;
       clearCoverArtCache();
-      final active = activeAccount;
-      if (active != null) {
-        unawaited(active.subsonic.initCoverArtCacheForAccount());
-      }
       if (_activeId == null) {
         _setState(AuthState.unauthenticated);
       }
@@ -399,10 +390,6 @@ class SubsonicProvider extends ChangeNotifier {
     _activeId = id;
     _isOffline = false;
     clearCoverArtCache();
-    final active = activeAccount;
-    if (active != null) {
-      unawaited(active.subsonic.initCoverArtCacheForAccount());
-    }
     _startConnectivityPolling();
     loggerPrint('SubsonicProvider: switched to $id');
 
@@ -453,10 +440,6 @@ class SubsonicProvider extends ChangeNotifier {
         : _accounts.first.id;
 
     clearCoverArtCache();
-    final restored = activeAccount;
-    if (restored != null) {
-      await restored.subsonic.initCoverArtCacheForAccount();
-    }
 
     _getAvatarsForActiveAccount();
     _startConnectivityPolling();

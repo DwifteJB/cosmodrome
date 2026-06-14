@@ -188,7 +188,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: GridView.builder(
         shrinkWrap: true,
-        padding: EdgeInsets.only(top: 12),
+        padding: EdgeInsets.zero,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: _gridDelegate(context),
         itemCount: items.length,
@@ -206,7 +206,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ListView.separated(
-        padding: EdgeInsets.only(top: 12),
+        padding: EdgeInsets.zero,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: items.length,
@@ -298,6 +298,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
             ),
           ),
         ),
+        const SizedBox(height: 24),
         _buildCurrentView(),
         const SizedBox(height: 32),
       ],

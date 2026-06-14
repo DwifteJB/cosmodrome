@@ -15,6 +15,7 @@ import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
 import 'package:cosmodrome/pages/playlist_page.dart';
 import 'package:cosmodrome/pages/recent_albums.dart';
+import 'package:cosmodrome/pages/desktop_search_page.dart';
 import 'package:cosmodrome/pages/search_page.dart';
 import 'package:cosmodrome/pages/starred_albums.dart';
 //
@@ -135,28 +136,41 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
 
         GoRoute(
           path: '/search',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: SearchPage()),
+          pageBuilder: (context, state) => NoTransitionPage(
+            child: isDesktop ? const DesktopSearchPage() : const SearchPage(),
+          ),
         ),
 
         if (isDesktop) ...[
           GoRoute(
             path: '/library/album/:id',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: AlbumPage(albumId: state.pathParameters['id']!),
-            ),
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return NoTransitionPage(
+                key: ValueKey('album/$id'),
+                child: AlbumPage(albumId: id),
+              );
+            },
           ),
           GoRoute(
             path: '/library/playlist/:id',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: PlaylistPage(playlistId: state.pathParameters['id']!),
-            ),
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return NoTransitionPage(
+                key: ValueKey('playlist/$id'),
+                child: PlaylistPage(playlistId: id),
+              );
+            },
           ),
           GoRoute(
             path: '/artist-detail/:id',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: ArtistDetailPage(item: state.extra as SpotlightItem),
-            ),
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return NoTransitionPage(
+                key: ValueKey('artist/$id'),
+                child: ArtistDetailPage(item: state.extra as SpotlightItem),
+              );
+            },
           ),
 
           GoRoute(
