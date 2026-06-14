@@ -49,6 +49,13 @@ class IoLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
+  Future<List<int>?> readCoverImageBytes(String coverRef) async {
+    final file = File(coverRef);
+    if (!await file.exists()) return null;
+    return file.readAsBytes();
+  }
+
+  @override
   Future<void> deleteAccountCache(String accountId) {
     // just delete the whole cache dir, it's simpler and should be fast enough
     final dir = Directory('$_base/$accountId');

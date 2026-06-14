@@ -4,6 +4,7 @@ abstract class LocalStorageBackend {
   Future<bool> coverImageExists(String coverRef);
   String coverImageRef(String accountId, String imageId, String extension);
   Future<Uri?> coverImageUri(String coverRef);
+  Future<List<int>?> readCoverImageBytes(String coverRef);
 
   Future<void> deleteAccountCache(String accountId);
 

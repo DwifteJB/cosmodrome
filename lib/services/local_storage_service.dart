@@ -21,6 +21,9 @@ class LocalStorageService {
   static Future<Uri?> coverImageUriForRef(String coverRef) =>
       _backend.coverImageUri(coverRef);
 
+  static Future<List<int>?> readCoverImageBytes(String coverRef) =>
+      _backend.readCoverImageBytes(coverRef);
+
   static Future<void> deleteCoverImage(String coverRef) =>
       _backend.deleteCoverImage(coverRef);
 
