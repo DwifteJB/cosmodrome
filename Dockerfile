@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # build linux & android app
 FROM ubuntu:22.04 AS builder
 
@@ -10,12 +11,17 @@ ENV GOOS=linux
 ENV GOARCH=amd64
 
 # install dependencies
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y \
+    file \
     curl \
     unzip \
     bash \
     zip \
     git \
+    tar \
     wget \
     xz-utils \
     # linux
@@ -33,8 +39,7 @@ RUN apt-get update && apt-get install -y \
     # egl
     mesa-utils \
     # android
-    openjdk-17-jdk \
-    && rm -rf /var/lib/apt/lists/*
+    openjdk-17-jdk
 
 # flutter
 RUN git clone https://github.com/flutter/flutter.git -b stable /usr/local/flutter
@@ -55,6 +60,9 @@ RUN mkdir -p /usr/local/android-sdk/cmdline-tools && \
 ENV ANDROID_SDK_ROOT=/usr/local/android-sdk
 ENV ANDROID_HOME=/usr/local/android-sdk
 ENV GOPATH=/root/go
+# explicit cache homes so the cache mounts below have a stable target
+ENV PUB_CACHE=/root/.pub-cache
+ENV GRADLE_USER_HOME=/root/.gradle
 
 ENV PATH="/usr/local/go/bin:${GOPATH}/bin:/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:/usr/local/android-sdk/cmdline-tools/latest/bin:/usr/local/android-sdk/platform-tools:${PATH}"
 
@@ -66,15 +74,16 @@ RUN yes | sdkmanager --licenses && \
 RUN flutter precache --linux
 RUN flutter precache --android
 
-# install fyne
-RUN go install fyne.io/tools/cmd/fyne@latest
+RUN --mount=type=cache,target=/root/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go install fyne.io/tools/cmd/fyne@latest
 
 # set working directory
 WORKDIR /app
 
-# install flutter dependencies
+# install flutter dependencies (cache the pub package downloads)
 COPY pubspec.yaml pubspec.lock ./
-RUN flutter pub get
+RUN --mount=type=cache,target=/root/.pub-cache flutter pub get
 
 # copy the rest of the app source code
 COPY . .
@@ -82,14 +91,18 @@ COPY . .
 RUN flutter clean
 
 # build the flutter linux app
-RUN flutter build linux --release
+RUN --mount=type=cache,target=/root/.pub-cache flutter build linux --release
 
-# build the flutter android app
-RUN flutter build apk --release
+# build the flutter android app (cache pub + the gradle dependency/build caches)
+RUN --mount=type=cache,target=/root/.pub-cache \
+    --mount=type=cache,target=/root/.gradle \
+    flutter build apk --release
 
 # build discord RDP server
 WORKDIR /app/discord-rpc
-RUN go build -o rpc main.go
+RUN --mount=type=cache,target=/root/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -o rpc main.go
 
 RUN mv /app/discord-rpc/rpc /app/build/linux/x64/release/bundle/cosmodrome-rpc
 
@@ -101,12 +114,14 @@ RUN cp /app/app.zip /app/installer/app.zip
 # build the installer
 WORKDIR /app/installer
 # bash does not work with bash build_linux.sh :(
-RUN fyne package -os linux -icon ./assets/logo.png 
+RUN --mount=type=cache,target=/root/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_CFLAGS="-U_FORTIFY_SOURCE" fyne package -os linux -icon ./assets/logo.png
 
-# will be in dir of cosmodrome_installer.tar.xz
-# untar, then the binary will be in usr/bin/local/cosmodrome_installer we want to export this to /app so move there
-RUN tar -xf cosmodrome_installer.tar.xz -C /app --strip-components=1
-RUN mv /app/local/bin/cosmodrome_installer /app/cosmodrome_installer
+RUN tar -xf cosmodrome_installer.tar.xz
+RUN BINARY=$(find . -type f -name cosmodrome_installer | head -1) && \
+    mv "$BINARY" /app/cosmodrome_installer
+RUN chmod +x /app/cosmodrome_installer
 
 # zip up the built android apk
 WORKDIR /app/build/app/outputs/flutter-apk

@@ -11,7 +11,7 @@ IOS_RUNNER_BIN=$(IOS_APP_PATH)/Runner
 IOS_TROLLSTORE_ENTITLEMENTS?=./ios/Runner/Runner.entitlements
 
 linux-and-android:
-	docker build --target export --output ./output .
+	DOCKER_BUILDKIT=1 docker build --target export --output ./output .
 
 macos-local:
 	rm -rf ./output
@@ -118,12 +118,13 @@ linux-local:
 	mv ./discord-rpc/rpc ./build/linux/x64/release/bundle/cosmodrome-rpc
 	cd ./build/linux/x64/release/bundle/ && zip -r ../../../../../app.zip .
 	cp ./app.zip ./installer/app.zip
-	cd ./installer && fyne package -os linux -icon ./assets/logo.png 
-	cd ./installer && tar -xf cosmodrome_installer.tar.xz -C .. --strip-components=1
-	mv ./local/bin/cosmodrome_installer ./output/cosmodrome_installer
+	cd ./installer && CGO_CFLAGS="-U_FORTIFY_SOURCE" fyne package -os linux -icon ./assets/logo.png
+	cd ./installer && tar -xf cosmodrome_installer.tar.xz
+	mv "$$(find ./installer -type f -name cosmodrome_installer | head -1)" ./output/cosmodrome_installer
+	chmod +x ./output/cosmodrome_installer
 
 # cleanup
-	rm -rf ./local
+	rm -rf ./installer/usr
 	rm -rf ./installer/app.zip
 	rm -rf ./installer/cosmodrome_installer.tar.xz
 

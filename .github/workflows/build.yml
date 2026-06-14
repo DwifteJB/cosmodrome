@@ -84,9 +84,11 @@ jobs:
             - name: Build installer
               working-directory: installer
               run: |
-                  fyne package -os linux -icon ./assets/logo.png
-                  tar -xf cosmodrome_installer.tar.xz -C $GITHUB_WORKSPACE --strip-components=1
-                  mv $GITHUB_WORKSPACE/local/bin/cosmodrome_installer $GITHUB_WORKSPACE/cosmodrome_installer
+                  CGO_CFLAGS="-U_FORTIFY_SOURCE" fyne package -os linux -icon ./assets/logo.png
+                  tar -xf cosmodrome_installer.tar.xz
+                  BINARY=$(find . -type f -name cosmodrome_installer | head -1)
+                  mv "$BINARY" $GITHUB_WORKSPACE/cosmodrome_installer
+                  chmod +x $GITHUB_WORKSPACE/cosmodrome_installer
 
             - uses: actions/upload-artifact@v4
               with:
