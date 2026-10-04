@@ -6,7 +6,7 @@ require (
 	fyne.io/fyne/v2 v2.7.2
 	github.com/go-ole/go-ole v1.3.0
 	github.com/sqweek/dialog v0.0.0-20240226140203-065105509627
-	golang.org/x/sys v0.41.0
+	golang.org/x/sys v0.45.0
 )
 
 require (
@@ -38,8 +38,8 @@ require (
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
-	golang.org/x/image v0.38.0 // indirect
-	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/image v0.41.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
