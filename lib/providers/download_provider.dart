@@ -11,7 +11,6 @@ import 'package:http/http.dart' as http;
 class DownloadProvider extends ChangeNotifier {
   final Map<String, SongDownload> _downloads = {};
   final Map<String, http.Client> _activeClients = {};
-  final Set<String> _cancelledDownloads = {};
   String? _currentAccountId;
 
   List<SongDownload> get activeDownloads => _downloads.values
@@ -22,22 +21,23 @@ class DownloadProvider extends ChangeNotifier {
       _downloads.values.where((d) => d.status == DownloadStatus.done).toList();
 
   Future<void> cancelDownload(String songId) async {
-    _cancelledDownloads.add(songId);
-    _activeClients[songId]?.close();
-    _activeClients.remove(songId);
+    // only in-progress downloads can be cancelled, finished ones are deleted instead
+    if (_downloads[songId]?.status != DownloadStatus.downloading) return;
+    _activeClients.remove(songId)?.close();
     _downloads.remove(songId);
     notifyListeners();
   }
 
   Future<void> deleteDownload(String songId) async {
-    final d = _downloads[songId];
-    if (d?.localPath != null) {
+    final localPath = _downloads[songId]?.localPath;
+    if (localPath != null) {
       try {
-        await LocalStorageService.deleteSong(d!.localPath!);
+        await LocalStorageService.deleteSong(localPath);
       } catch (_) {}
     }
     _downloads.remove(songId);
-    if (_currentAccountId != null) await _saveManifest(_currentAccountId!);
+    final accountId = _currentAccountId;
+    if (accountId != null) await _saveManifest(accountId);
     notifyListeners();
   }
 
@@ -54,13 +54,20 @@ class DownloadProvider extends ChangeNotifier {
     final suffix = song.suffix ?? 'mp3';
     final path = LocalStorageService.songPath(accountId, song.id, suffix);
 
-    _downloads[song.id] = SongDownload(
+    // each attempt owns its SongDownload. if the map entry is no longer this
+    // object, the attempt was cancelled (and maybe re-queued) and must not touch
+    // the newer attempt's state
+    final download = SongDownload(
       songId: song.id,
       status: DownloadStatus.downloading,
       progress: 0.0,
       songMeta: song,
     );
+    _downloads[song.id] = download;
+    bool isCancelled() => !identical(_downloads[song.id], download);
     notifyListeners();
+
+    http.Client? client;
 
     try {
       await LocalStorageService.ensureDirs(accountId);
@@ -68,7 +75,8 @@ class DownloadProvider extends ChangeNotifier {
       final streamUrl = sp.subsonic.streamUrl(song.id);
       final uri = Uri.parse(streamUrl);
 
-      final client = http.Client();
+      if (isCancelled()) throw _DownloadCancelled();
+      client = http.Client();
       _activeClients[song.id] = client;
 
       final request = http.Request('GET', uri);
@@ -79,27 +87,31 @@ class DownloadProvider extends ChangeNotifier {
       final bytes = BytesBuilder(copy: false);
 
       await for (final chunk in response.stream) {
-        if (_cancelledDownloads.contains(song.id)) {
-          throw _DownloadCancelled();
-        }
+        if (isCancelled()) throw _DownloadCancelled();
         bytes.add(chunk);
         received += chunk.length;
         if (contentLength > 0) {
-          final download = _downloads[song.id];
-          if (download != null) {
-            download.progress = received / contentLength;
-          }
+          download.progress = received / contentLength;
           notifyListeners();
         }
       }
 
+      if (isCancelled()) throw _DownloadCancelled();
       await LocalStorageService.writeSongBytes(path, bytes.takeBytes());
+      _releaseClient(song.id, client);
 
-      client.close();
-      _activeClients.remove(song.id);
-      _cancelledDownloads.remove(song.id);
+      if (isCancelled()) {
+        // cancelled while writing. a re-queued attempt overwrites the same
+        // path, so only clean up if nothing replaced us
+        if (!_downloads.containsKey(song.id)) {
+          try {
+            await LocalStorageService.deleteSong(path);
+          } catch (_) {}
+        }
+        return;
+      }
 
-      _downloads[song.id]!
+      download
         ..status = DownloadStatus.done
         ..localPath = path
         ..progress = 1.0;
@@ -107,18 +119,22 @@ class DownloadProvider extends ChangeNotifier {
       await _saveManifest(accountId);
       notifyListeners();
     } catch (e) {
-      if (e is! _DownloadCancelled) {
-        final download = _downloads[song.id];
-        if (download != null) {
-          download
-            ..status = DownloadStatus.error
-            ..error = e.toString();
-        }
-      }
-      _activeClients[song.id]?.close();
-      _activeClients.remove(song.id);
-      _cancelledDownloads.remove(song.id);
+      if (client != null) _releaseClient(song.id, client);
+      // a cancelled attempt's client gets closed mid-stream, so any error
+      // after cancelling is expected and not worth reporting
+      if (isCancelled()) return;
+      download
+        ..status = DownloadStatus.error
+        ..error = e.toString();
       notifyListeners();
+    }
+  }
+
+  // closes [client] and forgets it, unless a newer attempt has replaced it
+  void _releaseClient(String songId, http.Client client) {
+    client.close();
+    if (identical(_activeClients[songId], client)) {
+      _activeClients.remove(songId);
     }
   }
 
@@ -126,13 +142,10 @@ class DownloadProvider extends ChangeNotifier {
 
   String? getLocalPath(String songId) {
     final d = _downloads[songId];
-    if (d?.status == DownloadStatus.done) return d?.localPath;
-    return null;
+    return d?.status == DownloadStatus.done ? d?.localPath : null;
   }
 
-  bool isSongDownloaded(String songId) =>
-      _downloads[songId]?.status == DownloadStatus.done &&
-      _downloads[songId]?.localPath != null;
+  bool isSongDownloaded(String songId) => getLocalPath(songId) != null;
 
   Future<void> loadForAccount(String accountId) async {
     if (_currentAccountId == accountId) return;
@@ -176,17 +189,11 @@ class DownloadProvider extends ChangeNotifier {
   Future<void> _saveManifest(String accountId) async {
     try {
       await LocalStorageService.ensureDirs(accountId);
-      final data = <String, dynamic>{};
-      for (final entry in _downloads.entries) {
-        if (entry.value.status == DownloadStatus.done &&
-            entry.value.localPath != null) {
-          data[entry.key] = {
-            'localPath': entry.value.localPath,
-            if (entry.value.songMeta != null)
-              'song': entry.value.songMeta!.toJson(),
-          };
-        }
-      }
+      final data = <String, dynamic>{
+        for (final MapEntry(key: songId, value: d) in _downloads.entries)
+          if (d.status == DownloadStatus.done && d.localPath != null)
+            songId: {'localPath': d.localPath, 'song': ?d.songMeta?.toJson()},
+      };
       await LocalStorageService.writeJsonMeta(
         accountId,
         'downloads_manifest',

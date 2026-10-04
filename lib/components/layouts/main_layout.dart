@@ -59,12 +59,10 @@ String uriToTitle(String uri) {
       return 'your albums';
     default:
       // try get from _mobilenavItems
-      final item = _mobilenavItems.firstWhere(
-        (item) => uri.startsWith(item.route),
-        orElse: () =>
-            const MainLayoutNavItem(label: '', route: '', icon: FIcons.qrCode),
-      );
-      return item.label.isNotEmpty ? item.label : 'Page';
+      for (final item in _mobilenavItems) {
+        if (uri.startsWith(item.route)) return item.label;
+      }
+      return 'Page';
   }
 }
 
@@ -230,24 +228,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildAlbumCoverPrefix(Album album) {
-    final url = album.cachedCoverUrl;
-    if (url == null || url.isEmpty) {
-      return const Icon(FIcons.disc3, size: 20, color: AppColors.auraColor);
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: Image(
-        image: coverArtProvider(url),
-        width: 20,
-        height: 20,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) =>
-            const Icon(FIcons.disc3, size: 20, color: AppColors.auraColor),
-      ),
-    );
-  }
+  Widget _buildAlbumCoverPrefix(Album album) =>
+      _buildSidebarCover(album.cachedCoverUrl, FIcons.disc3);
 
   Widget _buildDesktopLayout(BuildContext context) {
     final colors = context.theme.colors;
@@ -309,13 +291,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             showWindowControls: !_queueOpen,
             canGoBack:
                 widget.selectedRoute != '/home' && widget.selectedRoute != null,
-            onBack: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                context.go('/home');
-              }
-            },
+            onBack: () => _goBack(context),
             queueOpen: _queueOpen,
             onToggleQueue: () => setState(() => _queueOpen = !_queueOpen),
             onSettingsPressed: () => openSettings(context),
@@ -343,11 +319,11 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildMainPill(BuildContext context) {
+  // frosted rounded container shared by the floating mobile pills
+  Widget _buildGlassPill(BuildContext context, {required Widget child}) {
     final colors = context.theme.colors;
-    final collapsed = aniu.value > 0.3;
 
-    final pill = Container(
+    return Container(
       decoration: BoxDecoration(
         border: Border.all(color: colors.border, width: 1),
         borderRadius: BorderRadius.circular(28),
@@ -359,38 +335,40 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildNavButton(context, _mobilenavItems[0], showLabel: false),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: collapsed ? 0.0 : 1.0,
-                    child: collapsed
-                        ? const SizedBox.shrink()
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildNavButton(
-                                context,
-                                _mobilenavItems[1],
-                                showLabel: false,
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-              ],
-            ),
+            child: child,
           ),
         ),
       ),
     );
+  }
 
-    return pill;
+  Widget _buildMainPill(BuildContext context) {
+    final collapsed = aniu.value > 0.3;
+
+    return _buildGlassPill(
+      context,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildNavButton(context, _mobilenavItems[0], showLabel: false),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: collapsed ? 0.0 : 1.0,
+              child: collapsed
+                  ? const SizedBox.shrink()
+                  : _buildNavButton(
+                      context,
+                      _mobilenavItems[1],
+                      showLabel: false,
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildMobileLayout(BuildContext context) {
@@ -420,11 +398,14 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                     parent: _searchAnim,
                     curve: Curves.easeOutCubic,
                   );
+                  final hideOnSearch = Tween<double>(
+                    begin: 1.0,
+                    end: 0.0,
+                  ).animate(curved);
                   return Row(
                     children: [
-                      _layoutConfig.mainPillBuilder != null
-                          ? _layoutConfig.mainPillBuilder!(context)
-                          : _buildMainPill(context),
+                      _layoutConfig.mainPillBuilder?.call(context) ??
+                          _buildMainPill(context),
                       const SizedBox(width: 8),
                       Expanded(
                         child: searching
@@ -438,24 +419,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
                       ),
                       // fades, goes left & opens up :)
                       FadeTransition(
-                        opacity: Tween<double>(
-                          begin: 1.0,
-                          end: 0.0,
-                        ).animate(curved),
+                        opacity: hideOnSearch,
                         child: SizeTransition(
                           axis: Axis.horizontal,
                           axisAlignment: 1.0,
-                          sizeFactor: Tween<double>(
-                            begin: 1.0,
-                            end: 0.0,
-                          ).animate(curved),
+                          sizeFactor: hideOnSearch,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(width: 8),
-                              _layoutConfig.searchPillBuilder != null
-                                  ? _layoutConfig.searchPillBuilder!(context)
-                                  : _buildSearchPillIcon(context),
+                              _layoutConfig.searchPillBuilder?.call(context) ??
+                                  _buildSearchPillIcon(context),
                             ],
                           ),
                         ),
@@ -517,8 +491,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           children: [
             if (_isSubPage)
               GestureDetector(
-                onTap: () =>
-                    context.canPop() ? context.pop() : context.go('/home'),
+                onTap: () => _goBack(context),
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
@@ -649,32 +622,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     Playlist playlist,
     SubsonicProvider subsonic,
   ) {
-    if (playlist.coverArt == null || playlist.coverArt!.isEmpty) {
-      return const Icon(FIcons.listMusic, size: 20, color: AppColors.auraColor);
+    final coverArt = playlist.coverArt;
+    String? url;
+    if (coverArt != null && coverArt.isNotEmpty) {
+      try {
+        url = subsonic.subsonic.cachedCoverArtUrl(coverArt, size: 80);
+      } catch (_) {}
     }
-
-    String url;
-    try {
-      url = subsonic.subsonic.cachedCoverArtUrl(playlist.coverArt!, size: 80);
-    } catch (_) {
-      return const Icon(FIcons.listMusic, size: 20, color: AppColors.auraColor);
-    }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: Image(
-        image: coverArtProvider(url),
-        width: 20,
-        height: 20,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) =>
-            const Icon(FIcons.listMusic, size: 20, color: AppColors.auraColor),
-      ),
-    );
+    return _buildSidebarCover(url, FIcons.listMusic);
   }
 
   Widget _buildPlaylistsMenuContent(BuildContext context) {
-    final colors = context.theme.colors;
     return Consumer<SubsonicProvider>(
       builder: (_, subsonic, _) {
         final active = subsonic.activeAccount;
@@ -685,83 +643,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           _playlistsFuture = _loadPlaylists(subsonic);
         }
 
-        return FutureBuilder<List<Playlist>>(
+        return _buildSidebarFutureList<Playlist>(
+          context,
           future: _playlistsFuture,
-          builder: (_, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                child: Text(
-                  'Could not load playlists',
-                  style: context.theme.typography.xs.copyWith(
-                    color: colors.mutedForeground,
-                  ),
-                ),
-              );
-            }
-
-            final playlists = snapshot.data ?? const <Playlist>[];
-            if (playlists.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                child: Text(
-                  'No playlists found',
-                  style: context.theme.typography.xs.copyWith(
-                    color: colors.mutedForeground,
-                  ),
-                ),
-              );
-            }
-
-            return Column(
-              children: playlists
-                  .map(
-                    (playlist) => Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 2,
-                      ),
-                      child: FSidebarItem(
-                        label: Text(
-                          playlist.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        icon: _buildPlaylistCoverPrefix(playlist, subsonic),
-                        selected: _isPlaylistSelected(playlist.id),
-                        onPress: () =>
-                            _navigateTo('/library/playlist/${playlist.id}'),
-                        style: desktopSidebarItem(
-                          selectedBackgroundColor: AppColors.auraColor
-                              .withValues(alpha: 0.16),
-                          colors: colors,
-                          typography: context.theme.typography,
-                          style: context.theme.style,
-                          touch: false,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            );
-          },
+          errorText: 'Could not load playlists',
+          emptyText: 'No playlists found',
+          itemBuilder: (playlist) => _buildSidebarEntry(
+            context,
+            label: playlist.name,
+            icon: _buildPlaylistCoverPrefix(playlist, subsonic),
+            route: '/library/playlist/${playlist.id}',
+          ),
         );
       },
     );
@@ -770,73 +662,56 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   Widget _buildSearchPillExpanded(BuildContext context) {
     final colors = context.theme.colors;
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.border, width: 1),
-        borderRadius: BorderRadius.circular(28),
-        color: colors.background.withValues(alpha: 0.55),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: SizedBox(
-              height: 44,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.search_rounded,
-                    size: 20,
+    return _buildGlassPill(
+      context,
+      child: SizedBox(
+        height: 44,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.search_rounded, size: 20, color: colors.mutedForeground),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _mobileSearchController,
+                focusNode: _mobileSearchFocus,
+                style: context.theme.typography.sm.copyWith(
+                  color: colors.foreground,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search music...',
+                  hintStyle: context.theme.typography.sm.copyWith(
                     color: colors.mutedForeground,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _mobileSearchController,
-                      focusNode: _mobileSearchFocus,
-                      style: context.theme.typography.sm.copyWith(
-                        color: colors.foreground,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Search music...',
-                        hintStyle: context.theme.typography.sm.copyWith(
-                          color: colors.mutedForeground,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onChanged: (value) => searchQuery.value = value,
-                      onSubmitted: (_) => _mobileSearchFocus.unfocus(),
-                    ),
-                  ),
-                  ValueListenableBuilder<String>(
-                    valueListenable: searchQuery,
-                    builder: (_, value, _) {
-                      if (value.isEmpty) return const SizedBox.shrink();
-                      return GestureDetector(
-                        onTap: () {
-                          searchQuery.value = '';
-                          _mobileSearchFocus.requestFocus();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: colors.mutedForeground,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onChanged: (value) => searchQuery.value = value,
+                onSubmitted: (_) => _mobileSearchFocus.unfocus(),
               ),
             ),
-          ),
+            ValueListenableBuilder<String>(
+              valueListenable: searchQuery,
+              builder: (_, value, _) {
+                if (value.isEmpty) return const SizedBox.shrink();
+                return GestureDetector(
+                  onTap: () {
+                    searchQuery.value = '';
+                    _mobileSearchFocus.requestFocus();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: colors.mutedForeground,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -844,32 +719,98 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   // icon that expands into the textfield on search
   Widget _buildSearchPillIcon(BuildContext context) {
-    final colors = context.theme.colors;
     final searchNavItem = _mobilenavItems.firstWhere(
       (item) => item.label == 'Search',
     );
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.border, width: 1),
-        borderRadius: BorderRadius.circular(28),
-        color: colors.background.withValues(alpha: 0.55),
+    return _buildGlassPill(
+      context,
+      child: _buildNavButton(context, searchNavItem, showLabel: false),
+    );
+  }
+
+  Widget _buildSidebarCover(String? url, IconData fallbackIcon) {
+    final fallback = Icon(fallbackIcon, size: 20, color: AppColors.auraColor);
+    if (url == null || url.isEmpty) return fallback;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: Image(
+        image: coverArtProvider(url),
+        width: 20,
+        height: 20,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: _buildNavButton(context, searchNavItem, showLabel: false),
-          ),
+    );
+  }
+
+  Widget _buildSidebarEntry(
+    BuildContext context, {
+    required String label,
+    required Widget icon,
+    required String route,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      child: FSidebarItem(
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        icon: icon,
+        selected: _isRouteSelected(route),
+        onPress: () => _navigateTo(route),
+        style: desktopSidebarItem(
+          selectedBackgroundColor: AppColors.auraColor.withValues(alpha: 0.16),
+          colors: context.theme.colors,
+          typography: context.theme.typography,
+          style: context.theme.style,
+          touch: false,
         ),
       ),
     );
   }
 
+  Widget _buildSidebarFutureList<T>(
+    BuildContext context, {
+    required Future<List<T>>? future,
+    required String errorText,
+    required String emptyText,
+    required Widget Function(T item) itemBuilder,
+  }) {
+    Widget message(String text) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Text(
+        text,
+        style: context.theme.typography.xs.copyWith(
+          color: context.theme.colors.mutedForeground,
+        ),
+      ),
+    );
+
+    return FutureBuilder<List<T>>(
+      future: future,
+      builder: (_, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) return message(errorText);
+
+        final items = snapshot.data ?? <T>[];
+        if (items.isEmpty) return message(emptyText);
+
+        return Column(children: items.map(itemBuilder).toList());
+      },
+    );
+  }
+
   Widget _buildStarredMenuContent(BuildContext context) {
-    final colors = context.theme.colors;
     return Consumer<SubsonicProvider>(
       builder: (_, subsonic, _) {
         final active = subsonic.activeAccount;
@@ -880,83 +821,17 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
           _starredAlbumsFuture = _loadStarredAlbums(subsonic);
         }
 
-        return FutureBuilder<List<Album>>(
+        return _buildSidebarFutureList<Album>(
+          context,
           future: _starredAlbumsFuture,
-          builder: (_, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                child: Text(
-                  'Could not load starred albums',
-                  style: context.theme.typography.xs.copyWith(
-                    color: colors.mutedForeground,
-                  ),
-                ),
-              );
-            }
-
-            final albums = snapshot.data ?? const <Album>[];
-            if (albums.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                child: Text(
-                  'No starred albums yet',
-                  style: context.theme.typography.xs.copyWith(
-                    color: colors.mutedForeground,
-                  ),
-                ),
-              );
-            }
-
-            return Column(
-              children: albums
-                  .map(
-                    (album) => Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 2,
-                      ),
-                      child: FSidebarItem(
-                        label: Text(
-                          album.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        icon: _buildAlbumCoverPrefix(album),
-                        selected: _isAlbumSelected(album.id),
-                        onPress: () =>
-                            _navigateTo('/library/album/${album.id}'),
-                        style: desktopSidebarItem(
-                          selectedBackgroundColor: AppColors.auraColor
-                              .withValues(alpha: 0.16),
-                          colors: colors,
-                          typography: context.theme.typography,
-                          style: context.theme.style,
-                          touch: false,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            );
-          },
+          errorText: 'Could not load starred albums',
+          emptyText: 'No starred albums yet',
+          itemBuilder: (album) => _buildSidebarEntry(
+            context,
+            label: album.name,
+            icon: _buildAlbumCoverPrefix(album),
+            route: '/library/album/${album.id}',
+          ),
         );
       },
     );
@@ -967,14 +842,8 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     return uriToTitle(widget.selectedRoute ?? '/home');
   }
 
-  bool _isAlbumSelected(String albumId) {
-    final route = widget.selectedRoute;
-    if (route == null) return false;
-    final albumRoute = '/library/album/$albumId';
-    return route == albumRoute ||
-        route.startsWith('$albumRoute?') ||
-        route.startsWith('$albumRoute/');
-  }
+  void _goBack(BuildContext context) =>
+      context.canPop() ? context.pop() : context.go('/home');
 
   bool _isDesktopMenuExpanded(String label) =>
       _desktopMenuExpanded[label] ?? true;
@@ -986,28 +855,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       route?.startsWith('/library/album') == true ||
       route?.startsWith('/library/playlist') == true;
 
-  bool _isPlaylistSelected(String playlistId) {
-    final route = widget.selectedRoute;
-    if (route == null) return false;
-    final playlistRoute = '/library/playlist/$playlistId';
-    return route == playlistRoute ||
-        route.startsWith('$playlistRoute?') ||
-        route.startsWith('$playlistRoute/');
-  }
+  bool _isRouteSelected(String baseRoute) =>
+      _routeMatches(widget.selectedRoute, baseRoute);
 
-  bool _isSearchRoute(String? route) =>
-      route == '/search' ||
-      route?.startsWith('/search?') == true ||
-      route?.startsWith('/search/') == true;
+  bool _isSearchRoute(String? route) => _routeMatches(route, '/search');
 
-  bool _isSelected(MainLayoutNavItem item) {
-    if (widget.selectedRoute == null) return false;
-    return widget.selectedRoute == item.route;
-  }
+  bool _isSelected(MainLayoutNavItem item) =>
+      widget.selectedRoute == item.route;
 
-  Future<List<Playlist>> _loadPlaylists(SubsonicProvider subsonic) async {
-    return subsonic.subsonic.getPlaylists();
-  }
+  Future<List<Playlist>> _loadPlaylists(SubsonicProvider subsonic) =>
+      subsonic.subsonic.getPlaylists();
 
   Future<List<Album>> _loadStarredAlbums(SubsonicProvider subsonic) async {
     final albums = await subsonic.subsonic.getAlbumList2('starred', size: 40);
@@ -1021,6 +878,12 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     }
     return albums;
   }
+
+  // true when [route] is [baseRoute] itself or a query/child of it
+  bool _routeMatches(String? route, String baseRoute) =>
+      route == baseRoute ||
+      route?.startsWith('$baseRoute?') == true ||
+      route?.startsWith('$baseRoute/') == true;
 
   void _navigateTo(String route) {
     context.go(route);

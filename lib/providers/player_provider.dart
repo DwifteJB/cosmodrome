@@ -102,10 +102,11 @@ class PlayerProvider extends ChangeNotifier {
 
   int get currentIndex => _currentIndex;
 
-  Song? get currentSong =>
-      _displayIndex >= 0 && _displayIndex < _activeQueue.length
-      ? _activeQueue[_displayIndex]
-      : null;
+  Song? get currentSong {
+    final queue = _activeQueue;
+    final index = _displayIndex;
+    return index >= 0 && index < queue.length ? queue[index] : null;
+  }
 
   Duration get duration => _duration;
   bool get hasCurrentSong => currentSong != null;
@@ -117,10 +118,10 @@ class PlayerProvider extends ChangeNotifier {
   LoopMode get repeatMode => _repeatMode;
   bool get shuffle => _shuffle;
   List<Song> get visibleQueue {
-    if (_activeQueue.isEmpty) return const <Song>[];
+    final queue = _activeQueue;
     final start = visibleQueueStartIndex;
-    if (start >= _activeQueue.length) return const <Song>[];
-    return List.unmodifiable(_activeQueue.sublist(start));
+    if (start >= queue.length) return const <Song>[];
+    return List.unmodifiable(queue.sublist(start));
   }
 
   int get visibleQueueStartIndex => _displayIndex < 0 ? 0 : _displayIndex;
@@ -148,16 +149,7 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addToQueue(Song song) async {
-    if (!isSongPlayable(song)) return;
-    _songs.add(song);
-    if (_shuffle) {
-      _rebuildShuffleOrder();
-    }
-    _queueVersion++;
-    await _syncPlayerQueue(preservePosition: true);
-    notifyListeners();
-  }
+  Future<void> addToQueue(Song song) => addBulkToQueue([song]);
 
   String? coverArtUrlForSong(Song song) {
     if (song.coverArt == null || _subsonicProvider == null) return null;
@@ -392,33 +384,25 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> skipPrevious() async {
-    if (_shuffle && _shuffleOrder.isNotEmpty) {
-      if (_position.inSeconds > 3) {
-        await _player.seek(Duration.zero);
-        return;
-      }
-
-      if (_shuffleCursor > 0) {
-        _shuffleCursor--;
-        final targetIndex = _shuffleOrder[_shuffleCursor];
-        await _player.seek(Duration.zero, index: targetIndex);
-        await _player.play();
-      } else {
-        await _player.seek(Duration.zero);
-        await _player.play();
-      }
+    // restart the current song if we're a few seconds in
+    if (_position.inSeconds > 3) {
+      await _player.seek(Duration.zero);
       return;
     }
 
-    if (_position.inSeconds > 3) {
-      await _player.seek(Duration.zero);
+    if (_shuffle && _shuffleOrder.isNotEmpty) {
+      if (_shuffleCursor > 0) {
+        _shuffleCursor--;
+        await _player.seek(Duration.zero, index: _shuffleOrder[_shuffleCursor]);
+      } else {
+        await _player.seek(Duration.zero);
+      }
     } else if (_player.hasPrevious) {
       await _player.seekToPrevious();
-      await _player.play();
     } else {
       await _player.seek(Duration.zero);
-      await _player.play();
     }
+    await _player.play();
   }
 
   Future<void> togglePlay() async {
@@ -468,10 +452,10 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> _fetchAndAppendRandom() async {
-    if (_subsonicProvider == null) return;
-    if (_subsonicProvider!.isOffline) return;
+    final provider = _subsonicProvider;
+    if (provider == null || provider.isOffline) return;
     try {
-      final songs = await _subsonicProvider!.subsonic.getRandomSongs(count: 10);
+      final songs = await provider.subsonic.getRandomSongs(count: 10);
       await addBulkToQueue(songs);
     } catch (_) {}
   }
@@ -514,14 +498,14 @@ class PlayerProvider extends ChangeNotifier {
 
     try {
       await _clearEphemeralUris();
+      final subsonic = _subsonicProvider!.subsonic;
       final sources = <AudioSource>[];
       for (final song in _songs) {
         final localPath = _downloadProvider?.getLocalPath(song.id);
         final uri = localPath != null
             ? await LocalStorageService.playableUriForSongRef(localPath)
             : null;
-        final resolvedUri =
-            uri ?? Uri.parse(_subsonicProvider!.subsonic.streamUrl(song.id));
+        final resolvedUri = uri ?? Uri.parse(subsonic.streamUrl(song.id));
         if (uri != null && uri.scheme == 'blob') {
           _ephemeralCachedUris.add(uri);
         }
@@ -536,10 +520,7 @@ class PlayerProvider extends ChangeNotifier {
               artist: song.artist,
               artUri: song.coverArt != null
                   ? Uri.parse(
-                      _subsonicProvider!.subsonic.cachedCoverArtUrl(
-                        song.coverArt!,
-                        size: 300,
-                      ),
+                      subsonic.cachedCoverArtUrl(song.coverArt!, size: 300),
                     )
                   : null,
             ),
@@ -571,36 +552,26 @@ class PlayerProvider extends ChangeNotifier {
       _cachedCoverArtUrl = null;
       return;
     }
-    try {
-      _cachedCoverArtUrl = _subsonicProvider!.subsonic.cachedCoverArtUrl(
-        song.coverArt!,
-        size: 300,
-      );
-    } catch (_) {
-      _cachedCoverArtUrl = null;
-    }
+    _cachedCoverArtUrl = coverArtUrlForSong(song);
     _maybeExtractAccentColor(song);
   }
 
   void _maybeExtractAccentColor(Song song) {
     if (_accentCache.containsKey(song.id)) {
-      _prevAccentColor = _accentColor;
-      _accentColor = _accentCache[song.id];
-      notifyListeners();
+      _setAccentColor(_accentCache[song.id]);
       return;
     }
     unawaited(_extractAccentColor(song));
   }
 
-  Future<void> _extractAccentColor(Song song) async {
-    if (song.coverArt == null || _subsonicProvider == null) {
-      _accentCache[song.id] = null;
-      _prevAccentColor = _accentColor;
-      _accentColor = null;
-      notifyListeners();
-      return;
-    }
+  void _setAccentColor(Color? color) {
+    _prevAccentColor = _accentColor;
+    _accentColor = color;
+    notifyListeners();
+  }
 
+  // only called once the song is known to have cover art & a subsonic provider
+  Future<void> _extractAccentColor(Song song) async {
     try {
       final coverUrl = _subsonicProvider!.subsonic.cachedCoverArtUrl(
         song.coverArt!,
@@ -629,9 +600,7 @@ class PlayerProvider extends ChangeNotifier {
       }
 
       _accentCache[song.id] = color;
-      _prevAccentColor = _accentColor;
-      _accentColor = color;
-      notifyListeners();
+      _setAccentColor(color);
     } catch (_) {}
   }
 }

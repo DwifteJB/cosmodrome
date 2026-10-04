@@ -13,6 +13,28 @@ class WebLocalStorageBackend implements LocalStorageBackend {
 
   late final Future<Database> _dbFuture;
 
+  Future<Object?> _get(String storeName, String key) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(storeName, idbModeReadOnly);
+    final value = await txn.objectStore(storeName).getObject(key);
+    await txn.completed;
+    return value;
+  }
+
+  Future<void> _put(String storeName, String key, Object value) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(storeName, idbModeReadWrite);
+    await txn.objectStore(storeName).put(value, key);
+    await txn.completed;
+  }
+
+  Future<void> _delete(String storeName, String key) async {
+    final db = await _dbFuture;
+    final txn = db.transaction(storeName, idbModeReadWrite);
+    await txn.objectStore(storeName).delete(key);
+    await txn.completed;
+  }
+
   @override
   Future<int> accountStorageBytes(String accountId) async {
     final db = await _dbFuture;
@@ -30,56 +52,24 @@ class WebLocalStorageBackend implements LocalStorageBackend {
       final key = cursor.key.toString();
       if (!prefixes.any(key.startsWith)) continue;
       final value = cursor.value;
-      if (value is Uint8List) {
-        total += value.length;
-      } else if (value is List<int>) {
-        total += value.length;
-      }
+      if (value is List<int>) total += value.length;
     }
     await txn.completed;
     return total;
   }
 
   @override
-  Future<bool> coverImageExists(String coverRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadOnly);
-    final value = await txn.objectStore(_songsStore).getObject(coverRef);
-    await txn.completed;
-    return value != null;
-  }
+  Future<bool> coverImageExists(String coverRef) async =>
+      await _get(_songsStore, coverRef) != null;
 
   @override
   String coverImageRef(String accountId, String imageId, String extension) =>
       '$accountId/cached-images/$imageId.$extension';
 
   @override
-  Future<Uri?> coverImageUri(String coverRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadOnly);
-    final value = await txn.objectStore(_songsStore).getObject(coverRef);
-    await txn.completed;
-
-    if (value == null) return null;
-    final bytes = value is Uint8List
-        ? value
-        : Uint8List.fromList((value as List).cast<int>());
-    final blob = html.Blob([bytes]);
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    return Uri.parse(url);
-  }
-
-  @override
   Future<List<int>?> readCoverImageBytes(String coverRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadOnly);
-    final value = await txn.objectStore(_songsStore).getObject(coverRef);
-    await txn.completed;
-
-    if (value == null) return null;
-    if (value is Uint8List) return value;
-    if (value is List<int>) return value;
-    return null;
+    final value = await _get(_songsStore, coverRef);
+    return value is List<int> ? value : null;
   }
 
   @override
@@ -109,20 +99,11 @@ class WebLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
-  Future<void> deleteCoverImage(String coverRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadWrite);
-    await txn.objectStore(_songsStore).delete(coverRef);
-    await txn.completed;
-  }
+  Future<void> deleteCoverImage(String coverRef) =>
+      _delete(_songsStore, coverRef);
 
   @override
-  Future<void> deleteSong(String songRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadWrite);
-    await txn.objectStore(_songsStore).delete(songRef);
-    await txn.completed;
-  }
+  Future<void> deleteSong(String songRef) => _delete(_songsStore, songRef);
 
   @override
   Future<void> ensureDirs(String accountId) async {
@@ -152,11 +133,7 @@ class WebLocalStorageBackend implements LocalStorageBackend {
 
   @override
   Future<Uri?> playableUri(String songRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadOnly);
-    final value = await txn.objectStore(_songsStore).getObject(songRef);
-    await txn.completed;
-
+    final value = await _get(_songsStore, songRef);
     if (value == null) return null;
     final bytes = value is Uint8List
         ? value
@@ -167,13 +144,8 @@ class WebLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
-  Future<String?> readMeta(String metaRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_metaStore, idbModeReadOnly);
-    final value = await txn.objectStore(_metaStore).getObject(metaRef);
-    await txn.completed;
-    return value as String?;
-  }
+  Future<String?> readMeta(String metaRef) async =>
+      await _get(_metaStore, metaRef) as String?;
 
   @override
   Future<void> releasePlayableUri(Uri uri) async {
@@ -183,39 +155,22 @@ class WebLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
-  Future<bool> songExists(String songRef) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadOnly);
-    final value = await txn.objectStore(_songsStore).getObject(songRef);
-    await txn.completed;
-    return value != null;
-  }
+  Future<bool> songExists(String songRef) async =>
+      await _get(_songsStore, songRef) != null;
 
   @override
   String songRef(String accountId, String songId, String suffix) =>
       '$accountId/songs/$songId.$suffix';
 
   @override
-  Future<void> writeCoverImageBytes(String coverRef, List<int> bytes) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadWrite);
-    await txn.objectStore(_songsStore).put(Uint8List.fromList(bytes), coverRef);
-    await txn.completed;
-  }
+  Future<void> writeCoverImageBytes(String coverRef, List<int> bytes) =>
+      _put(_songsStore, coverRef, Uint8List.fromList(bytes));
 
   @override
-  Future<void> writeMeta(String metaRef, String content) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_metaStore, idbModeReadWrite);
-    await txn.objectStore(_metaStore).put(content, metaRef);
-    await txn.completed;
-  }
+  Future<void> writeMeta(String metaRef, String content) =>
+      _put(_metaStore, metaRef, content);
 
   @override
-  Future<void> writeSongBytes(String songRef, List<int> bytes) async {
-    final db = await _dbFuture;
-    final txn = db.transaction(_songsStore, idbModeReadWrite);
-    await txn.objectStore(_songsStore).put(Uint8List.fromList(bytes), songRef);
-    await txn.completed;
-  }
+  Future<void> writeSongBytes(String songRef, List<int> bytes) =>
+      _put(_songsStore, songRef, Uint8List.fromList(bytes));
 }

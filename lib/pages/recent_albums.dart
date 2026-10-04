@@ -35,12 +35,18 @@ class _RecentAlbumsPageState extends State<RecentAlbumsPage>
       return const SizedBox(
         height: 200,
         child: Center(
-          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2.5,
+          ),
         ),
       );
     }
 
-    if (_albums == null || _albums!.isEmpty) return const NoContentView(contentType: 'albums');
+    final albums = _albums;
+    if (albums == null || albums.isEmpty) {
+      return const NoContentView(contentType: 'albums');
+    }
 
     final subsonic = context.read<SubsonicProvider>().subsonic;
 
@@ -51,7 +57,7 @@ class _RecentAlbumsPageState extends State<RecentAlbumsPage>
           spacing: 20,
           runSpacing: 28,
           alignment: WrapAlignment.center,
-          children: _albums!
+          children: albums
               .map((album) => AlbumCard(album: album, subsonic: subsonic))
               .toList(growable: false),
         ),
@@ -82,16 +88,20 @@ class _RecentAlbumsPageState extends State<RecentAlbumsPage>
     final cachedRecent = await offlineCacheService.loadRecentAlbums(accountId);
 
     if (provider.isOffline) {
-      if (mounted) setState(() { _albums = cachedRecent; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _albums = cachedRecent;
+          _loading = false;
+        });
+      }
       return;
     }
 
-    if (mounted && cachedRecent != null) {
-      setState(() { _albums = cachedRecent; _loading = false; });
-    }
-
     if (!mounted) return;
-    setState(() => _loading = _albums == null);
+    setState(() {
+      if (cachedRecent != null) _albums = cachedRecent;
+      _loading = _albums == null;
+    });
 
     try {
       final newest = await provider.subsonic.getAlbumList2(
@@ -102,9 +112,19 @@ class _RecentAlbumsPageState extends State<RecentAlbumsPage>
 
       await offlineCacheService.saveRecentAlbums(accountId, newest);
 
-      if (mounted) setState(() { _albums = newest; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _albums = newest;
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() { _albums = cachedRecent; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _albums = cachedRecent;
+          _loading = false;
+        });
+      }
       unawaited(provider.checkConnectivity());
     }
   }

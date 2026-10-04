@@ -38,11 +38,8 @@ class SubsonicProvider extends ChangeNotifier {
   SubsonicAccount? get activeAccount => _activeId == null
       ? null
       : _accounts.where((a) => a.id == _activeId).firstOrNull;
-  AuthState get authState => _authState;
-
   String? get errorMessage => _errorMessage;
 
-  bool get isAuthenticated => _authState == AuthState.authenticated;
   bool get isOffline => _isOffline;
 
   /// The current subsonic istance for the active account. Will throw if not authenticated.
@@ -51,8 +48,6 @@ class SubsonicProvider extends ChangeNotifier {
     assert(activeAccount != null, 'SubsonicProvider: no active account');
     return activeAccount!.subsonic;
   }
-
-  bool get _canCheckConnectivity => _canPollConnectivity;
 
   /// Adds a new account and makes it active. If an account with the same id
   /// already exists, it will be replaced. Returns an error message on failure.
@@ -88,11 +83,14 @@ class SubsonicProvider extends ChangeNotifier {
 
     try {
       final user = await sub.getUser();
+      // the ping above probed which login method this server accepts, keep it
+      // so we don't have to probe again every launch
       final account = SubsonicAccount(
         baseUrl: baseUrl,
         username: username,
         password: password,
         user: user,
+        loginMethod: sub.loginMethod,
       );
 
       // if account with same id exists, replace it. otherwise add new
@@ -136,7 +134,6 @@ class SubsonicProvider extends ChangeNotifier {
     final success = await server.tryConnect();
 
     if (success) {
-      server.canConnect = true;
       knownServers.add(server);
       loggerPrint(
         'SubsonicProvider: added known server $baseUrl, can connect successfully',
@@ -154,7 +151,7 @@ class SubsonicProvider extends ChangeNotifier {
 
   /// Pings the active server and updates [isOffline]
   Future<void> checkConnectivity() async {
-    if (!_canCheckConnectivity || _connectivityCheckInFlight) return;
+    if (!_canPollConnectivity || _connectivityCheckInFlight) return;
 
     final account = activeAccount;
     if (account == null) return;
@@ -167,20 +164,15 @@ class SubsonicProvider extends ChangeNotifier {
         return;
       }
 
-      var offline = false;
-      try {
-        final result = await account.subsonic.ping(timeoutSeconds: 3);
-        // auth errors mean we can still "connect" with proper creds
-        offline = !result.success && result.errorCode == null;
+      // ping never throws, it reports failures in its result
+      final result = await account.subsonic.ping(timeoutSeconds: 3);
+      // auth errors mean we can still "connect" with proper creds
+      final offline = !result.success && result.errorCode == null;
 
-        if (offline) {
-          _recordServerFailure(account.baseUrl, now);
-        } else {
-          _recordServerSuccess(account.baseUrl);
-        }
-      } catch (e) {
-        offline = true;
+      if (offline) {
         _recordServerFailure(account.baseUrl, now);
+      } else {
+        _recordServerSuccess(account.baseUrl);
       }
 
       var changed = false;
@@ -242,20 +234,6 @@ class SubsonicProvider extends ChangeNotifier {
     );
   }
 
-  /// Removes all accounts and clears storage.
-  Future<void> removeAllAccounts() async {
-    _accounts.clear();
-    _activeId = null;
-    _errorMessage = null;
-    _connectivityPoller?.cancel();
-    _connectivityPoller = null;
-    clearCoverArtCache();
-    await _storage.delete(key: _keyAccounts);
-    await _storage.delete(key: _keyActiveId);
-    loggerPrint('SubsonicProvider: all accounts removed');
-    _setState(AuthState.unauthenticated);
-  }
-
   /// Updates an existing server's name (and optionally URL).
   /// If the URL changes, the new URL is pinged to verify it works, and all
   /// accounts tied to the old URL are removed (their baseUrl is immutable).
@@ -281,7 +259,6 @@ class SubsonicProvider extends ChangeNotifier {
       final success = await newServer.tryConnect();
       if (!success) return false;
 
-      newServer.canConnect = true;
       knownServers[idx] = newServer;
 
       final hadActive = activeAccount?.baseUrl == oldBaseUrl;
@@ -339,7 +316,7 @@ class SubsonicProvider extends ChangeNotifier {
     // remove all accounts that belong to this server
 
     // check if the active account belongs to this server, if so switch to another one (or unauthenticated if none remain)
-    if (activeAccount != null && activeAccount!.baseUrl == baseUrl) {
+    if (activeAccount?.baseUrl == baseUrl) {
       _activeId = _accounts.where((a) => a.baseUrl != baseUrl).firstOrNull?.id;
       clearCoverArtCache();
       if (_activeId == null) {
@@ -377,20 +354,21 @@ class SubsonicProvider extends ChangeNotifier {
   /// Switches the active account.
   /// if [id] is "none", will switch to no account
   void switchAccount(String id) {
-    if (id == "none") {
-      _activeId = null;
-      _isOffline = false;
-      clearCoverArtCache();
-      _startConnectivityPolling();
+    final none = id == "none";
+    assert(
+      none || _accounts.any((a) => a.id == id),
+      'switchAccount: unknown id $id',
+    );
+    _activeId = none ? null : id;
+    _isOffline = false;
+    clearCoverArtCache();
+    _startConnectivityPolling();
+
+    if (none) {
       loggerPrint('SubsonicProvider: switched to no active account');
       _setState(AuthState.unauthenticated);
       return;
     }
-    assert(_accounts.any((a) => a.id == id), 'switchAccount: unknown id $id');
-    _activeId = id;
-    _isOffline = false;
-    clearCoverArtCache();
-    _startConnectivityPolling();
     loggerPrint('SubsonicProvider: switched to $id');
 
     _getAvatarsForActiveAccount();
@@ -450,51 +428,44 @@ class SubsonicProvider extends ChangeNotifier {
 
   Future<void> _getAvatarsForActiveAccount() async {
     final active = activeAccount;
-    if (active == null) return;
+    if (active == null || active.avatar.isNotEmpty) return;
 
-    if (active.avatar.isEmpty) {
-      try {
-        final avatarBytes = await active.subsonic.getAvatar();
-        active.avatar = avatarBytes;
-        loggerPrint('SubsonicProvider: fetched avatar for ${active.username}');
-        notifyListeners();
-      } catch (e) {
-        loggerPrint(
-          'SubsonicProvider: failed to fetch avatar for ${active.username} - $e',
-        );
-      }
-    }
+    if (await _fetchAvatar(active)) notifyListeners();
   }
 
-  Future<void> _getAvatarsForAllAccounts() async {
-    for (final account in _accounts) {
-      if (account.id == _activeId && account.avatar.isEmpty) {
-        // check if the server is reachable before trying to fetch avatar
-        SubsonicServer server = knownServers.firstWhere(
-          (s) => account.baseUrl.contains(s.baseUrl),
-          orElse: () =>
-              SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
-        );
+  /// Fetches the active account's avatar if its server is known to be reachable.
+  Future<void> _getAvatarForReachableActiveAccount() async {
+    final account = activeAccount;
+    if (account == null || account.avatar.isNotEmpty) return;
 
-        if (!server.canConnect) {
-          loggerPrint(
-            'SubsonicProvider: skipping avatar fetch for ${account.username} because server ${account.baseUrl} is not reachable',
-          );
-          continue;
-        }
+    // check if the server is reachable before trying to fetch avatar
+    final reachable =
+        knownServers
+            .where((s) => account.baseUrl.contains(s.baseUrl))
+            .firstOrNull
+            ?.canConnect ??
+        false;
+    if (!reachable) {
+      loggerPrint(
+        'SubsonicProvider: skipping avatar fetch for ${account.username} because server ${account.baseUrl} is not reachable',
+      );
+      return;
+    }
 
-        try {
-          final avatarBytes = await account.subsonic.getAvatar();
-          account.avatar = avatarBytes;
-          loggerPrint(
-            'SubsonicProvider: fetched avatar for ${account.username}',
-          );
-        } catch (e) {
-          loggerPrint(
-            'SubsonicProvider: failed to fetch avatar for ${account.username} - $e',
-          );
-        }
-      }
+    await _fetchAvatar(account);
+  }
+
+  /// Returns whether the avatar was fetched successfully.
+  Future<bool> _fetchAvatar(SubsonicAccount account) async {
+    try {
+      account.avatar = await account.subsonic.getAvatar();
+      loggerPrint('SubsonicProvider: fetched avatar for ${account.username}');
+      return true;
+    } catch (e) {
+      loggerPrint(
+        'SubsonicProvider: failed to fetch avatar for ${account.username} - $e',
+      );
+      return false;
     }
   }
 
@@ -514,14 +485,10 @@ class SubsonicProvider extends ChangeNotifier {
         );
 
         // try connecting to the server before adding it to the known servers list
-        final canConnect = await server.tryConnect(timeoutSeconds: 3);
-        if (!canConnect) {
+        if (!await server.tryConnect(timeoutSeconds: 3)) {
           loggerPrint(
             'SubsonicProvider: cannot connect to known server ${server.baseUrl}, skipping',
           );
-          server.canConnect = false;
-        } else {
-          server.canConnect = true;
         }
 
         knownServers.add(server);
@@ -563,7 +530,7 @@ class SubsonicProvider extends ChangeNotifier {
     await _storage.write(key: _keyKnownServers, value: serversJson);
 
     // TEMP? get all avatars
-    await _getAvatarsForAllAccounts();
+    await _getAvatarForReachableActiveAccount();
   }
 
   void _recordServerFailure(String baseUrl, DateTime now) {
@@ -588,7 +555,7 @@ class SubsonicProvider extends ChangeNotifier {
   }
 
   Future<bool> _refreshKnownServersConnectivity({String? skipBaseUrl}) async {
-    if (!_canCheckConnectivity) return false;
+    if (!_canPollConnectivity) return false;
 
     var changed = false;
     final now = DateTime.now();
@@ -623,7 +590,7 @@ class SubsonicProvider extends ChangeNotifier {
   }
 
   void _startConnectivityPolling() {
-    if (!_canCheckConnectivity) {
+    if (!_canPollConnectivity) {
       _connectivityPoller?.cancel();
       _connectivityPoller = null;
       return;
@@ -649,8 +616,6 @@ class SubsonicServer {
     this.canConnect = false,
   });
 
-  bool get isLocal => baseUrl.contains('localhost') || baseUrl.contains('100');
-
   Future<bool> tryConnect({int? timeoutSeconds}) async {
     // just do a simple get check to see if the server is reachable & we get an error response (since we don't have credentials yet)
     final sub = Subsonic(
@@ -659,53 +624,22 @@ class SubsonicServer {
       password: 'dummy',
     );
 
-    // ping should fail with a catch of (e), but should expel starting with:
-    // Subsonic API error
+    // ping never throws; with dummy creds it should fail with a subsonic API error
+    final res = await sub.ping(
+      timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
+    );
 
-    try {
-      final res = await sub.ping(
-        timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
+    if (res.success) {
+      // this should never happen so if it does its funny
+      loggerPrint(
+        'SubsonicServer: unexpected successful ping to $baseUrl with dummy credentials',
       );
-
-      if (res.success) {
-        // this should never happen so if it does its funny
-        loggerPrint(
-          'SubsonicServer: unexpected successful ping to $baseUrl with dummy credentials',
-        );
-      }
-
-      if (res.errorMessage != null &&
-          res.errorMessage!.contains('Subsonic API error')) {
-        canConnect = true;
-        return true; // server is reachable and responded with an API error, which is expected
-      } else if (res.errorMessage != null) {
-        // unexpected error just means that its blocked too probably
-        // this happens a lot with local IPs since its trying to connect to "itself"
-        // if no response, therefore not reachable rn
-        canConnect = false;
-        return false; // server is reachable but responded with an unexpected error
-      }
-
-      if (res.errorCode == 404) {
-        // assume that its not a subsonic server
-        loggerPrint(
-          'SubsonicServer: received 404 from $baseUrl, assuming not a Subsonic server',
-        );
-        canConnect = false;
-        return false; // server is reachable but not a Subsonic server
-      }
-
-      canConnect = true;
-      return true; // ping succeeded, server is reachable (but we don't expect this since credentials are wrong)
-    } catch (e) {
-      final error = e.toString();
-      if (error.contains('Subsonic API error')) {
-        canConnect = true;
-        return true; // server is reachable and responded with an API error, which is expected
-      } else {
-        canConnect = false;
-        return false; // some other error occurred, server might not be reachable
-      }
     }
+
+    // a subsonic API error means the server is reachable, which is expected.
+    // any other error just means that its blocked/unreachable probably
+    // (this happens a lot with local IPs since its trying to connect to "itself")
+    canConnect = res.success || res.errorCode != null;
+    return canConnect;
   }
 }

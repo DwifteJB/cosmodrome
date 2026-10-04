@@ -48,34 +48,15 @@ class SongGridItem extends StatelessWidget {
                                           key: const ValueKey('img'),
                                           child: child,
                                         )
-                                      : Container(
+                                      : _placeholder(
+                                          ctx,
                                           key: const ValueKey('placeholder'),
-                                          color: ctx.theme.colors.muted,
-                                          child: Icon(
-                                            Icons.music_note,
-                                            color: ctx
-                                                .theme
-                                                .colors
-                                                .mutedForeground,
-                                          ),
                                         ),
                                 );
                               },
-                          errorBuilder: (ctx, e, s) => Container(
-                            color: ctx.theme.colors.muted,
-                            child: Icon(
-                              Icons.music_note,
-                              color: ctx.theme.colors.mutedForeground,
-                            ),
-                          ),
+                          errorBuilder: (ctx, e, s) => _placeholder(ctx),
                         )
-                      : Container(
-                          color: context.theme.colors.muted,
-                          child: Icon(
-                            Icons.music_note,
-                            color: context.theme.colors.mutedForeground,
-                          ),
-                        ),
+                      : _placeholder(context),
                 ),
               ),
               const SizedBox(width: 12),
@@ -112,4 +93,10 @@ class SongGridItem extends StatelessWidget {
       ),
     );
   }
+
+  Widget _placeholder(BuildContext context, {Key? key}) => Container(
+    key: key,
+    color: context.theme.colors.muted,
+    child: Icon(Icons.music_note, color: context.theme.colors.mutedForeground),
+  );
 }

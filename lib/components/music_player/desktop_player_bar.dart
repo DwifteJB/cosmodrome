@@ -2,6 +2,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:just_audio/just_audio.dart';
@@ -279,7 +280,9 @@ class _SeekRowState extends State<_SeekRow> {
             SizedBox(
               width: 40,
               child: Text(
-                widget.enabled ? _fmt(shownPosition) : '0:00',
+                widget.enabled
+                    ? formatTrackDuration(shownPosition.inSeconds)
+                    : '0:00',
                 style: timeStyle,
                 textAlign: TextAlign.right,
               ),
@@ -311,7 +314,9 @@ class _SeekRowState extends State<_SeekRow> {
             SizedBox(
               width: 40,
               child: Text(
-                widget.enabled ? _fmt(player.duration) : '0:00',
+                widget.enabled
+                    ? formatTrackDuration(player.duration.inSeconds)
+                    : '0:00',
                 style: timeStyle,
               ),
             ),
@@ -319,12 +324,6 @@ class _SeekRowState extends State<_SeekRow> {
         );
       },
     );
-  }
-
-  static String _fmt(Duration d) {
-    final m = d.inMinutes;
-    final s = d.inSeconds % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
 

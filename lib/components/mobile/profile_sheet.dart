@@ -43,150 +43,128 @@ class _ProfileSheetState extends State<ProfileSheet> {
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
-        child: Consumer<SubsonicProvider>(
-          builder: (context, value, child) => Column(
-            children: [
-              // only show on mobile
-              if (isMobile(context))
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 12),
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: colors.border,
-                      borderRadius: BorderRadius.circular(2),
+        child: Column(
+          children: [
+            // only show on mobile
+            if (isMobile(context))
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(height: 16),
+
+            // header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
+              child: Row(
+                children: [
+                  Text(
+                    'Accounts',
+                    style: context.theme.typography.xl.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: colors.foreground,
                     ),
                   ),
-                )
-              else
-                const SizedBox(height: 16),
-
-              // header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
-                child: Row(
-                  children: [
-                    Text(
-                      'Accounts',
-                      style: context.theme.typography.xl.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colors.foreground,
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        FIcons.x,
+                        size: 20,
+                        color: colors.mutedForeground,
                       ),
                     ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Icon(
-                          FIcons.x,
-                          size: 20,
-                          color: colors.mutedForeground,
+                  ),
+                ],
+              ),
+            ),
+            // profile card
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: activeAccount != null
+                  ? _buildActiveProfileCard(context, activeAccount, colors)
+                  : _buildNoAccountPill(context, colors),
+            ),
+            // content
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 32),
+                children: [
+                  Container(height: 1, color: context.theme.colors.border),
+                  _buildSectionHeader(
+                    context,
+                    'Profiles',
+                    _profilesExpanded,
+                    () =>
+                        setState(() => _profilesExpanded = !_profilesExpanded),
+                  ),
+                  _buildCollapsible(_profilesExpanded, [
+                    ...accountsByServer.entries.map(
+                      (entry) => _buildServerGroup(
+                        context,
+                        entry.key,
+                        entry.value,
+                        provider,
+                      ),
+                    ),
+                    _buildAddButton(context, 'Add Account', () {
+                      context.push('/adduser');
+                    }),
+                  ]),
+                  const SizedBox(height: 8),
+                  Container(height: 1, color: context.theme.colors.border),
+                  _buildSectionHeader(
+                    context,
+                    'Servers',
+                    _serversExpanded,
+                    () => setState(() => _serversExpanded = !_serversExpanded),
+                  ),
+                  _buildCollapsible(_serversExpanded, [
+                    ...provider.knownServers.map(
+                      (server) => _buildServerRow(context, server),
+                    ),
+                    _buildAddButton(context, 'Add Server', () {
+                      context.push('/addserver');
+                    }),
+                  ]),
+                  // clear cache button
+                  if (activeAccount != null) ...[
+                    const SizedBox(height: 12),
+                    _buildNormalButton(context, 'Clear Cache', () async {
+                      await provider.deleteCacheForActiveAccount();
+
+                      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                        const SnackBar(
+                          content: Text('Cache cleared'),
+                          duration: Duration(seconds: 3),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // profile card
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                child: activeAccount != null
-                    ? _buildActiveProfileCard(context, activeAccount, colors)
-                    : _buildNoAccountPill(context, colors),
-              ),
-              // content
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.only(bottom: 32),
-                  children: [
-                    Container(height: 1, color: context.theme.colors.border),
-                    _buildSectionHeader(
-                      context,
-                      'Profiles',
-                      _profilesExpanded,
-                      () => setState(
-                        () => _profilesExpanded = !_profilesExpanded,
-                      ),
-                    ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      child: _profilesExpanded
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                ...accountsByServer.entries.map(
-                                  (entry) => _buildServerGroup(
-                                    context,
-                                    entry.key,
-                                    entry.value,
-                                    provider,
-                                  ),
-                                ),
-                                _buildAddButton(context, 'Add Account', () {
-                                  context.push('/adduser');
-                                }),
-                              ],
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(height: 1, color: context.theme.colors.border),
-                    _buildSectionHeader(
-                      context,
-                      'Servers',
-                      _serversExpanded,
-                      () =>
-                          setState(() => _serversExpanded = !_serversExpanded),
-                    ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      child: _serversExpanded
-                          ? Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                ...provider.knownServers.map(
-                                  (server) => _buildServerRow(context, server),
-                                ),
-                                _buildAddButton(context, 'Add Server', () {
-                                  context.push('/addserver');
-                                }),
-                              ],
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    // clear cache button
-                    if (activeAccount != null) ...[
-                      const SizedBox(height: 12),
-                      _buildNormalButton(context, 'Clear Cache', () async {
-                        await provider.deleteCacheForActiveAccount();
+                      );
 
-                        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                          const SnackBar(
-                            content: Text('Cache cleared'),
-                            duration: Duration(seconds: 3),
-                          ),
-                        );
-
-                        // change active account to trigger a refresh of all data and UI
-                        final currentId = provider.activeAccount?.id;
-                        provider.switchAccount("none");
-                        // switch back after a short delay to ensure all listeners have reacted to the change
-                        Future.delayed(const Duration(milliseconds: 100), () {
-                          if (currentId != null) {
-                            provider.switchAccount(currentId);
-                          }
-                        });
-                      }),
-                    ],
+                      // change active account to trigger a refresh of all data and UI
+                      final currentId = provider.activeAccount?.id;
+                      provider.switchAccount("none");
+                      // switch back after a short delay to ensure all listeners have reacted to the change
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (currentId != null) {
+                          provider.switchAccount(currentId);
+                        }
+                      });
+                    }),
                   ],
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -209,7 +187,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
   Widget _buildActiveProfileCard(
     BuildContext context,
     SubsonicAccount account,
-    dynamic colors,
+    FColors colors,
   ) {
     final provider = context.read<SubsonicProvider>();
     final server = provider.knownServers.firstWhere(
@@ -276,6 +254,19 @@ class _ProfileSheetState extends State<ProfileSheet> {
     );
   }
 
+  Widget _buildCollapsible(bool expanded, List<Widget> children) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: expanded
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
   Widget _buildAddButton(
     BuildContext context,
     String label,
@@ -298,7 +289,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
     );
   }
 
-  Widget _buildNoAccountPill(BuildContext context, dynamic colors) {
+  Widget _buildNoAccountPill(BuildContext context, FColors colors) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -416,12 +407,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
             direction: DismissDirection.endToStart,
             onDismissed: (_) => provider.removeAccount(account.id),
             background: const SizedBox.shrink(),
-            secondaryBackground: Container(
-              alignment: Alignment.centerRight,
-              padding: const EdgeInsets.only(right: 24),
-              color: Colors.red,
-              child: const Icon(FIcons.trash2, color: Colors.white, size: 20),
-            ),
+            secondaryBackground: _deleteBackground,
             child: GestureDetector(
               onTap: () {
                 provider.switchAccount(account.id);
@@ -490,48 +476,13 @@ class _ProfileSheetState extends State<ProfileSheet> {
   }
 
   void _openEditAccountSheet(BuildContext context, SubsonicAccount account) {
-    showFSheet(
-      context: context,
-      side: FLayout.btt,
-      mainAxisMaxRatio: 0.75,
-      builder: (sheetCtx) => Material(
-        color: const Color(0xFF101012),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        clipBehavior: Clip.antiAlias,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).dividerColor,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                Text(
-                  'Edit Account',
-                  style: sheetCtx.theme.typography.xl.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: sheetCtx.theme.colors.foreground,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AddUserForm(
-                  initialAccount: account,
-                  onSuccess: () => Navigator.pop(sheetCtx),
-                  onCancel: () => Navigator.pop(sheetCtx),
-                ),
-              ],
-            ),
-          ),
-        ),
+    _openFormSheet(
+      context,
+      'Edit Account',
+      (sheetCtx) => AddUserForm(
+        initialAccount: account,
+        onSuccess: () => Navigator.pop(sheetCtx),
+        onCancel: () => Navigator.pop(sheetCtx),
       ),
     );
   }
@@ -546,12 +497,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
       onDismissed: (_) =>
           context.read<SubsonicProvider>().removeKnownServer(server.baseUrl),
       background: const SizedBox.shrink(),
-      secondaryBackground: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: Colors.red,
-        child: const Icon(FIcons.trash2, color: Colors.white, size: 20),
-      ),
+      secondaryBackground: _deleteBackground,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
         child: Row(
@@ -608,6 +554,22 @@ class _ProfileSheetState extends State<ProfileSheet> {
   }
 
   void _openEditServerSheet(BuildContext context, SubsonicServer server) {
+    _openFormSheet(
+      context,
+      'Edit Server',
+      (sheetCtx) => AddServerForm(
+        initialServer: server,
+        onSuccess: (_) => Navigator.pop(sheetCtx),
+        onCancel: () => Navigator.pop(sheetCtx),
+      ),
+    );
+  }
+
+  void _openFormSheet(
+    BuildContext context,
+    String title,
+    Widget Function(BuildContext sheetCtx) formBuilder,
+  ) {
     showFSheet(
       context: context,
       side: FLayout.btt,
@@ -634,18 +596,14 @@ class _ProfileSheetState extends State<ProfileSheet> {
                   ),
                 ),
                 Text(
-                  'Edit Server',
+                  title,
                   style: sheetCtx.theme.typography.xl.copyWith(
                     fontWeight: FontWeight.bold,
                     color: sheetCtx.theme.colors.foreground,
                   ),
                 ),
                 const SizedBox(height: 20),
-                AddServerForm(
-                  initialServer: server,
-                  onSuccess: (_) => Navigator.pop(sheetCtx),
-                  onCancel: () => Navigator.pop(sheetCtx),
-                ),
+                formBuilder(sheetCtx),
               ],
             ),
           ),
@@ -691,3 +649,14 @@ class _ProfileSheetState extends State<ProfileSheet> {
     return connected ? 'Connected' : 'Cannot connect';
   }
 }
+
+const _deleteBackground = ColoredBox(
+  color: Colors.red,
+  child: Padding(
+    padding: EdgeInsets.only(right: 24),
+    child: Align(
+      alignment: Alignment.centerRight,
+      child: Icon(FIcons.trash2, color: Colors.white, size: 20),
+    ),
+  ),
+);

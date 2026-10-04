@@ -57,3 +57,18 @@ String errorToSensibleNames(SubsonicError error) {
       return 'Data not found';
   }
 }
+
+/// Thrown when the server answers with `status: failed`.
+class SubsonicApiException implements Exception {
+  final String endpoint;
+  final int code;
+  final String? serverMessage;
+
+  SubsonicApiException(this.endpoint, this.code, this.serverMessage);
+
+  SubsonicError get error => getErrorFromCode(code);
+
+  @override
+  String toString() =>
+      'Subsonic API error from $endpoint: ${errorToSensibleNames(error)} ($serverMessage)';
+}

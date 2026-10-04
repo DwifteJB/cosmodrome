@@ -103,9 +103,9 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
   }
 
   void _addRecent(RecentSearch search) {
-    final provider = context.read<SubsonicProvider>();
-    if (provider.activeAccount == null) return;
-    offlineCacheService.addRecentSearch(provider.activeAccount!.id, search);
+    final account = context.read<SubsonicProvider>().activeAccount;
+    if (account == null) return;
+    offlineCacheService.addRecentSearch(account.id, search);
   }
 
   @override
@@ -164,19 +164,19 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
                   const _SectionHeader('Albums'),
                   ...result.albums
                       .take(_perSection)
-                      .map((album) => _resultRow(context, album: album)),
+                      .map((album) => _albumRow(context, album)),
                 ],
                 if (result.artists.isNotEmpty) ...[
                   const _SectionHeader('Artists'),
                   ...result.artists
                       .take(_perSection)
-                      .map((artist) => _resultRow(context, artist: artist)),
+                      .map((artist) => _artistRow(context, artist)),
                 ],
                 if (result.songs.isNotEmpty) ...[
                   const _SectionHeader('Songs'),
                   ...result.songs
                       .take(_perSection)
-                      .map((song) => _resultRow(context, song: song)),
+                      .map((song) => _songRow(context, song)),
                 ],
               ] else if (!_loading && result != null) ...[
                 Padding(
@@ -211,24 +211,13 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
     );
   }
 
-  Widget _resultRow(
-    BuildContext context, {
-    SearchAlbum? album,
-    SearchArtist? artist,
-    SearchSong? song,
-  }) {
-    final subsonic = context.read<SubsonicProvider>().subsonic;
-
-    late final String artId;
-    late final String title;
-    late final String subtitle;
-    VoidCallback? onTap;
-
-    if (album != null) {
-      artId = album.coverArt;
-      title = album.name;
-      subtitle = album.artist;
-      onTap = () {
+  Widget _albumRow(BuildContext context, SearchAlbum album) {
+    return _resultRow(
+      context,
+      artId: album.coverArt,
+      title: album.name,
+      subtitle: album.artist,
+      onTap: () {
         _addRecent(
           RecentSearch(
             id: album.id,
@@ -240,19 +229,31 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
         );
         _popover.hide();
         GoRouter.of(context).push('/library/album/${album.id}');
-      };
-    } else if (artist != null) {
-      artId = artist.coverArt;
-      title = artist.name;
-      subtitle = 'Artist';
-      onTap = null; // artist navigation disabled (parity with mobile search)
-    } else {
-      artId = song!.coverArt;
-      title = song.title;
-      subtitle = song.album.isNotEmpty
+      },
+    );
+  }
+
+  Widget _artistRow(BuildContext context, SearchArtist artist) {
+    return _resultRow(
+      context,
+      artId: artist.coverArt,
+      title: artist.name,
+      subtitle: 'Artist',
+      onTap: null, // artist navigation disabled (parity with mobile search)
+      isArtist: true,
+    );
+  }
+
+  Widget _songRow(BuildContext context, SearchSong song) {
+    final subsonic = context.read<SubsonicProvider>().subsonic;
+    return _resultRow(
+      context,
+      artId: song.coverArt,
+      title: song.title,
+      subtitle: song.album.isNotEmpty
           ? '${song.artist} • ${song.album}'
-          : song.artist;
-      onTap = () async {
+          : song.artist,
+      onTap: () async {
         _popover.hide();
         final full = await subsonic.getSong(song.id);
         if (full != null && mounted) {
@@ -267,10 +268,19 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
           );
           context.read<PlayerProvider>().playNow(full);
         }
-      };
-    }
+      },
+    );
+  }
 
-    final isArtist = artist != null;
+  Widget _resultRow(
+    BuildContext context, {
+    required String artId,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+    bool isArtist = false,
+  }) {
+    final subsonic = context.read<SubsonicProvider>().subsonic;
 
     return TapArea(
       onTap: onTap,
@@ -281,9 +291,7 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(
-                  isArtist ? 22 : 8,
-                ),
+                borderRadius: BorderRadius.circular(isArtist ? 22 : 8),
                 child: Image(
                   image: coverArtProvider(
                     subsonic.cachedCoverArtUrl(artId, size: 100),

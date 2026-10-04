@@ -91,14 +91,12 @@ class _QueueSheetState extends State<QueueSheet> {
                     key: const Key('queue_list'),
                     buildDefaultDragHandles: false,
                     itemCount: queue.length,
-                    onReorderItem: (oldIndex, newIndex) {
-                      if (oldIndex == 0) return;
-                      final target = newIndex < 1 ? 1 : newIndex;
-                      player.reorderQueue(
-                        oldIndex + queueOffset,
-                        (target > oldIndex ? target + 1 : target) + queueOffset,
-                      );
-                    },
+                    onReorderItem: (oldIndex, newIndex) => reorderVisibleQueue(
+                      player,
+                      oldIndex,
+                      newIndex,
+                      queueOffset,
+                    ),
                     itemBuilder: (context, index) {
                       final song = queue[index];
                       final absoluteIndex = queueOffset + index;
@@ -209,18 +207,12 @@ class _QueueSheetState extends State<QueueSheet> {
     _getAllCoverUrls(player.queue, player);
   }
 
-  @override
-  void initState() {
-    super.initState();
-    final player = Provider.of<PlayerProvider>(context, listen: false);
-    _getAllCoverUrls(player.queue, player);
-  }
-
   void _getAllCoverUrls(List<Song> songs, PlayerProvider player) {
     for (final song in songs) {
-      if (!_idToCoverUrlCache.containsKey(song.id)) {
-        _idToCoverUrlCache[song.id] = player.coverArtUrlForSong(song) ?? '';
-      }
+      _idToCoverUrlCache.putIfAbsent(
+        song.id,
+        () => player.coverArtUrlForSong(song) ?? '',
+      );
     }
   }
 }

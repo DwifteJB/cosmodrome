@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cosmodrome/components/album_card.dart';
 import 'package:cosmodrome/components/home/featured_spotlight.dart';
@@ -308,9 +309,7 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
     }
 
     if (widget.isOffline && _section.loadCached != null) {
-      if (generation == _loadGeneration && mounted && _loading) {
-        setState(() => _loading = false);
-      }
+      _stopLoading(generation);
       return;
     }
 
@@ -322,9 +321,13 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
         unawaited(_section.saveCached!(accountId, fresh));
       }
     } catch (_) {
-      if (generation == _loadGeneration && mounted && _loading) {
-        setState(() => _loading = false);
-      }
+      _stopLoading(generation);
+    }
+  }
+
+  void _stopLoading(int generation) {
+    if (generation == _loadGeneration && mounted && _loading) {
+      setState(() => _loading = false);
     }
   }
 
@@ -383,9 +386,7 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
       accountId: widget.accountId,
       isOffline: widget.isOffline,
     );
-    final rows = items.length < _section.rowsPerColumn
-        ? items.length
-        : _section.rowsPerColumn;
+    final rows = min(items.length, _section.rowsPerColumn);
     final columnCount = (items.length / rows).ceil();
 
     final list = SizedBox(

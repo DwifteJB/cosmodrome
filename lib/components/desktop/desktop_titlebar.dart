@@ -44,13 +44,7 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onPanStart: (_) => windowManager.startDragging(),
-              onDoubleTap: () async {
-                if (await windowManager.isMaximized()) {
-                  windowManager.unmaximize();
-                } else {
-                  windowManager.maximize();
-                }
-              },
+              onDoubleTap: _toggleMaximize,
             ),
           ),
 
@@ -96,13 +90,7 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
                   DesktopWindowButton(
                     icon: _isMaximized ? FIcons.copy : FIcons.square,
                     iconSize: 14,
-                    onPressed: () async {
-                      if (await windowManager.isMaximized()) {
-                        windowManager.unmaximize();
-                      } else {
-                        windowManager.maximize();
-                      }
-                    },
+                    onPressed: _toggleMaximize,
                     hoverColor: theme.colors.secondary,
                   ),
                   DesktopWindowButton(
@@ -142,6 +130,14 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
   @override
   void onWindowUnmaximize() {
     setState(() => _isMaximized = false);
+  }
+
+  Future<void> _toggleMaximize() async {
+    if (await windowManager.isMaximized()) {
+      windowManager.unmaximize();
+    } else {
+      windowManager.maximize();
+    }
   }
 
   Future<void> _init() async {

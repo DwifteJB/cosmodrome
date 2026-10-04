@@ -15,19 +15,11 @@ class RpcBridge extends ChangeNotifier {
   static final bool _kIsDesktop =
       !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
   Process? _process;
-  bool _connected = false;
-
-  String? _connectedUser;
-  Timer? _debounce;
   String? _lastSongId;
   bool? _lastIsPlaying;
   bool _lastSendHadZeroDuration = false;
   final Map<String, String> _coverBase64Cache =
       {}; // coverArtId -> base64-encoded image (remote or local)
-  String? get connectedUser => _connectedUser;
-
-  bool get isConnected => _connected;
-
   String get _executableName =>
       Platform.isWindows ? 'cosmodrome-rpc.exe' : 'cosmodrome-rpc';
 
@@ -60,7 +52,6 @@ class RpcBridge extends ChangeNotifier {
       }
 
       loggerPrint('Attempting to launch RPC bridge at ${bin.path}');
-      if (!bin.existsSync()) return;
 
       _process = await Process.start(
         bin.path,
@@ -78,19 +69,14 @@ class RpcBridge extends ChangeNotifier {
     }
   }
 
-  // update is a bit weird for a setactivity :shrug:
-  void setActivity(PlayerProvider player) => update(player);
-
   // sends a stop message and kills the subprocess
   Future<void> shutdown() async {
-    _debounce?.cancel();
     if (_process == null) return;
     _write({'type': 'STOP'});
     // waits for it to be cleaned up, if it still exists, KILL it.
     await Future.delayed(const Duration(milliseconds: 1000));
     _process?.kill();
     _process = null;
-    _connected = false;
   }
 
   // called by player provider listener. updates status
@@ -108,7 +94,6 @@ class RpcBridge extends ChangeNotifier {
 
     // song has changed, we should update!
     if (songChanged || stateChanged || durationReady) {
-      _debounce?.cancel();
       _doSend(song, player, playing);
     }
   }
@@ -125,22 +110,16 @@ class RpcBridge extends ChangeNotifier {
       return;
     }
 
-    String coverBase64 = '';
     final artId = song.coverArt ?? '';
-    if (artId.isNotEmpty) {
-      if (_coverBase64Cache.containsKey(artId)) {
-        coverBase64 = _coverBase64Cache[artId]!;
-      } else {
-        final candidate = player.currentCoverArtUrl;
-        if (candidate != null && candidate.isNotEmpty) {
-          final bytes = await _loadCoverBytes(candidate);
-          if (bytes != null && bytes.isNotEmpty) {
-            coverBase64 = base64Encode(bytes);
-            if (coverBase64.isNotEmpty) {
-              _coverBase64Cache[artId] = coverBase64;
-            }
-          }
-        }
+    var coverBase64 = _coverBase64Cache[artId] ?? '';
+    final candidate = player.currentCoverArtUrl;
+    if (artId.isNotEmpty &&
+        coverBase64.isEmpty &&
+        candidate != null &&
+        candidate.isNotEmpty) {
+      final bytes = await _loadCoverBytes(candidate);
+      if (bytes != null && bytes.isNotEmpty) {
+        coverBase64 = _coverBase64Cache[artId] = base64Encode(bytes);
       }
     }
 
@@ -166,18 +145,16 @@ class RpcBridge extends ChangeNotifier {
 
   String? _getExecutablePath() {
     final candidates = <String>[];
+    final exeDir = p.dirname(Platform.resolvedExecutable);
 
     if (Platform.isWindows) {
-      final exeDir = p.dirname(Platform.resolvedExecutable);
       candidates.addAll([
         p.join(exeDir, _executableName),
         p.join(exeDir, 'data', 'flutter_assets', 'assets', _executableName),
         p.join(exeDir, 'bin', _executableName),
       ]);
     } else if (Platform.isMacOS) {
-      final exeDir = p.dirname(
-        Platform.resolvedExecutable,
-      ); // same as Contents/MacOS/
+      // exeDir is the same as Contents/MacOS/
       final resourcesDir = p.join(
         exeDir,
         '..',
@@ -190,7 +167,6 @@ class RpcBridge extends ChangeNotifier {
         '/Applications/cosmodrome.app/Contents/MacOS/$_executableName',
       ]);
     } else if (Platform.isLinux) {
-      final exeDir = p.dirname(Platform.resolvedExecutable);
       candidates.addAll([
         p.join(exeDir, _executableName),
         p.join(exeDir, 'lib', _executableName),
@@ -200,42 +176,11 @@ class RpcBridge extends ChangeNotifier {
       ]);
     }
 
-    for (final path in candidates) {
-      if (File(path).existsSync()) {
-        return path;
-      }
-    }
-
-    return null;
+    return candidates.where((path) => File(path).existsSync()).firstOrNull;
   }
 
-  void _onOutput(String line) {
-    try {
-      final data = jsonDecode(line) as Map<String, dynamic>;
-      final type = data['type'] as String?;
-
-      loggerPrint('[rpc:bridge]: $data');
-      switch (type) {
-        case 'CONNECTED':
-        case 'RECONNECTED':
-          _connected = true;
-          _connectedUser = data['user'] as String?;
-          notifyListeners();
-          break;
-        case 'DISCONNECTED':
-          _connected = false;
-          _connectedUser = null;
-          notifyListeners();
-          break;
-        case 'ERROR':
-          _connected = false;
-          notifyListeners();
-          break;
-        default:
-          break;
-      }
-    } catch (_) {}
-  }
+  // the bridge only reports connection status, which nothing consumes yet, so just log it
+  void _onOutput(String line) => loggerPrint('[rpc:bridge]: $line');
 
   Future<List<int>?> _loadCoverBytes(String candidate) async {
     final parsed = Uri.tryParse(candidate);
@@ -269,16 +214,8 @@ class RpcBridge extends ChangeNotifier {
 
   File? _resolveLocalImageFile(String candidate) {
     final parsed = Uri.tryParse(candidate);
-    if (parsed == null) return File(candidate);
-
-    if (parsed.scheme == 'file') {
-      return File.fromUri(parsed);
-    }
-
-    if (parsed.scheme.isEmpty) {
-      return File(candidate);
-    }
-
+    if (parsed == null || parsed.scheme.isEmpty) return File(candidate);
+    if (parsed.scheme == 'file') return File.fromUri(parsed);
     return null;
   }
 

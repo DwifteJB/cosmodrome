@@ -44,12 +44,13 @@ class _AccentGradientLayerState extends State<_AccentGradientLayer> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = _accentColor;
     return IgnorePointer(
       child: AnimatedOpacity(
         opacity: _accentVisible ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 700),
         curve: Curves.easeIn,
-        child: _accentColor == null
+        child: accent == null
             ? const SizedBox.expand()
             : Container(
                 decoration: BoxDecoration(
@@ -57,8 +58,8 @@ class _AccentGradientLayerState extends State<_AccentGradientLayer> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      _accentColor!.withValues(alpha: 0.55),
-                      _accentColor!.withValues(alpha: 0.30),
+                      accent.withValues(alpha: 0.55),
+                      accent.withValues(alpha: 0.30),
                       widget.backgroundColor.withValues(alpha: 0.0),
                     ],
                     stops: const [0.0, 0.15, 1.0],
@@ -153,28 +154,26 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
     );
 
     final floatingNav = Consumer<PlayerProvider>(
-      builder: (_, player, _) {
-        return AnimatedBuilder(
-          animation: _aniu,
-          builder: (_, _) {
-            final collapsed = _aniu.value > 0.3;
-            return Row(
-              children: [
-                _buildNavPill(context, collapsed: collapsed),
-                Expanded(
-                  child: player.hasCurrentSong && collapsed
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          child: MiniPlayer(),
-                        )
-                      : const SizedBox.shrink(),
-                ),
-                _buildSearchPill(context),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_, player, _) => AnimatedBuilder(
+        animation: _aniu,
+        builder: (_, _) {
+          final collapsed = _aniu.value > 0.3;
+          return Row(
+            children: [
+              _buildNavPill(context, collapsed: collapsed),
+              Expanded(
+                child: player.hasCurrentSong && collapsed
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: MiniPlayer(),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              _buildSearchPill(context),
+            ],
+          );
+        },
+      ),
     );
 
     return ColoredBox(
@@ -330,7 +329,8 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
     );
   }
 
-  Widget _buildNavPill(BuildContext context, {required bool collapsed}) {
+  // frosted rounded container shared by the floating pills
+  Widget _buildGlassPill(BuildContext context, {required Widget child}) {
     final colors = context.theme.colors;
 
     return Container(
@@ -346,81 +346,70 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
           sigmaY: 12,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () =>
-                      context.canPop() ? context.pop() : context.go('/home'),
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      FIcons.house,
-                      size: 24,
-                      color: colors.mutedForeground,
-                    ),
-                  ),
-                ),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: collapsed ? 0.0 : 1.0,
-                    child: collapsed
-                        ? const SizedBox.shrink()
-                        : GestureDetector(
-                            onTap: () => context.go('/library'),
-                            behavior: HitTestBehavior.opaque,
-                            child: Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Icon(
-                                FIcons.library,
-                                size: 24,
-                                color: colors.mutedForeground,
-                              ),
-                            ),
-                          ),
-                  ),
-                ),
-              ],
-            ),
+            child: child,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSearchPill(BuildContext context) {
-    final colors = context.theme.colors;
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: colors.border, width: 1),
-        borderRadius: BorderRadius.circular(28),
-        color: colors.background.withValues(alpha: 0.55),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: _buildBlurContainer(
-          sigmaX: 12,
-          sigmaY: 12,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: GestureDetector(
-              onTap: () => context.go('/search'),
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Icon(
-                  FIcons.search,
-                  size: 24,
-                  color: colors.mutedForeground,
-                ),
-              ),
+  Widget _buildNavPill(BuildContext context, {required bool collapsed}) {
+    return _buildGlassPill(
+      context,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildPillIconButton(
+            context,
+            FIcons.house,
+            onTap: () => _goBack(context),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeInOut,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: collapsed ? 0.0 : 1.0,
+              child: collapsed
+                  ? const SizedBox.shrink()
+                  : _buildPillIconButton(
+                      context,
+                      FIcons.library,
+                      onTap: () => context.go('/library'),
+                    ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillIconButton(
+    BuildContext context,
+    IconData icon, {
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Icon(
+          icon,
+          size: 24,
+          color: context.theme.colors.mutedForeground,
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchPill(BuildContext context) {
+    return _buildGlassPill(
+      context,
+      child: _buildPillIconButton(
+        context,
+        FIcons.search,
+        onTap: () => context.go('/search'),
       ),
     );
   }
@@ -443,8 +432,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             GestureDetector(
-              onTap: () =>
-                  context.canPop() ? context.pop() : context.go('/home'),
+              onTap: () => _goBack(context),
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
@@ -472,9 +460,10 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
               child: ValueListenableBuilder<LayoutConfig>(
                 valueListenable: layoutConfig,
                 builder: (_, config, _) {
-                  if (config.title == null) return const SizedBox.shrink();
+                  final title = config.title;
+                  if (title == null) return const SizedBox.shrink();
                   return Text(
-                    config.title!,
+                    title,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
@@ -535,6 +524,9 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
       ),
     );
   }
+
+  void _goBack(BuildContext context) =>
+      context.canPop() ? context.pop() : context.go('/home');
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;

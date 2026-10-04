@@ -40,22 +40,18 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
     }
   }
 
-  Future<void> _clearAccount(String accountId) async {
+  Future<void> _clear(Iterable<String> accountIds) async {
     setState(() => _clearing = true);
-    await offlineCacheService.clearCacheForAccount(accountId);
-    await _loadSizes();
-    setState(() => _clearing = false);
-  }
-
-  Future<void> _clearAll() async {
-    setState(() => _clearing = true);
-    final provider = context.read<SubsonicProvider>();
-    for (final account in provider.accounts) {
-      await offlineCacheService.clearCacheForAccount(account.id);
+    for (final id in accountIds) {
+      await offlineCacheService.clearCacheForAccount(id);
     }
     await _loadSizes();
     setState(() => _clearing = false);
   }
+
+  Future<void> _clearAll() => _clear(
+    context.read<SubsonicProvider>().accounts.map((account) => account.id),
+  );
 
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
@@ -65,6 +61,12 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
     }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
+
+  Widget _spinner(double size, Color color) => SizedBox(
+    width: size,
+    height: size,
+    child: CircularProgressIndicator(strokeWidth: 2, color: color),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -144,14 +146,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
                       ),
                       const Spacer(),
                       _loading
-                          ? SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: colors.mutedForeground,
-                              ),
-                            )
+                          ? _spinner(14, colors.mutedForeground)
                           : Text(
                               _formatBytes(totalBytes),
                               style: context.theme.typography.sm.copyWith(
@@ -229,14 +224,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
                             ),
                             const SizedBox(width: 12),
                             _loading
-                                ? SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: colors.mutedForeground,
-                                    ),
-                                  )
+                                ? _spinner(12, colors.mutedForeground)
                                 : Text(
                                     _formatBytes(bytes),
                                     style: context.theme.typography.xs.copyWith(
@@ -249,7 +237,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
                               variant: FButtonVariant.outline,
                               onPress: _clearing
                                   ? null
-                                  : () => _clearAccount(account.id),
+                                  : () => _clear([account.id]),
                               child: const Text('Clear'),
                             ),
                           ],
@@ -266,14 +254,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
                     variant: FButtonVariant.destructive,
                     onPress: _clearing || _loading ? null : _clearAll,
                     child: _clearing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                        ? _spinner(16, Colors.white)
                         : const Text('Clear All Cache'),
                   ),
                 ],

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:cosmodrome/services/local_storage_backend.dart';
-import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
 class IoLocalStorageBackend implements LocalStorageBackend {
@@ -12,15 +11,13 @@ class IoLocalStorageBackend implements LocalStorageBackend {
     return _basePath!;
   }
 
+  static const _accountSubdirs = ['songs', 'cached-images', 'cache'];
+
   @override
   Future<int> accountStorageBytes(String accountId) async {
     var total = 0;
-    final roots = [
-      Directory('$_base/$accountId/songs'),
-      Directory('$_base/$accountId/cached-images'),
-      Directory('$_base/$accountId/cache'),
-    ];
-    for (final dir in roots) {
+    for (final subdir in _accountSubdirs) {
+      final dir = Directory('$_base/$accountId/$subdir');
       if (!await dir.exists()) continue;
 
       await for (final entity in dir.list(recursive: true)) {
@@ -36,12 +33,6 @@ class IoLocalStorageBackend implements LocalStorageBackend {
   @override
   String coverImageRef(String accountId, String imageId, String extension) =>
       '$_base/$accountId/cached-images/$imageId.$extension';
-
-  @override
-  Future<Uri?> coverImageUri(String coverRef) async {
-    if (!await coverImageExists(coverRef)) return null;
-    return Uri.file(coverRef);
-  }
 
   @override
   Future<List<int>?> readCoverImageBytes(String coverRef) async {
@@ -63,16 +54,13 @@ class IoLocalStorageBackend implements LocalStorageBackend {
   }
 
   @override
-  Future<void> deleteCoverImage(String coverRef) async {
-    final file = File(coverRef);
-    if (await file.exists()) {
-      await file.delete();
-    }
-  }
+  Future<void> deleteCoverImage(String coverRef) => _deleteIfExists(coverRef);
 
   @override
-  Future<void> deleteSong(String songRef) async {
-    final file = File(songRef);
+  Future<void> deleteSong(String songRef) => _deleteIfExists(songRef);
+
+  Future<void> _deleteIfExists(String path) async {
+    final file = File(path);
     if (await file.exists()) {
       await file.delete();
     }
@@ -80,9 +68,9 @@ class IoLocalStorageBackend implements LocalStorageBackend {
 
   @override
   Future<void> ensureDirs(String accountId) async {
-    await Directory('$_base/$accountId/songs').create(recursive: true);
-    await Directory('$_base/$accountId/cache').create(recursive: true);
-    await Directory('$_base/$accountId/cached-images').create(recursive: true);
+    for (final subdir in _accountSubdirs) {
+      await Directory('$_base/$accountId/$subdir').create(recursive: true);
+    }
   }
 
   @override
@@ -128,20 +116,14 @@ class IoLocalStorageBackend implements LocalStorageBackend {
       '$_base/$accountId/songs/$songId.$suffix';
 
   @override
-  Future<void> writeCoverImageBytes(String coverRef, List<int> bytes) async {
-    final file = File(coverRef);
-    await file.writeAsBytes(bytes, flush: true);
-  }
+  Future<void> writeCoverImageBytes(String coverRef, List<int> bytes) =>
+      File(coverRef).writeAsBytes(bytes, flush: true);
 
   @override
-  Future<void> writeMeta(String metaRef, String content) async {
-    final file = File(metaRef);
-    await file.writeAsString(content);
-  }
+  Future<void> writeMeta(String metaRef, String content) =>
+      File(metaRef).writeAsString(content);
 
   @override
-  Future<void> writeSongBytes(String songRef, List<int> bytes) async {
-    final file = File(songRef);
-    await file.writeAsBytes(bytes, flush: true);
-  }
+  Future<void> writeSongBytes(String songRef, List<int> bytes) =>
+      File(songRef).writeAsBytes(bytes, flush: true);
 }

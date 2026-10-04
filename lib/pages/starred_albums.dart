@@ -35,12 +35,18 @@ class _StarredAlbumsPageState extends State<StarredAlbumsPage>
       return const SizedBox(
         height: 200,
         child: Center(
-          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2.5,
+          ),
         ),
       );
     }
 
-    if (_albums == null || _albums!.isEmpty) return const NoContentView(contentType: 'starred albums');
+    final albums = _albums;
+    if (albums == null || albums.isEmpty) {
+      return const NoContentView(contentType: 'starred albums');
+    }
 
     final subsonic = context.read<SubsonicProvider>().subsonic;
 
@@ -51,7 +57,7 @@ class _StarredAlbumsPageState extends State<StarredAlbumsPage>
           spacing: 20,
           runSpacing: 28,
           alignment: WrapAlignment.center,
-          children: _albums!
+          children: albums
               .map((album) => AlbumCard(album: album, subsonic: subsonic))
               .toList(growable: false),
         ),
@@ -79,19 +85,25 @@ class _StarredAlbumsPageState extends State<StarredAlbumsPage>
 
     if (forceRefresh) setState(() => _loading = true);
 
-    final cachedRecent = await offlineCacheService.loadRecentAlbums(accountId);
+    final cachedStarred = await offlineCacheService.loadStarredAlbums(
+      accountId,
+    );
 
     if (provider.isOffline) {
-      if (mounted) setState(() { _albums = cachedRecent; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _albums = cachedStarred;
+          _loading = false;
+        });
+      }
       return;
     }
 
-    if (mounted && cachedRecent != null) {
-      setState(() { _albums = cachedRecent; _loading = false; });
-    }
-
     if (!mounted) return;
-    setState(() => _loading = _albums == null);
+    setState(() {
+      if (cachedStarred != null) _albums = cachedStarred;
+      _loading = _albums == null;
+    });
 
     try {
       final starred = await provider.subsonic.getAlbumList2(
@@ -102,9 +114,19 @@ class _StarredAlbumsPageState extends State<StarredAlbumsPage>
 
       await offlineCacheService.saveStarredAlbums(accountId, starred);
 
-      if (mounted) setState(() { _albums = starred; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _albums = starred;
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() { _albums = cachedRecent; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _albums = cachedStarred;
+          _loading = false;
+        });
+      }
       unawaited(provider.checkConnectivity());
     }
   }

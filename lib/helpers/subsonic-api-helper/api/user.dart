@@ -5,31 +5,14 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/subsonic-user.dart'
 import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 
-final Map<String, Uint8List> _avatarCache = {};
-
 final Expando<SubsonicUser> _currentUserCache = Expando<SubsonicUser>();
-
-SubsonicUser? _getCurrentUser(Subsonic subsonic) => _currentUserCache[subsonic];
-
-void _setCurrentUser(Subsonic subsonic, SubsonicUser user) {
-  _currentUserCache[subsonic] = user;
-}
 
 extension SubsonicUserApi on Subsonic {
   // https://www.subsonic.org/pages/api.jsp#getAvatar
   Future<Uint8List> getAvatar({String username = ''}) async {
     final grabUser = username.isEmpty ? auth.username : username;
-    if (_avatarCache.containsKey(grabUser)) {
-      loggerPrint('getAvatar: returning cached avatar for $grabUser');
-      return _avatarCache[grabUser]!;
-    }
     try {
-      final res = await bytesApiRequest(
-        'getAvatar',
-        params: {'username': grabUser},
-      );
-
-      return res;
+      return await bytesApiRequest('getAvatar', params: {'username': grabUser});
     } catch (e) {
       loggerPrint('getAvatar failed: $e');
       rethrow;
@@ -45,7 +28,7 @@ extension SubsonicUserApi on Subsonic {
 
     // if grabUser is current user and noCache is false, return cached user
     if (grabUser == auth.username && !noCache) {
-      final cachedUser = _getCurrentUser(this);
+      final cachedUser = _currentUserCache[this];
       if (cachedUser != null) {
         loggerPrint('getUser: returning cached user ${cachedUser.username}');
         return cachedUser;
@@ -59,7 +42,8 @@ extension SubsonicUserApi on Subsonic {
 
       final userJson = res['user'] as Map<String, dynamic>;
       final user = SubsonicUser.fromJson(userJson);
-      _setCurrentUser(this, user);
+      // only the logged in user is cached, other lookups would overwrite it
+      if (grabUser == auth.username) _currentUserCache[this] = user;
       return user;
     } catch (e) {
       loggerPrint('getUser failed: $e');

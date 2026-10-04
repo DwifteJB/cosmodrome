@@ -34,7 +34,13 @@ class MobileLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final topPadding = MediaQuery.of(context).padding.top;
+    final screenHeight = MediaQuery.of(context).size.height;
     const navHeight = 80.0;
+    final accent = accentColor;
+    final keyedChild = KeyedSubtree(
+      key: const ValueKey('mobile-child'),
+      child: child,
+    );
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -44,13 +50,13 @@ class MobileLayout extends StatelessWidget {
             top: 0,
             left: 0,
             right: 0,
-            height: topPadding + MediaQuery.of(context).size.height * 0.38,
+            height: topPadding + screenHeight * 0.38,
             child: IgnorePointer(
               child: AnimatedOpacity(
                 opacity: accentVisible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 700),
                 curve: Curves.easeIn,
-                child: accentColor == null
+                child: accent == null
                     ? const SizedBox.expand()
                     : Container(
                         decoration: BoxDecoration(
@@ -58,8 +64,8 @@ class MobileLayout extends StatelessWidget {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              accentColor!.withValues(alpha: 0.55),
-                              accentColor!.withValues(alpha: 0.30),
+                              accent.withValues(alpha: 0.55),
+                              accent.withValues(alpha: 0.30),
                               backgroundColor.withValues(alpha: 0.0),
                             ],
                             stops: const [0.0, 0.15, 1.0],
@@ -84,14 +90,11 @@ class MobileLayout extends StatelessWidget {
                       ConstrainedBox(
                         constraints: BoxConstraints(
                           minHeight:
-                              MediaQuery.of(context).size.height -
+                              screenHeight -
                               (topPadding + 20) -
                               (navHeight + bottomPadding),
                         ),
-                        child: KeyedSubtree(
-                          key: const ValueKey('mobile-child'),
-                          child: child,
-                        ),
+                        child: keyedChild,
                       ),
                       SizedBox(height: navHeight + bottomPadding + 60),
                     ],
@@ -100,12 +103,7 @@ class MobileLayout extends StatelessWidget {
               ),
             )
           else
-            Positioned.fill(
-              child: KeyedSubtree(
-                key: const ValueKey('mobile-child'),
-                child: child,
-              ),
-            ),
+            Positioned.fill(child: keyedChild),
           Positioned(
             left: 0,
             right: 0,

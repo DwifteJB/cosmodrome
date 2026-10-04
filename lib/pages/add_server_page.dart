@@ -5,20 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 
-class AddServerPage extends StatefulWidget {
+class AddServerPage extends StatelessWidget {
   final SubsonicServer? initialServer;
 
   const AddServerPage({super.key, this.initialServer});
 
   @override
-  State<AddServerPage> createState() => _AddServerPageState();
-}
-
-class _AddServerPageState extends State<AddServerPage> {
-  @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
-    final isEditing = widget.initialServer != null;
+    final isEditing = initialServer != null;
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -34,7 +29,7 @@ class _AddServerPageState extends State<AddServerPage> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: AddServerForm(
-                  initialServer: widget.initialServer,
+                  initialServer: initialServer,
                   onSuccess: (server) => context.pop(server),
                 ),
               ),

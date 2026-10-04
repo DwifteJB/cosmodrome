@@ -44,113 +44,65 @@ class DesktopLayout extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
                     children: [
-                      Expanded(
-                        child: Stack(
-                          clipBehavior: Clip.hardEdge,
+                      Positioned(
+                        top: -32,
+                        left: 0,
+                        right: 0,
+                        height: MediaQuery.of(context).size.height + 32,
+                        child: IgnorePointer(
+                          child: AnimatedOpacity(
+                            opacity: coverVisible ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 700),
+                            curve: Curves.easeIn,
+                            child: coverUrl == null
+                                ? const SizedBox.expand()
+                                : _CoverBackdrop(
+                                    coverUrl: coverUrl!,
+                                    backgroundColor: backgroundColor,
+                                  ),
+                          ),
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Positioned(
-                              top: -32,
-                              left: 0,
-                              right: 0,
-                              height:
-                                  MediaQuery.of(context).size.height * 1 + 32,
-                              child: IgnorePointer(
-                                child: AnimatedOpacity(
-                                  opacity: coverVisible ? 1.0 : 0.0,
-                                  duration: const Duration(milliseconds: 700),
-                                  curve: Curves.easeIn,
-                                  child: coverUrl == null
-                                      ? const SizedBox.expand()
-                                      : Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            ImageFiltered(
-                                              imageFilter: ImageFilter.blur(
-                                                sigmaX: 100,
-                                                sigmaY: 100,
-                                                tileMode: TileMode.clamp,
-                                              ),
-                                              child: Image(
-                                                image: coverArtProvider(
-                                                  coverUrl!,
-                                                ),
-                                                fit: BoxFit.cover,
-                                                colorBlendMode:
-                                                    BlendMode.overlay,
-                                              ),
-                                            ),
-                                            const DecoratedBox(
-                                              decoration: BoxDecoration(
-                                                color: Color(0x99000000),
-                                              ),
-                                            ),
-                                            DecoratedBox(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topCenter,
-                                                  end: Alignment.center,
-                                                  colors: [
-                                                    backgroundColor.withValues(
-                                                      alpha: 0.42,
-                                                    ),
-                                                    backgroundColor.withValues(
-                                                      alpha: 0.16,
-                                                    ),
-                                                  ],
-                                                  stops: const [0.0, 0.62],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                            topBar,
+                            Expanded(
+                              child: SingleChildScrollView(
+                                controller: scrollController,
+                                child: KeyedSubtree(
+                                  key: const ValueKey('desktop-child'),
+                                  child: child,
                                 ),
                               ),
-                            ),
-                            Positioned.fill(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  topBar,
-                                  Expanded(
-                                    child: SingleChildScrollView(
-                                      controller: scrollController,
-                                      child: KeyedSubtree(
-                                        key: const ValueKey('desktop-child'),
-                                        child: child,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IgnorePointer(
-                              ignoring: !queueOpen,
-                              child: AnimatedOpacity(
-                                opacity: queueOpen ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 220),
-                                child: GestureDetector(
-                                  onTap: onCloseQueue,
-                                  behavior: HitTestBehavior.opaque,
-                                  child: const ColoredBox(
-                                    color: Color(0x66000000),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            AnimatedPositioned(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOutCubic,
-                              top: 0,
-                              right: queueOpen ? 0 : -280,
-                              bottom: 0,
-                              width: 280,
-                              child: queuePanel,
                             ),
                           ],
                         ),
+                      ),
+                      IgnorePointer(
+                        ignoring: !queueOpen,
+                        child: AnimatedOpacity(
+                          opacity: queueOpen ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 220),
+                          child: GestureDetector(
+                            onTap: onCloseQueue,
+                            behavior: HitTestBehavior.opaque,
+                            child: const ColoredBox(color: Color(0x66000000)),
+                          ),
+                        ),
+                      ),
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        top: 0,
+                        right: queueOpen ? 0 : -280,
+                        bottom: 0,
+                        width: 280,
+                        child: queuePanel,
                       ),
                     ],
                   ),
@@ -161,6 +113,49 @@ class DesktopLayout extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Blurred, darkened album art shown behind the page content.
+class _CoverBackdrop extends StatelessWidget {
+  final String coverUrl;
+  final Color backgroundColor;
+
+  const _CoverBackdrop({required this.coverUrl, required this.backgroundColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(
+            sigmaX: 100,
+            sigmaY: 100,
+            tileMode: TileMode.clamp,
+          ),
+          child: Image(
+            image: coverArtProvider(coverUrl),
+            fit: BoxFit.cover,
+            colorBlendMode: BlendMode.overlay,
+          ),
+        ),
+        const DecoratedBox(decoration: BoxDecoration(color: Color(0x99000000))),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.center,
+              colors: [
+                backgroundColor.withValues(alpha: 0.42),
+                backgroundColor.withValues(alpha: 0.16),
+              ],
+              stops: const [0.0, 0.62],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

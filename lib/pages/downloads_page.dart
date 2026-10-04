@@ -5,39 +5,8 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
-import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/material.dart';
-import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
-
-void showDownloadsSheet(BuildContext context) {
-  if (isMobile(context)) {
-    showFSheet(
-      context: context,
-      side: FLayout.btt,
-      mainAxisMaxRatio: 0.92,
-      useSafeArea: true,
-      builder: (_) => const DownloadsSettingsPage(),
-    );
-  } else {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 60),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: const SizedBox(
-            width: 520,
-            height: 600,
-            child: DownloadsSettingsPage(),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _ActiveDownloadTile extends StatelessWidget {
   final SongDownload download;
@@ -45,88 +14,39 @@ class _ActiveDownloadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final song = download.songMeta;
     final pct = ((download.progress) * 100).round();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Row(
+    return _DownloadTile(
+      download: download,
+      details: [
+        const SizedBox(height: 6),
+        Row(
           children: [
-            _SongArt(song),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    song?.title ?? download.songId,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (song?.artist != null)
-                    Text(
-                      song!.artist!,
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: LinearProgressIndicator(
-                            value: download.progress,
-                            backgroundColor: const Color(0xFF2A2A2A),
-                            color: Colors.white,
-                            minHeight: 3,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$pct%',
-                        style: const TextStyle(
-                          color: Color(0xFF888888),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: download.progress,
+                  backgroundColor: const Color(0xFF2A2A2A),
+                  color: Colors.white,
+                  minHeight: 3,
+                ),
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => context.read<DownloadProvider>().cancelDownload(
-                download.songId,
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(Icons.close, size: 14, color: Colors.white54),
-              ),
+            Text(
+              '$pct%',
+              style: const TextStyle(color: Color(0xFF888888), fontSize: 11),
             ),
           ],
         ),
+      ],
+      action: _RoundIconButton(
+        icon: Icons.close,
+        padding: 6,
+        color: Colors.white54,
+        onTap: () =>
+            context.read<DownloadProvider>().cancelDownload(download.songId),
       ),
     );
   }
@@ -138,87 +58,28 @@ class _CompletedDownloadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final song = download.songMeta;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.circular(10),
+    return _DownloadTile(
+      download: download,
+      details: [
+        FutureBuilder<int>(
+          future: _fileSize(download.localPath),
+          builder: (_, snap) {
+            if (!snap.hasData || snap.data == 0) {
+              return const SizedBox.shrink();
+            }
+            return Text(
+              _formatBytes(snap.data!),
+              style: const TextStyle(color: Color(0xFF555555), fontSize: 11),
+            );
+          },
         ),
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            _SongArt(song),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    song?.title ?? download.songId,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (song?.artist != null)
-                    Text(
-                      song!.artist!,
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  FutureBuilder<int>(
-                    future: _fileSize(download.localPath),
-                    builder: (_, snap) {
-                      if (!snap.hasData || snap.data == 0) {
-                        return const SizedBox.shrink();
-                      }
-                      return Text(
-                        _formatBytes(snap.data!),
-                        style: const TextStyle(
-                          color: Color(0xFF555555),
-                          fontSize: 11,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () => context.read<DownloadProvider>().deleteDownload(
-                    download.songId,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.delete_outline_rounded,
-                      size: 14,
-                      color: Colors.redAccent,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+      ],
+      action: _RoundIconButton(
+        icon: Icons.delete_outline_rounded,
+        padding: 8,
+        color: Colors.redAccent,
+        onTap: () =>
+            context.read<DownloadProvider>().deleteDownload(download.songId),
       ),
     );
   }
@@ -235,6 +96,103 @@ class _CompletedDownloadTile extends StatelessWidget {
   String _formatBytes(int bytes) {
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+/// Shared card layout for download rows: art, title/artist, extra [details]
+/// below the text, and a trailing [action].
+class _DownloadTile extends StatelessWidget {
+  final SongDownload download;
+  final List<Widget> details;
+  final Widget action;
+
+  const _DownloadTile({
+    required this.download,
+    required this.details,
+    required this.action,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final song = download.songMeta;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            _SongArt(song),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    song?.title ?? download.songId,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (song?.artist != null)
+                    Text(
+                      song!.artist!,
+                      style: const TextStyle(
+                        color: Color(0xFF888888),
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ...details,
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            action,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  final IconData icon;
+  final double padding;
+  final double size;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _RoundIconButton({
+    required this.icon,
+    required this.padding,
+    required this.color,
+    required this.onTap,
+    this.size = 14,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(padding),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Icon(icon, size: size, color: color),
+      ),
+    );
   }
 }
 
@@ -367,16 +325,12 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              GestureDetector(
+              _RoundIconButton(
+                icon: Icons.close,
+                padding: 6,
+                size: 16,
+                color: Colors.white,
                 onTap: () => Navigator.of(context, rootNavigator: true).pop(),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2A2A2A),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(Icons.close, size: 16, color: Colors.white),
-                ),
               ),
             ],
           ),

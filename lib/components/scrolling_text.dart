@@ -20,8 +20,8 @@ class ScrollingText extends StatefulWidget {
 
 class _ScrollingTextState extends State<ScrollingText>
     with SingleTickerProviderStateMixin {
-  late ScrollController _scrollController;
-  late AnimationController _animationController;
+  final _scrollController = ScrollController();
+  late final AnimationController _animationController;
   bool _needsScroll = false;
 
   @override
@@ -57,7 +57,6 @@ class _ScrollingTextState extends State<ScrollingText>
     }
 
     // reset anim before measuring
-    _animationController.stop();
     _animationController.reset();
 
     if (widget.maxWidth.isFinite) {
@@ -87,7 +86,6 @@ class _ScrollingTextState extends State<ScrollingText>
     final duration = widget.duration == 0
         ? (widget.text.length / 5).ceil()
         : widget.duration;
-    _scrollController = ScrollController();
     _animationController =
         AnimationController(
           vsync: this,

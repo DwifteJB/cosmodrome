@@ -14,6 +14,7 @@ import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:cosmodrome/utils/notifiers/search_notifier.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
+import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
@@ -35,12 +36,7 @@ class _TopResult {
   final SearchArtist? artist;
   final SearchSong? song;
 
-  const _TopResult({
-    required this.score,
-    this.album,
-    this.artist,
-    this.song,
-  });
+  const _TopResult({required this.score, this.album, this.artist, this.song});
 }
 
 class _DesktopSearchPageState extends State<DesktopSearchPage>
@@ -154,9 +150,9 @@ class _DesktopSearchPageState extends State<DesktopSearchPage>
   }
 
   void _addRecent(RecentSearch search) {
-    final provider = context.read<SubsonicProvider>();
-    if (provider.activeAccount == null) return;
-    offlineCacheService.addRecentSearch(provider.activeAccount!.id, search);
+    final account = context.read<SubsonicProvider>().activeAccount;
+    if (account == null) return;
+    offlineCacheService.addRecentSearch(account.id, search);
   }
 
   void _openAlbum(SearchAlbum album) {
@@ -420,7 +416,10 @@ class _ArtistsSection extends StatelessWidget {
                     ClipOval(
                       child: Image(
                         image: coverArtProvider(
-                          subsonic.cachedCoverArtUrl(artist.coverArt, size: 200),
+                          subsonic.cachedCoverArtUrl(
+                            artist.coverArt,
+                            size: 200,
+                          ),
                         ),
                         width: 100,
                         height: 100,
@@ -503,13 +502,6 @@ class _SongsSection extends StatelessWidget {
     required this.onPlay,
   });
 
-  String _formatDuration(int totalSeconds) {
-    if (totalSeconds <= 0) return '--:--';
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -573,7 +565,9 @@ class _SongsSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    _formatDuration(song.duration),
+                    song.duration > 0
+                        ? formatTrackDuration(song.duration)
+                        : '--:--',
                     style: context.theme.typography.xs.copyWith(
                       color: context.theme.colors.mutedForeground,
                     ),

@@ -237,47 +237,31 @@ class _AddServerFormState extends State<AddServerForm> {
         ? url.substring(0, url.length - 1)
         : url;
 
-    if (_isEditing) {
-      final success = await provider.updateKnownServer(
-        widget.initialServer!.baseUrl,
-        newName: name.isEmpty ? normalizedUrl : name,
-        newBaseUrl: normalizedUrl,
+    final success = _isEditing
+        ? await provider.updateKnownServer(
+            widget.initialServer!.baseUrl,
+            newName: name.isEmpty ? normalizedUrl : name,
+            newBaseUrl: normalizedUrl,
+          )
+        : await provider.addKnownServer(
+            normalizedUrl,
+            name: name.isEmpty ? null : name,
+          );
+
+    if (!mounted) return;
+
+    if (success) {
+      final server = provider.knownServers.firstWhere(
+        (s) => s.baseUrl == normalizedUrl,
+        orElse: () =>
+            SubsonicServer(baseUrl: normalizedUrl, name: normalizedUrl),
       );
-
-      if (!mounted) return;
-
-      if (success) {
-        final server = provider.knownServers.firstWhere(
-          (s) => s.baseUrl == normalizedUrl,
-          orElse: () =>
-              SubsonicServer(baseUrl: normalizedUrl, name: normalizedUrl),
-        );
-        widget.onSuccess(server);
-      } else {
-        setState(() {
-          _error = 'Could not connect to server. Check the URL and try again.';
-          _isLoading = false;
-        });
-      }
+      widget.onSuccess(server);
     } else {
-      final success = await provider.addKnownServer(
-        normalizedUrl,
-        name: name.isEmpty ? null : name,
-      );
-
-      if (!mounted) return;
-
-      if (success) {
-        final server = provider.knownServers.firstWhere(
-          (s) => s.baseUrl == normalizedUrl,
-        );
-        widget.onSuccess(server);
-      } else {
-        setState(() {
-          _error = 'Could not connect to server. Check the URL and try again.';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _error = 'Could not connect to server. Check the URL and try again.';
+        _isLoading = false;
+      });
     }
   }
 }

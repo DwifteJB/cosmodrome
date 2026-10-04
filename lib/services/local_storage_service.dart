@@ -18,9 +18,6 @@ class LocalStorageService {
     String extension,
   ) => _backend.coverImageRef(accountId, imageId, extension);
 
-  static Future<Uri?> coverImageUriForRef(String coverRef) =>
-      _backend.coverImageUri(coverRef);
-
   static Future<List<int>?> readCoverImageBytes(String coverRef) =>
       _backend.readCoverImageBytes(coverRef);
 
@@ -33,9 +30,7 @@ class LocalStorageService {
   static Future<void> ensureDirs(String accountId) =>
       _backend.ensureDirs(accountId);
 
-  static Future<void> init() async {
-    await _backend.init();
-  }
+  static Future<void> init() => _backend.init();
 
   static Future<void> clearAccountCache(String accountId) =>
       _backend.deleteAccountCache(accountId);

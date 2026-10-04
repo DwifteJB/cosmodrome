@@ -3,6 +3,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -76,9 +77,8 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
     final d = dl.getDownload(widget.song.id);
     final status = d?.status ?? DownloadStatus.idle;
 
-    late final FItem downloadItem;
-    if (status == DownloadStatus.done) {
-      downloadItem = FItem(
+    final downloadItem = switch (status) {
+      DownloadStatus.done => FItem(
         prefix: const Icon(
           Icons.download_done_rounded,
           size: 16,
@@ -94,21 +94,18 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
           dl.deleteDownload(widget.song.id);
           controller.hide();
         },
-      );
-    } else if (status == DownloadStatus.downloading) {
-      final pct = ((d?.progress ?? 0) * 100).round();
-      downloadItem = FItem(
+      ),
+      DownloadStatus.downloading => FItem(
         prefix: SizedBox(
           width: 16,
           height: 16,
           child: CircularProgressIndicator(value: d?.progress, strokeWidth: 2),
         ),
-        title: Text('$pct% downloading…'),
+        title: Text('${((d?.progress ?? 0) * 100).round()}% downloading…'),
         suffix: const Icon(Icons.close, size: 16),
         onPress: () => dl.cancelDownload(widget.song.id),
-      );
-    } else if (status == DownloadStatus.error) {
-      downloadItem = FItem(
+      ),
+      DownloadStatus.error => FItem(
         prefix: const Icon(
           Icons.error_outline,
           size: 16,
@@ -119,14 +116,13 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
           style: TextStyle(color: Colors.redAccent),
         ),
         onPress: () => dl.retryDownload(widget.song, sp),
-      );
-    } else {
-      downloadItem = FItem(
+      ),
+      DownloadStatus.idle => FItem(
         prefix: const Icon(Icons.download_rounded, size: 16),
         title: const Text('Download'),
         onPress: () => dl.downloadSong(widget.song, sp),
-      );
-    }
+      ),
+    };
 
     return FItemGroup(
       children: [
@@ -256,6 +252,7 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
           playlistId: id,
           songIdToAdd: widget.song.id,
         );
+        notifyPlaylistsChanged();
       }
     } catch (_) {}
     if (mounted) controller.hide();

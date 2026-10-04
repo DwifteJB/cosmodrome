@@ -13,24 +13,19 @@ bool isMobileView(BuildContext context) {
     return true;
   }
 
-  if (kIsWeb && MediaQuery.of(context).size.width < 768) {
-    return true;
-  }
-
-  // if android/ios always yes
-  if (!kIsWeb && !_isDevelopment() && (Platform.isAndroid || Platform.isIOS)) {
-    return true;
-  }
-
-  // if desktop but small width & not in development, then we are NOT mobile
-  if (!kIsWeb &&
-      !_isDevelopment() &&
-      (Platform.isMacOS || Platform.isWindows || Platform.isLinux)) {
-    return false;
-  }
+  // only depend on MediaQuery when the width actually matters
+  bool isNarrow() => MediaQuery.of(context).size.width < 768;
 
   // if web or in development, use width to determine
-  return MediaQuery.of(context).size.width < 768;
+  if (kIsWeb || _isDevelopment()) return isNarrow();
+
+  // if android/ios always yes
+  if (Platform.isAndroid || Platform.isIOS) return true;
+
+  // if desktop but small width & not in development, then we are NOT mobile
+  if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) return false;
+
+  return isNarrow();
 }
 
 bool _isDevelopment() {

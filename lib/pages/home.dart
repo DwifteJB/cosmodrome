@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cosmodrome/components/home/customize_home_dialog.dart';
 import 'package:cosmodrome/components/home/home_sections.dart';
 import 'package:cosmodrome/components/shared_views/no_account_view.dart';
+import 'package:cosmodrome/components/shared_views/offline_banner.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/home_layout_service.dart';
@@ -18,28 +19,28 @@ final homeItems = [
   _HomeCard(
     icon: FIcons.history,
     title: 'Recently Added',
-    onTap: (context) => {context.push('/library/recent')},
+    onTap: (context) => context.push('/library/recent'),
   ),
   _HomeCard(
     icon: FIcons.shuffle,
     title: 'Random',
-    onTap: (context) => {
+    onTap: (context) {
       // send snackbar message saying "grabbing random album..." that disappears when the album is loaded or fails to load
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Grabbing random album...'))),
+      ).showSnackBar(const SnackBar(content: Text('Grabbing random album...')));
       context.read<SubsonicProvider>().subsonic.getRandomAlbum().then((album) {
         if (album != null) {
           // ignore: use_build_context_synchronously
           GoRouter.of(context).push('/library/album/${album.id}');
         }
-      }),
+      });
     },
   ),
   _HomeCard(
     icon: FIcons.star,
     title: 'Starred',
-    onTap: (context) => {context.push('/library/starred')},
+    onTap: (context) => context.push('/library/starred'),
   ),
   _HomeCard(
     icon: FIcons.clockArrowDown,
@@ -58,7 +59,7 @@ class HomePage extends StatefulWidget {
 class _HomeCard extends StatelessWidget {
   final IconData icon;
   final String title;
-  final Function(BuildContext)? onTap;
+  final void Function(BuildContext)? onTap;
 
   const _HomeCard({required this.icon, required this.title, this.onTap});
 
@@ -131,29 +132,17 @@ class _HomePageState extends State<HomePage> {
                 ),
         ),
         if (provider.isOffline)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: _OfflineBanner(),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: OfflineBanner(),
           ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Column(
             children: [
-              Row(
-                children: [
-                  Expanded(child: homeItems[0]),
-                  const SizedBox(width: 8),
-                  Expanded(child: homeItems[1]),
-                ],
-              ),
+              _cardRow(homeItems[0], homeItems[1]),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(child: homeItems[2]),
-                  const SizedBox(width: 8),
-                  Expanded(child: homeItems[3]),
-                ],
-              ),
+              _cardRow(homeItems[2], homeItems[3]),
             ],
           ),
         ),
@@ -191,6 +180,14 @@ class _HomePageState extends State<HomePage> {
     playlistsCountChanged.addListener(_onStarOrPlaylistChanged);
     homeRefreshNotifier.addListener(_onHomeRefreshRequested);
   }
+
+  Widget _cardRow(Widget left, Widget right) => Row(
+    children: [
+      Expanded(child: left),
+      const SizedBox(width: 8),
+      Expanded(child: right),
+    ],
+  );
 
   Future<void> _reloadSections({bool force = false}) {
     final accountId = context.read<SubsonicProvider>().activeAccount?.id;
@@ -274,39 +271,6 @@ class _CustomizeButtonState extends State<_CustomizeButton> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _OfflineBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A1F00),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF5A3F00), width: 1),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.wifi_off_rounded,
-            size: 14,
-            color: Color(0xFFFFB300),
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            'You are currently offline. Functionality is limited.',
-            style: TextStyle(
-              color: Color(0xFFFFB300),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              overflow: TextOverflow.fade,
-            ),
-          ),
-        ],
       ),
     );
   }

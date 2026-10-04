@@ -14,50 +14,48 @@ class AccountsSettingsPage extends StatelessWidget {
   }
 }
 
+void _showSettingsSheet(
+  BuildContext context, {
+  required double? mainAxisMaxRatio,
+  required Widget child,
+}) => showFSheet(
+  context: context,
+  side: FLayout.btt,
+  mainAxisMaxRatio: mainAxisMaxRatio,
+  useSafeArea: true,
+  useRootNavigator: true,
+  builder: (_) => child,
+);
+
 final settingsItems = <SettingsItem>[
   SettingsItem(
     title: 'Accounts',
     icon: FIcons.user,
     content: const AccountsSettingsPage(),
-    onMobileTap: (ctx) => showFSheet(
-      context: ctx,
-      side: FLayout.btt,
+    onMobileTap: (ctx) => _showSettingsSheet(
+      ctx,
       mainAxisMaxRatio: null,
-      useSafeArea: true,
-      useRootNavigator: true,
-      builder: (_) => const ProfileSheet(),
+      child: const ProfileSheet(),
     ),
   ),
   SettingsItem(
     title: 'Downloads',
     icon: FIcons.download,
     content: const DownloadsSettingsPage(),
-    onMobileTap: (ctx) => showFSheet(
-      context: ctx,
-      side: FLayout.btt,
+    onMobileTap: (ctx) => _showSettingsSheet(
+      ctx,
       mainAxisMaxRatio: 0.92,
-      useSafeArea: true,
-      useRootNavigator: true,
-      builder: (_) => const MobileSettingsSheetWrapper(
-        title: 'Downloads',
-        child: DownloadsSettingsPage(),
-      ),
+      child: const MobileSettingsSheetWrapper(child: DownloadsSettingsPage()),
     ),
   ),
   SettingsItem(
     title: 'Cache',
     icon: FIcons.database,
     content: const CacheSettingsPage(),
-    onMobileTap: (ctx) => showFSheet(
-      context: ctx,
-      side: FLayout.btt,
+    onMobileTap: (ctx) => _showSettingsSheet(
+      ctx,
       mainAxisMaxRatio: 0.9,
-      useSafeArea: true,
-      useRootNavigator: true,
-      builder: (_) => const MobileSettingsSheetWrapper(
-        title: 'Cache',
-        child: CacheSettingsPage(),
-      ),
+      child: const MobileSettingsSheetWrapper(child: CacheSettingsPage()),
     ),
   ),
 ];
@@ -67,13 +65,11 @@ class SettingsItem {
   final String title;
   final Widget content;
   final void Function(BuildContext)? onMobileTap;
-  final void Function(BuildContext)? onDesktopTap;
 
   const SettingsItem({
     required this.title,
     required this.content,
     this.icon,
     this.onMobileTap,
-    this.onDesktopTap,
   });
 }

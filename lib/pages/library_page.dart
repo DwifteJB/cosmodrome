@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cosmodrome/components/library/library_grid_item.dart';
 import 'package:cosmodrome/components/library/song_grid_item.dart';
 import 'package:cosmodrome/components/mobile/song_context_sheet.dart';
+import 'package:cosmodrome/components/shared_views/offline_banner.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/main.dart';
@@ -68,15 +69,16 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     }
 
     final subsonic = context.read<SubsonicProvider>().subsonic;
+    String? coverUrl(String? coverArt) => coverArt == null
+        ? null
+        : subsonic.cachedCoverArtUrl(coverArt, size: 200);
 
     switch (_currentView) {
       case CurrentMobileView.albums:
         return _buildGrid(
           items: _albums,
           itemBuilder: (ctx, album, _) => LibraryGridItem(
-            imageUrl: album.coverArt != null
-                ? subsonic.cachedCoverArtUrl(album.coverArt!, size: 200)
-                : null,
+            imageUrl: coverUrl(album.coverArt),
             title: album.name,
             subtitle: album.artist,
             placeholderIcon: Icons.album,
@@ -88,9 +90,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         return _buildGrid(
           items: _artists,
           itemBuilder: (ctx, artist, _) => LibraryGridItem(
-            imageUrl: artist.coverArt != null
-                ? subsonic.cachedCoverArtUrl(artist.coverArt!, size: 200)
-                : null,
+            imageUrl: coverUrl(artist.coverArt),
             title: artist.name,
             subtitle:
                 '${artist.albumCount} album${artist.albumCount == 1 ? '' : 's'}',
@@ -102,9 +102,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         return _buildGrid(
           items: _playlists,
           itemBuilder: (ctx, playlist, _) => LibraryGridItem(
-            imageUrl: playlist.coverArt != null
-                ? subsonic.cachedCoverArtUrl(playlist.coverArt!, size: 200)
-                : null,
+            imageUrl: coverUrl(playlist.coverArt),
             title: playlist.name,
             subtitle:
                 '${playlist.songCount} song${playlist.songCount == 1 ? '' : 's'}',
@@ -117,9 +115,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         return _buildList(
           _songs,
           (ctx, song, _) => SongGridItem(
-            imageUrl: song.coverArt != null
-                ? subsonic.cachedCoverArtUrl(song.coverArt!, size: 200)
-                : null,
+            imageUrl: coverUrl(song.coverArt),
             title: song.title,
             subtitle: '${song.artist} • ${song.album}',
             onPlay: () => context.read<PlayerProvider>().playNow(song),
@@ -223,9 +219,9 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       children: [
         SizedBox(height: 40),
         if (isOffline)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _OfflineBanner(),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: OfflineBanner(),
           ),
         // view switcher
         Center(
@@ -361,7 +357,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     BuildContext context,
   ) {
     final width = MediaQuery.sizeOf(context).width;
-    int crossAxisCount = 3;
+    final int crossAxisCount;
     // use the tailwind (NOT TAILSCALE!!!) sorta rules so
     // <600 = 2
     // 600-900 = 3
@@ -464,39 +460,6 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     // Push updated layout config with title
     layoutConfig.value = LayoutConfig(title: _currentView.title);
     _fetchView(view);
-  }
-}
-
-class _OfflineBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A1F00),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF5A3F00), width: 1),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.wifi_off_rounded,
-            size: 14,
-            color: Color(0xFFFFB300),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'You are currently offline. Functionality is limited.',
-            style: TextStyle(
-              color: const Color(0xFFFFB300),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              overflow: TextOverflow.fade,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

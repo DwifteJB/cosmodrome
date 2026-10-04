@@ -58,25 +58,19 @@ class DesktopQueuePanel extends StatelessWidget {
                     DesktopWindowButton(
                       icon: FIcons.minus,
                       iconSize: 16,
-                      onPressed: () {
-                        windowManager.minimize();
-                      },
+                      onPressed: windowManager.minimize,
                       hoverColor: colors.secondary,
                     ),
                     DesktopWindowButton(
                       icon: FIcons.square,
                       iconSize: 14,
-                      onPressed: () {
-                        windowManager.maximize();
-                      },
+                      onPressed: windowManager.maximize,
                       hoverColor: colors.secondary,
                     ),
                     DesktopWindowButton(
                       icon: FIcons.x,
                       iconSize: 16,
-                      onPressed: () {
-                        windowManager.close();
-                      },
+                      onPressed: windowManager.close,
                       hoverColor: colors.destructive,
                       hoverIconColor: Colors.white,
                     ),
@@ -113,14 +107,12 @@ class DesktopQueuePanel extends StatelessWidget {
                       shadowColor: Colors.black54,
                       child: child,
                     ),
-                    onReorderItem: (oldIndex, newIndex) {
-                      if (oldIndex == 0) return;
-                      final target = newIndex < 1 ? 1 : newIndex;
-                      player.reorderQueue(
-                        oldIndex + queueOffset,
-                        (target > oldIndex ? target + 1 : target) + queueOffset,
-                      );
-                    },
+                    onReorderItem: (oldIndex, newIndex) => reorderVisibleQueue(
+                      player,
+                      oldIndex,
+                      newIndex,
+                      queueOffset,
+                    ),
                     itemBuilder: (context, index) {
                       final song = queue[index];
                       final absoluteIndex = queueOffset + index;
@@ -251,10 +243,8 @@ class _QueueItemState extends State<_QueueItem> {
   @override
   void didUpdateWidget(_QueueItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final song = widget.song;
-    final oldSong = oldWidget.song;
-    if (song.id != oldSong.id) {
-      _coverUrl = widget.player.coverArtUrlForSong(song);
+    if (widget.song.id != oldWidget.song.id) {
+      _coverUrl = widget.player.coverArtUrlForSong(widget.song);
     }
   }
 

@@ -75,9 +75,9 @@ class _CustomizeHomeDialog extends StatelessWidget {
                           const _SectionLabel('On your home page'),
                           if (active.isEmpty)
                             const _EmptyHint('No sections shown.'),
-                          for (var i = 0; i < active.length; i++)
+                          for (final (i, id) in active.indexed)
                             _SectionRow(
-                              title: byId[active[i]]!.title,
+                              title: byId[id]!.title,
                               actions: [
                                 _RowAction(
                                   icon: FIcons.chevronUp,
@@ -85,7 +85,7 @@ class _CustomizeHomeDialog extends StatelessWidget {
                                       ? null
                                       : () => homeLayoutService.move(
                                           available,
-                                          active[i],
+                                          id,
                                           -1,
                                         ),
                                 ),
@@ -95,17 +95,15 @@ class _CustomizeHomeDialog extends StatelessWidget {
                                       ? null
                                       : () => homeLayoutService.move(
                                           available,
-                                          active[i],
+                                          id,
                                           1,
                                         ),
                                 ),
                                 _RowAction(
                                   icon: FIcons.x,
                                   destructive: true,
-                                  onTap: () => homeLayoutService.remove(
-                                    available,
-                                    active[i],
-                                  ),
+                                  onTap: () =>
+                                      homeLayoutService.remove(available, id),
                                 ),
                               ],
                             ),

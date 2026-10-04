@@ -12,6 +12,7 @@ import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:cosmodrome/utils/notifiers/search_notifier.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
+import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
@@ -31,19 +32,12 @@ class _RecentSearchsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // get string
-    String properEnum() {
-      switch (search.type) {
-        case RecentSearchEnum.album:
-          return "Album";
-        case RecentSearchEnum.artist:
-          return "Artist";
-        case RecentSearchEnum.playlist:
-          return "Playlist";
-        case RecentSearchEnum.song:
-          return "Song";
-      }
-    }
+    final typeLabel = switch (search.type) {
+      RecentSearchEnum.album => 'Album',
+      RecentSearchEnum.artist => 'Artist',
+      RecentSearchEnum.playlist => 'Playlist',
+      RecentSearchEnum.song => 'Song',
+    };
 
     return Consumer2<SubsonicProvider, PlayerProvider>(
       builder: (context, subsonic, player, child) {
@@ -94,10 +88,9 @@ class _RecentSearchsItem extends StatelessWidget {
                   letterSpacing: -0.2,
                 ),
               ),
-              // subtitle: Text("${properEnum()} • ${search.subtitle}")
               subtitle: Row(
                 children: [
-                  Text(properEnum(), style: context.theme.typography.xs),
+                  Text(typeLabel, style: context.theme.typography.xs),
                   if (search.subtitle.isNotEmpty) ...[
                     const SizedBox(width: 4),
                     Text(
@@ -141,10 +134,10 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
   bool get isScrollable => true;
 
   void addRecentSearch(RecentSearch search) {
-    final provider = context.read<SubsonicProvider>();
-    if (provider.activeAccount == null) return;
+    final account = context.read<SubsonicProvider>().activeAccount;
+    if (account == null) return;
 
-    offlineCacheService.addRecentSearch(provider.activeAccount!.id, search);
+    offlineCacheService.addRecentSearch(account.id, search);
     // add to local list to update UI immediately
     if (mounted) {
       setState(() {
@@ -250,7 +243,7 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
               ),
           ] else if (localSearchQuery.isNotEmpty &&
               !isSearching &&
-              searchResult != null) ...[
+              result != null) ...[
             SizedBox(height: 16),
             Text(
               'No results found for "$localSearchQuery".',
@@ -258,13 +251,13 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
             ),
           ],
 
-          if (localSearchQuery == '' &&
+          if (localSearchQuery.isEmpty &&
               recentSearches != null &&
-              recentSearches!.isNotEmpty) ...[
+              recentSearches!.isNotEmpty)
             ...recentSearches!.map(
               (search) => _RecentSearchsItem(search: search),
-            ),
-          ] else if (localSearchQuery == '') ...[
+            )
+          else if (localSearchQuery.isEmpty) ...[
             SizedBox(height: 16),
             Text(
               'You have no recent searches.',
@@ -294,12 +287,10 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
   }
 
   void loadRecentSearches() async {
-    final provider = context.read<SubsonicProvider>();
-    if (provider.activeAccount == null) return;
+    final account = context.read<SubsonicProvider>().activeAccount;
+    if (account == null) return;
 
-    final searches = await offlineCacheService.loadRecentSearches(
-      provider.activeAccount!.id,
-    );
+    final searches = await offlineCacheService.loadRecentSearches(account.id);
 
     if (mounted) {
       setState(() {
@@ -488,18 +479,13 @@ class _SearchSongsSection extends StatelessWidget {
                 .cachedCoverArtUrl(song.coverArt, size: 160),
             title: song.title,
             subtitle: '${song.artist} • ${song.album}',
-            trailing: _formatDuration(song.duration),
+            trailing: song.duration > 0
+                ? formatTrackDuration(song.duration)
+                : '--:--',
             onTap: () => onPlay(song.id),
           ),
         ),
       ],
     );
-  }
-
-  String _formatDuration(int totalSeconds) {
-    if (totalSeconds <= 0) return '--:--';
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
 }

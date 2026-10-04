@@ -182,18 +182,11 @@ class _NavItemState extends State<_NavItem> {
 /// for pages that are also embedded as desktop panel content.
 class MobileSettingsSheetWrapper extends StatelessWidget {
   final Widget child;
-  final String title;
 
-  const MobileSettingsSheetWrapper({
-    super.key,
-    required this.title,
-    required this.child,
-  });
+  const MobileSettingsSheetWrapper({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.theme.colors;
-
     return Material(
       color: AppColors.background,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -203,16 +196,7 @@ class MobileSettingsSheetWrapper extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            const _SheetHandle(),
             const SizedBox(height: 4),
             Expanded(child: child),
           ],
@@ -239,16 +223,7 @@ class _SettingsMobileShell extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            const _SheetHandle(),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Text(
@@ -293,6 +268,24 @@ class _SettingsMobileShell extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 32,
+        height: 4,
+        decoration: BoxDecoration(
+          color: context.theme.colors.border,
+          borderRadius: BorderRadius.circular(2),
         ),
       ),
     );

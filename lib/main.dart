@@ -114,7 +114,6 @@ final subsonicProvider = SubsonicProvider();
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
-
 GoRouter _buildRouter(String initialLocation) => GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: initialLocation,
@@ -192,56 +191,21 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
     ),
 
     if (!isDesktop) ...[
-      GoRoute(
-        path: '/library/album/:id',
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => CupertinoPage(
-          child: MobileDetailLayout(
-            isScrollable: true,
-            child: AlbumPage(albumId: state.pathParameters['id']!),
-          ),
-        ),
+      _mobileDetailRoute(
+        '/library/album/:id',
+        (state) => AlbumPage(albumId: state.pathParameters['id']!),
       ),
-      GoRoute(
-        path: '/library/playlist/:id',
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => CupertinoPage(
-          child: MobileDetailLayout(
-            isScrollable: false,
-            child: PlaylistPage(playlistId: state.pathParameters['id']!),
-          ),
-        ),
+      _mobileDetailRoute(
+        '/library/playlist/:id',
+        isScrollable: false,
+        (state) => PlaylistPage(playlistId: state.pathParameters['id']!),
       ),
-      GoRoute(
-        path: '/artist-detail/:id',
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => CupertinoPage(
-          child: MobileDetailLayout(
-            isScrollable: true,
-            child: ArtistDetailPage(item: state.extra as SpotlightItem),
-          ),
-        ),
+      _mobileDetailRoute(
+        '/artist-detail/:id',
+        (state) => ArtistDetailPage(item: state.extra as SpotlightItem),
       ),
-      GoRoute(
-        path: '/library/recent',
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => const CupertinoPage(
-          child: MobileDetailLayout(
-            isScrollable: true,
-            child: RecentAlbumsPage(),
-          ),
-        ),
-      ),
-      GoRoute(
-        path: '/library/starred',
-        parentNavigatorKey: _rootNavigatorKey,
-        pageBuilder: (context, state) => const CupertinoPage(
-          child: MobileDetailLayout(
-            isScrollable: true,
-            child: StarredAlbumsPage(),
-          ),
-        ),
-      ),
+      _mobileDetailRoute('/library/recent', (_) => const RecentAlbumsPage()),
+      _mobileDetailRoute('/library/starred', (_) => const StarredAlbumsPage()),
     ],
 
     GoRoute(
@@ -262,6 +226,22 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       ),
     ),
   ],
+);
+
+// full-screen detail page pushed over the shell on mobile
+GoRoute _mobileDetailRoute(
+  String path,
+  Widget Function(GoRouterState state) builder, {
+  bool isScrollable = true,
+}) => GoRoute(
+  path: path,
+  parentNavigatorKey: _rootNavigatorKey,
+  pageBuilder: (context, state) => CupertinoPage(
+    child: MobileDetailLayout(
+      isScrollable: isScrollable,
+      child: builder(state),
+    ),
+  ),
 );
 
 class Application extends StatefulWidget {
@@ -322,26 +302,18 @@ class _ApplicationState extends State<Application>
           ),
         ),
         routerConfig: router,
-        builder: (_, child) => SafeArea(
-          bottom: false,
-          left: false,
-          top: false,
-          right: false,
-          child: Material(
-            color: AppColors.background,
-            child: FTheme(
-              data: theme,
-              child: FToaster(
-                child: FTooltipGroup(
-                  child: Stack(
-                    children: [
-                      child!,
-                      if (!isDesktop)
-                        Positioned.fill(
-                          child: const _FullscreenPlayerOverlay(),
-                        ),
-                    ],
-                  ),
+        builder: (_, child) => Material(
+          color: AppColors.background,
+          child: FTheme(
+            data: theme,
+            child: FToaster(
+              child: FTooltipGroup(
+                child: Stack(
+                  children: [
+                    child!,
+                    if (!isDesktop)
+                      Positioned.fill(child: const _FullscreenPlayerOverlay()),
+                  ],
                 ),
               ),
             ),
@@ -400,7 +372,7 @@ class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
   double _queueDragOffset = 0;
   double? _queueDragStartY;
 
-  late PlayerProvider _playerProvider;
+  late final PlayerProvider _playerProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -521,10 +493,11 @@ class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _playerProvider = Provider.of<PlayerProvider>(context, listen: false);
-    _playerProvider.addListener(_onPlayerChanged);
+  void initState() {
+    super.initState();
+    // registered once here; didChangeDependencies runs on every MediaQuery change
+    _playerProvider = context.read<PlayerProvider>()
+      ..addListener(_onPlayerChanged);
   }
 
   @override

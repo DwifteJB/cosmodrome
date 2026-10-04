@@ -163,37 +163,28 @@ class _ArtistDetailPageState extends State<ArtistDetailPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DesktopHero(
-                item: item,
-                accentColor: accentColor,
-                coverUrl: coverUrl,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: _ArtistHero(
+                  item: item,
+                  accentColor: accentColor,
+                  coverUrl: coverUrl,
+                  height: 320,
+                  inset: 24,
+                  titleFontSize: 34,
+                  titleLetterSpacing: -0.8,
+                ),
               ),
               if (item.description != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
-                  child: Text(
-                    item.description!,
-                    style: const TextStyle(
-                      color: Color(0xCCFFFFFF),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      height: 1.6,
-                    ),
-                  ),
+                  child: Text(item.description!, style: _descriptionStyle),
                 ),
               const Padding(
                 padding: EdgeInsets.only(top: 28, bottom: 14),
-                child: Text(
-                  'Related Albums',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
-                  ),
-                ),
+                child: Text('Related Albums', style: _sectionTitleStyle),
               ),
-              _buildAlbumSection(context, subsonic, accentColor),
+              _buildAlbumSection(subsonic, accentColor),
               const SizedBox(height: 20),
             ],
           ),
@@ -210,11 +201,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage>
     unawaited(_fetchAlbums());
   }
 
-  Widget _buildAlbumSection(
-    BuildContext context,
-    Subsonic subsonic,
-    Color? accentColor,
-  ) {
+  Widget _buildAlbumSection(Subsonic subsonic, Color? accentColor) {
     if (_loadingAlbums) {
       return Skeletonizer(
         enabled: true,
@@ -288,184 +275,134 @@ class _ArtistDetailPageState extends State<ArtistDetailPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
+        _ArtistHero(
+          item: item,
+          accentColor: accentColor,
+          coverUrl: coverUrl,
           height: 300,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (coverUrl != null)
-                Image(
-                  image: coverArtProvider(coverUrl),
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, e, st) =>
-                      ColoredBox(color: accentColor ?? const Color(0xFF1A1A1A)),
-                )
-              else
-                ColoredBox(color: accentColor ?? const Color(0xFF1A1A1A)),
-              if (accentColor != null)
-                ColoredBox(color: accentColor.withValues(alpha: 0.25)),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: [0.35, 1.0],
-                    colors: [Colors.transparent, Color(0xFF111111)],
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 20,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      item.artistName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
-                        shadows: [
-                          Shadow(blurRadius: 10, color: Colors.black54),
-                        ],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.albumName,
-                      style: const TextStyle(
-                        color: Color(0xCCFFFFFF),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          inset: 20,
+          titleFontSize: 28,
+          titleLetterSpacing: -0.6,
         ),
         if (item.description != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Text(
-              item.description!,
-              style: const TextStyle(
-                color: Color(0xCCFFFFFF),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.6,
-              ),
-            ),
+            child: Text(item.description!, style: _descriptionStyle),
           ),
         const Padding(
           padding: EdgeInsets.fromLTRB(20, 28, 20, 14),
-          child: Text(
-            'Related Albums',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.4,
-            ),
-          ),
+          child: Text('Related Albums', style: _sectionTitleStyle),
         ),
-        _buildAlbumSection(context, subsonic, accentColor),
+        _buildAlbumSection(subsonic, accentColor),
         const SizedBox(height: 40),
       ],
     );
   }
 }
 
-
-class _DesktopHero extends StatelessWidget {
+// cover-art banner with the artist name overlaid, shared by both layouts
+class _ArtistHero extends StatelessWidget {
   final SpotlightItem item;
   final Color? accentColor;
   final String? coverUrl;
+  final double height;
+  final double inset;
+  final double titleFontSize;
+  final double titleLetterSpacing;
 
-  const _DesktopHero({
+  const _ArtistHero({
     required this.item,
     required this.accentColor,
     required this.coverUrl,
+    required this.height,
+    required this.inset,
+    required this.titleFontSize,
+    required this.titleLetterSpacing,
   });
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: SizedBox(
-        height: 320,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (coverUrl != null)
-              Image(
-                image: coverArtProvider(coverUrl!),
-                fit: BoxFit.cover,
-                errorBuilder: (ctx, e, st) =>
-                    ColoredBox(color: accentColor ?? const Color(0xFF1A1A1A)),
-              )
-            else
-              ColoredBox(color: accentColor ?? const Color(0xFF1A1A1A)),
-            if (accentColor != null)
-              ColoredBox(color: accentColor!.withValues(alpha: 0.25)),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: [0.35, 1.0],
-                  colors: [Colors.transparent, Color(0xFF111111)],
+    final accent = accentColor;
+    final url = coverUrl;
+    final fallback = ColoredBox(color: accent ?? const Color(0xFF1A1A1A));
+
+    return SizedBox(
+      height: height,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (url != null)
+            Image(
+              image: coverArtProvider(url),
+              fit: BoxFit.cover,
+              errorBuilder: (ctx, e, st) => fallback,
+            )
+          else
+            fallback,
+          if (accent != null) ColoredBox(color: accent.withValues(alpha: 0.25)),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0.35, 1.0],
+                colors: [Colors.transparent, Color(0xFF111111)],
+              ),
+            ),
+          ),
+          Positioned(
+            left: inset,
+            right: inset,
+            bottom: inset,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.artistName,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: titleLetterSpacing,
+                    shadows: const [
+                      Shadow(blurRadius: 10, color: Colors.black54),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ),
-            Positioned(
-              left: 24,
-              right: 24,
-              bottom: 24,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.artistName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.8,
-                      shadows: [Shadow(blurRadius: 10, color: Colors.black54)],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 4),
+                Text(
+                  item.albumName,
+                  style: const TextStyle(
+                    color: Color(0xCCFFFFFF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.2,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.albumName,
-                    style: const TextStyle(
-                      color: Color(0xCCFFFFFF),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+
+const _descriptionStyle = TextStyle(
+  color: Color(0xCCFFFFFF),
+  fontSize: 13,
+  fontWeight: FontWeight.w400,
+  height: 1.6,
+);
+
+const _sectionTitleStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 20,
+  fontWeight: FontWeight.w700,
+  letterSpacing: -0.4,
+);

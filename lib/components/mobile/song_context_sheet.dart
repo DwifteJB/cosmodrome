@@ -60,6 +60,21 @@ class _SongContextSheetState extends State<_SongContextSheet> {
     if (mounted) Navigator.pop(context);
   }
 
+  Widget _actionTile(
+    FColors colors,
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    Widget? trailing,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: colors.foreground),
+      title: Text(label, style: TextStyle(color: colors.foreground)),
+      trailing: trailing,
+      onTap: onTap,
+    );
+  }
+
   Widget _artPlaceholder(FColors colors, double size) => Container(
     width: size,
     height: size,
@@ -141,43 +156,24 @@ class _SongContextSheetState extends State<_SongContextSheet> {
               ),
             ),
             const Divider(height: 1, color: Color(0xFF2A2A2A)),
-            ListTile(
-              leading: Icon(Icons.play_arrow_rounded, color: colors.foreground),
-              title: Text(
-                'Play now',
-                style: TextStyle(color: colors.foreground),
-              ),
-              onTap: () {
-                context.read<PlayerProvider>().playNow(widget.song);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                Icons.queue_music_rounded,
-                color: colors.foreground,
-              ),
-              title: Text(
-                'Add to queue',
-                style: TextStyle(color: colors.foreground),
-              ),
-              onTap: () {
-                context.read<PlayerProvider>().addToQueue(widget.song);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.playlist_add, color: colors.foreground),
-              title: Text(
-                'Add to playlist',
-                style: TextStyle(color: colors.foreground),
-              ),
+            _actionTile(colors, Icons.play_arrow_rounded, 'Play now', () {
+              context.read<PlayerProvider>().playNow(widget.song);
+              Navigator.pop(context);
+            }),
+            _actionTile(colors, Icons.queue_music_rounded, 'Add to queue', () {
+              context.read<PlayerProvider>().addToQueue(widget.song);
+              Navigator.pop(context);
+            }),
+            _actionTile(
+              colors,
+              Icons.playlist_add,
+              'Add to playlist',
+              _goToPlaylistPicker,
               trailing: Icon(
                 FIcons.chevronRight,
                 size: 16,
                 color: colors.mutedForeground,
               ),
-              onTap: _goToPlaylistPicker,
             ),
             Consumer2<DownloadProvider, SubsonicProvider>(
               builder: (ctx, dl, sp, _) {
@@ -246,16 +242,11 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                   );
                 }
 
-                return ListTile(
-                  leading: Icon(
-                    Icons.download_rounded,
-                    color: colors.foreground,
-                  ),
-                  title: Text(
-                    'Download',
-                    style: TextStyle(color: colors.foreground),
-                  ),
-                  onTap: () => dl.downloadSong(widget.song, sp),
+                return _actionTile(
+                  colors,
+                  Icons.download_rounded,
+                  'Download',
+                  () => dl.downloadSong(widget.song, sp),
                 );
               },
             ),

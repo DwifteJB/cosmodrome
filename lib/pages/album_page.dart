@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cosmodrome/components/music-pages/music_page_cover_header.dart';
 import 'package:cosmodrome/components/music-pages/track_tile.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
@@ -40,12 +42,6 @@ class _AlbumHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final parts = <String>[
-      if (album.year != null) album.year.toString(),
-      '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
-      formatPageDuration(album.duration),
-    ];
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
@@ -90,7 +86,7 @@ class _AlbumHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            parts.join(' • '),
+            _albumMetaText(album),
             style: context.theme.typography.md.copyWith(
               color: context.theme.colors.mutedForeground,
               height: 0,
@@ -98,42 +94,7 @@ class _AlbumHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Row(
-            children: [
-              Expanded(
-                child: FButton(
-                  onPress: () =>
-                      context.read<PlayerProvider>().playAlbum(album.songs),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.play_arrow_rounded, size: 20),
-                      SizedBox(width: 6),
-                      Text('Play'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FButton(
-                  variant: FButtonVariant.outline,
-                  onPress: () => context.read<PlayerProvider>().playAlbum(
-                    album.songs,
-                    shuffle: true,
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.shuffle_rounded, size: 20),
-                      SizedBox(width: 6),
-                      Text('Shuffle'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _PlayShuffleButtons(songs: album.songs),
         ],
       ),
     );
@@ -217,8 +178,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     await pp.playNow(song);
     final index = _album!.songs.indexOf(song);
     if (index != -1 && index < _album!.songs.length - 1) {
-      final nextSongs = _album!.songs.sublist(index + 1);
-      pp.addBulkToQueue(nextSongs.toList());
+      pp.addBulkToQueue(_album!.songs.sublist(index + 1));
     }
   }
 
@@ -227,35 +187,11 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: coverUrl != null
-                ? Image(
-                    image: coverArtProvider(coverUrl),
-                    width: 220,
-                    height: 220,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 220,
-                      height: 220,
-                      color: context.theme.colors.muted,
-                      child: Icon(
-                        Icons.album,
-                        color: context.theme.colors.mutedForeground,
-                        size: 88,
-                      ),
-                    ),
-                  )
-                : Container(
-                    width: 220,
-                    height: 220,
-                    color: context.theme.colors.muted,
-                    child: Icon(
-                      Icons.album,
-                      color: context.theme.colors.mutedForeground,
-                      size: 88,
-                    ),
-                  ),
+          child: _cover(
+            coverUrl,
+            size: 220,
+            radius: 12,
+            placeholder: _coverPlaceholder(220),
           ),
         ),
         const SizedBox(height: 16),
@@ -283,11 +219,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               ),
               const SizedBox(height: 4),
               Text(
-                [
-                  if (album.year != null) album.year.toString(),
-                  '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
-                  formatPageDuration(album.duration),
-                ].join(' • '),
+                _albumMetaText(album),
                 textAlign: TextAlign.center,
                 style: context.theme.typography.sm.copyWith(
                   color: context.theme.colors.mutedForeground,
@@ -296,38 +228,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(
-                    child: FButton(
-                      onPress: () =>
-                          context.read<PlayerProvider>().playAlbum(album.songs),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.play_arrow_rounded, size: 20),
-                          SizedBox(width: 6),
-                          Text('Play'),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FButton(
-                      variant: FButtonVariant.outline,
-                      onPress: () => context.read<PlayerProvider>().playAlbum(
-                        album.songs,
-                        shuffle: true,
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.shuffle_rounded, size: 20),
-                          SizedBox(width: 6),
-                          Text('Shuffle'),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Expanded(child: _PlayShuffleButtons(songs: album.songs)),
                   const SizedBox(width: 12),
                   FButton(
                     onPress: _starAlbum,
@@ -347,7 +248,27 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     );
   }
 
-  Widget _coverPlaceholder(double size) {
+  Widget _cover(
+    String? coverUrl, {
+    required double size,
+    required double radius,
+    required Widget placeholder,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: coverUrl != null
+          ? Image(
+              image: coverArtProvider(coverUrl),
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => placeholder,
+            )
+          : placeholder,
+    );
+  }
+
+  Widget _coverPlaceholder(double size, {double? iconSize}) {
     return Container(
       width: size,
       height: size,
@@ -355,7 +276,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
       child: Icon(
         Icons.album,
         color: context.theme.colors.mutedForeground,
-        size: size * 0.4,
+        size: iconSize ?? size * 0.4,
       ),
     );
   }
@@ -446,11 +367,10 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
         _pushPageButtons();
         _extractAccentColor();
         if (_revealedTrackCount == 0 && album != null) {
-          _revealedTrackCount = album.songs.isEmpty
-              ? 0
-              : (album.songs.length < _initialTrackRevealCount
-                    ? album.songs.length
-                    : _initialTrackRevealCount);
+          _revealedTrackCount = min(
+            album.songs.length,
+            _initialTrackRevealCount,
+          );
           _scheduleTrackReveal();
         }
       }
@@ -481,40 +401,18 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
       '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
     ];
 
-    final additionalDetails = <Widget>[
-      Row(
-        children: [
-          const Icon(Icons.access_time, size: 16, color: AppColors.trackNumber),
-          const SizedBox(width: 4),
-          Text(
-            formatPageDuration(album.duration),
-            style: context.theme.typography.xs.copyWith(
-              color: AppColors.trackNumber,
-            ),
-          ),
-        ],
-      ),
-    ];
-
-    var cardWidth = MediaQuery.of(context).size.width * 0.8;
-    if (cardWidth > 400) cardWidth = 400;
+    final cardWidth = min(MediaQuery.of(context).size.width * 0.8, 400.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 40),
         Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: coverUrl != null
-                ? Image(
-                    image: coverArtProvider(coverUrl),
-                    width: cardWidth,
-                    height: cardWidth,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => _coverPlaceholder(200),
-                  )
-                : _coverPlaceholder(200),
+          child: _cover(
+            coverUrl,
+            size: cardWidth,
+            radius: 16,
+            placeholder: _coverPlaceholder(200),
           ),
         ),
         const SizedBox(height: 20),
@@ -537,55 +435,18 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             letterSpacing: -0.05,
           ),
         ),
-        if (metaParts.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            metaParts.join(' • '),
-            textAlign: TextAlign.center,
-            style: context.theme.typography.xs.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
+        const SizedBox(height: 4),
+        Text(
+          metaParts.join(' • '),
+          textAlign: TextAlign.center,
+          style: context.theme.typography.xs.copyWith(
+            color: context.theme.colors.mutedForeground,
           ),
-        ],
+        ),
         const SizedBox(height: 24),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            children: [
-              Expanded(
-                child: FButton(
-                  onPress: () =>
-                      context.read<PlayerProvider>().playAlbum(album.songs),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.play_arrow_rounded, size: 20),
-                      SizedBox(width: 6),
-                      Text('Play'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FButton(
-                  variant: FButtonVariant.outline,
-                  onPress: () => context.read<PlayerProvider>().playAlbum(
-                    album.songs,
-                    shuffle: true,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.shuffle_rounded, size: 20),
-                      SizedBox(width: 6),
-                      Text('Shuffle'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: _PlayShuffleButtons(songs: album.songs),
         ),
         const SizedBox(height: 24),
         ...List.generate(visibleTrackCount, (index) {
@@ -601,21 +462,32 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           );
         }, growable: false),
 
-        if (additionalDetails.isNotEmpty) ...[
-          const Divider(),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: additionalDetails
-                .map(
-                  (w) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: w,
+        const Divider(),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.access_time,
+                    size: 16,
+                    color: AppColors.trackNumber,
                   ),
-                )
-                .toList(),
-          ),
-        ],
+                  const SizedBox(width: 4),
+                  Text(
+                    formatPageDuration(album.duration),
+                    style: context.theme.typography.xs.copyWith(
+                      color: AppColors.trackNumber,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
 
         const SizedBox(height: 32),
       ],
@@ -644,10 +516,10 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
       _trackRevealScheduled = false;
       if (!mounted || _album == null) return;
 
-      final nextCount = _revealedTrackCount + _trackRevealBatchSize;
-      final clampedCount = nextCount > _album!.songs.length
-          ? _album!.songs.length
-          : nextCount;
+      final clampedCount = min(
+        _revealedTrackCount + _trackRevealBatchSize,
+        _album!.songs.length,
+      );
       if (clampedCount == _revealedTrackCount) return;
 
       setState(() {
@@ -677,48 +549,19 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     }
   }
 
-  int _visibleTrackCount(int totalTracks) {
-    if (totalTracks == 0) return 0;
-    if (_revealedTrackCount == 0) return 0;
-    return _revealedTrackCount > totalTracks
-        ? totalTracks
-        : _revealedTrackCount;
-  }
+  int _visibleTrackCount(int totalTracks) =>
+      min(_revealedTrackCount, totalTracks);
 
   Widget _wideHeader(AlbumDetail album, String? coverUrl) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: coverUrl != null
-                ? Image(
-                    image: coverArtProvider(coverUrl),
-                    width: 280,
-                    height: 280,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      width: 280,
-                      height: 280,
-                      color: context.theme.colors.muted,
-                      child: Icon(
-                        Icons.album,
-                        color: context.theme.colors.mutedForeground,
-                        size: 80,
-                      ),
-                    ),
-                  )
-                : Container(
-                    width: 280,
-                    height: 280,
-                    color: context.theme.colors.muted,
-                    child: Icon(
-                      Icons.album,
-                      color: context.theme.colors.mutedForeground,
-                      size: 80,
-                    ),
-                  ),
+          _cover(
+            coverUrl,
+            size: 280,
+            radius: 12,
+            placeholder: _coverPlaceholder(280, iconSize: 80),
           ),
           Expanded(
             child: _AlbumHeader(
@@ -732,3 +575,52 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     );
   }
 }
+
+class _PlayShuffleButtons extends StatelessWidget {
+  final List<Song> songs;
+
+  const _PlayShuffleButtons({required this.songs});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FButton(
+            onPress: () => context.read<PlayerProvider>().playAlbum(songs),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.play_arrow_rounded, size: 20),
+                SizedBox(width: 6),
+                Text('Play'),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FButton(
+            variant: FButtonVariant.outline,
+            onPress: () =>
+                context.read<PlayerProvider>().playAlbum(songs, shuffle: true),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shuffle_rounded, size: 20),
+                SizedBox(width: 6),
+                Text('Shuffle'),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _albumMetaText(AlbumDetail album) => [
+  if (album.year != null) album.year.toString(),
+  '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
+  formatPageDuration(album.duration),
+].join(' • ');

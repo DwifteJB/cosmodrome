@@ -26,16 +26,11 @@ Future<List<Subsonic>> scanForServers({
     return _knownServers;
   }
 
-  if (_scanInFlight != null) {
-    if (onFound != null) {
-      _scanListeners.add(onFound);
-    }
-    return _scanInFlight!;
-  }
-
   if (onFound != null) {
     _scanListeners.add(onFound);
   }
+
+  if (_scanInFlight != null) return _scanInFlight!;
 
   _scanInFlight = _scanForServersImpl();
   try {
@@ -61,61 +56,35 @@ Future<List<Subsonic>> _scanForServersImpl() async {
   final candidates = <Subsonic>[];
   final foundServers = <Subsonic>[];
 
-  for (var i = 1; i < 255; i++) {
-    final ip1 = '192.168.1.$i';
-    // final ip2 = '10.0.0.$i';
-    final ip3 = '100.64.0.$i';
+  Subsonic candidate(String ip) => Subsonic(
+    baseUrl: 'http://$ip:4533',
+    username: 'dummy',
+    password: 'dummy',
+  );
 
-    candidates.add(
-      Subsonic(
-        baseUrl: 'http://$ip1:4533',
-        username: 'dummy',
-        password: 'dummy',
-      ),
-    );
-    // candidates.add(
-    //   Subsonic(
-    //     baseUrl: 'http://$ip2:4533',
-    //     username: 'dummy',
-    //     password: 'dummy',
-    //   ),
-    // );
-    candidates.add(
-      Subsonic(
-        baseUrl: 'http://$ip3:4533',
-        username: 'dummy',
-        password: 'dummy',
-      ),
-    );
+  for (var i = 1; i < 255; i++) {
+    candidates
+      ..add(candidate('192.168.1.$i'))
+      // ..add(candidate('10.0.0.$i'))
+      ..add(candidate('100.64.0.$i'));
   }
 
   loggerPrint('searching for servers... (${candidates.length} candidates)');
 
   // batch send requests
   for (var index = 0; index < candidates.length; index += _scanBatchSize) {
-    final batch = candidates.sublist(
-      index,
-      index + _scanBatchSize > candidates.length
-          ? candidates.length
-          : index + _scanBatchSize,
-    );
+    final batch = candidates.skip(index).take(_scanBatchSize);
 
     final results = await Future.wait(
       batch.map((server) async {
         final res = await server.ping(timeoutSeconds: _scanTimeoutSeconds);
-        return (
-          server: server,
-          success: res.success,
-          errorMessage: res.errorMessage,
-        );
+        return (server: server, success: res.success, errorCode: res.errorCode);
       }),
     );
 
     // successful is if logins work (pub server?) or if we get a subsonic specific error
     for (final result in results) {
-      final looksLikeSubsonicError =
-          result.errorMessage?.contains('Subsonic API error') ?? false;
-      if (!result.success && !looksLikeSubsonicError) continue;
+      if (!result.success && result.errorCode == null) continue;
       loggerPrint('found server at ${result.server.baseUrl}');
       foundServers.add(result.server);
       _emitFoundServer(result.server);

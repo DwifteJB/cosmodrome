@@ -28,10 +28,7 @@ class _ExamplePageState extends State<ExamplePage> with LayoutPageMixin {
   // Override to add action buttons to the mobile top bar.
   @override
   List<TopbarButton> get pageButtons => [
-    TopbarButton(
-      icon: Icons.refresh,
-      onPressed: _onRefresh,
-    ),
+    TopbarButton(icon: Icons.refresh, onPressed: _onRefresh),
   ];
 
   void _onRefresh() {

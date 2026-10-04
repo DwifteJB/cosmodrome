@@ -107,30 +107,17 @@ class _DesktopAccountPopoverContentState
               _profilesExpanded,
               () => setState(() => _profilesExpanded = !_profilesExpanded),
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              child: _profilesExpanded
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ...accountsByServer.entries.map(
-                          (entry) => _buildServerGroup(
-                            context,
-                            entry.key,
-                            entry.value,
-                            provider,
-                          ),
-                        ),
-                        _buildAddButton(
-                          context,
-                          'Add Account',
-                          widget.onAddAccount,
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            _buildCollapsible(_profilesExpanded, [
+              ...accountsByServer.entries.map(
+                (entry) => _buildServerGroup(
+                  context,
+                  entry.key,
+                  entry.value,
+                  provider,
+                ),
+              ),
+              _buildAddButton(context, 'Add Account', widget.onAddAccount),
+            ]),
             const SizedBox(height: 8),
             // servers section
             Container(height: 1, color: colors.border),
@@ -140,26 +127,12 @@ class _DesktopAccountPopoverContentState
               _serversExpanded,
               () => setState(() => _serversExpanded = !_serversExpanded),
             ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              child: _serversExpanded
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ...provider.knownServers.map(
-                          (server) =>
-                              _buildServerRow(context, server, provider),
-                        ),
-                        _buildAddButton(
-                          context,
-                          'Add Server',
-                          widget.onAddServer,
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
-            ),
+            _buildCollapsible(_serversExpanded, [
+              ...provider.knownServers.map(
+                (server) => _buildServerRow(context, server, provider),
+              ),
+              _buildAddButton(context, 'Add Server', widget.onAddServer),
+            ]),
             const SizedBox(height: 8),
             Container(height: 1, color: colors.border),
             _buildSettingsRow(context, colors),
@@ -169,7 +142,20 @@ class _DesktopAccountPopoverContentState
     );
   }
 
-  Widget _buildSettingsRow(BuildContext context, dynamic colors) {
+  Widget _buildCollapsible(bool expanded, List<Widget> children) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: expanded
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _buildSettingsRow(BuildContext context, FColors colors) {
     return GestureDetector(
       onTap: widget.onSettingsPressed,
       behavior: HitTestBehavior.opaque,
@@ -192,67 +178,25 @@ class _DesktopAccountPopoverContentState
   }
 
   void showEditAccountDialog(BuildContext ctx, SubsonicAccount account) {
-    showFDialog(
-      context: ctx,
-      builder: (dialogCtx, _, animation) => FDialog.raw(
-        animation: animation,
-        builder: (innerCtx, style) => SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Edit Account',
-                  style: innerCtx.theme.typography.xl.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: innerCtx.theme.colors.foreground,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AddUserForm(
-                  initialAccount: account,
-                  onSuccess: () => Navigator.pop(dialogCtx),
-                  onCancel: () => Navigator.pop(dialogCtx),
-                ),
-              ],
-            ),
-          ),
-        ),
+    _showFormDialog(
+      ctx,
+      'Edit Account',
+      (dialogCtx) => AddUserForm(
+        initialAccount: account,
+        onSuccess: () => Navigator.pop(dialogCtx),
+        onCancel: () => Navigator.pop(dialogCtx),
       ),
     );
   }
 
   void showEditServerDialog(BuildContext ctx, SubsonicServer server) {
-    showFDialog(
-      context: ctx,
-      builder: (dialogCtx, _, animation) => FDialog.raw(
-        animation: animation,
-        builder: (innerCtx, style) => SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Edit Server',
-                  style: innerCtx.theme.typography.xl.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: innerCtx.theme.colors.foreground,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AddServerForm(
-                  initialServer: server,
-                  onSuccess: (_) => Navigator.pop(dialogCtx),
-                  onCancel: () => Navigator.pop(dialogCtx),
-                ),
-              ],
-            ),
-          ),
-        ),
+    _showFormDialog(
+      ctx,
+      'Edit Server',
+      (dialogCtx) => AddServerForm(
+        initialServer: server,
+        onSuccess: (_) => Navigator.pop(dialogCtx),
+        onCancel: () => Navigator.pop(dialogCtx),
       ),
     );
   }
@@ -274,7 +218,7 @@ class _DesktopAccountPopoverContentState
   Widget _buildActiveProfileCard(
     BuildContext context,
     SubsonicAccount account,
-    dynamic colors,
+    FColors colors,
   ) {
     // get server for account
     final provider = context.read<SubsonicProvider>();
@@ -324,7 +268,7 @@ class _DesktopAccountPopoverContentState
               ],
             ),
           ),
-          _buildRefreshButton(context, account),
+          _buildRefreshButton(context),
         ],
       ),
     );
@@ -352,7 +296,7 @@ class _DesktopAccountPopoverContentState
     );
   }
 
-  Widget _buildNoAccountPill(BuildContext context, dynamic colors) {
+  Widget _buildNoAccountPill(BuildContext context, FColors colors) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -387,7 +331,7 @@ class _DesktopAccountPopoverContentState
     );
   }
 
-  Widget _buildRefreshButton(BuildContext context, SubsonicAccount account) {
+  Widget _buildRefreshButton(BuildContext context) {
     final provider = context.read<SubsonicProvider>();
     return GestureDetector(
       onTap: _isScanning ? null : () => startLibraryScan(provider.subsonic),
@@ -502,30 +446,10 @@ class _DesktopAccountPopoverContentState
                       ),
                     ),
                     if (_hoveredItems.contains(key))
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              widget.onClose();
-                              showEditAccountDialog(context, account);
-                            },
-                            child: Icon(
-                              FIcons.pencil,
-                              size: 16,
-                              color: colors.mutedForeground,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () => provider.removeAccount(account.id),
-                            child: const Icon(
-                              FIcons.trash2,
-                              size: 16,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
+                      _buildHoverActions(
+                        colors,
+                        onEdit: () => showEditAccountDialog(context, account),
+                        onDelete: () => provider.removeAccount(account.id),
                       )
                     else if (isActive)
                       Icon(FIcons.check, size: 16, color: colors.primary),
@@ -578,30 +502,10 @@ class _DesktopAccountPopoverContentState
               ),
             ),
             if (_hoveredItems.contains(key))
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      widget.onClose();
-                      showEditServerDialog(context, server);
-                    },
-                    child: Icon(
-                      FIcons.pencil,
-                      size: 16,
-                      color: colors.mutedForeground,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => provider.removeKnownServer(server.baseUrl),
-                    child: const Icon(
-                      FIcons.trash2,
-                      size: 16,
-                      color: Colors.red,
-                    ),
-                  ),
-                ],
+              _buildHoverActions(
+                colors,
+                onEdit: () => showEditServerDialog(context, server),
+                onDelete: () => provider.removeKnownServer(server.baseUrl),
               )
             else
               Text(
@@ -613,6 +517,32 @@ class _DesktopAccountPopoverContentState
           ],
         ),
       ),
+    );
+  }
+
+  /// Edit + delete icons shown while a row is hovered; editing closes the
+  /// popover first.
+  Widget _buildHoverActions(
+    FColors colors, {
+    required VoidCallback onEdit,
+    required VoidCallback onDelete,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: () {
+            widget.onClose();
+            onEdit();
+          },
+          child: Icon(FIcons.pencil, size: 16, color: colors.mutedForeground),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: onDelete,
+          child: const Icon(FIcons.trash2, size: 16, color: Colors.red),
+        ),
+      ],
     );
   }
 
@@ -704,70 +634,28 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
   }
 
   void showAddAccountDialog(BuildContext ctx) {
-    showFDialog(
-      context: ctx,
-      builder: (dialogCtx, _, animation) => FDialog.raw(
-        animation: animation,
-        builder: (innerCtx, style) => SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Add Account',
-                  style: innerCtx.theme.typography.xl.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: innerCtx.theme.colors.foreground,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AddUserForm(
-                  onSuccess: () => Navigator.pop(dialogCtx),
-                  onCancel: () => Navigator.pop(dialogCtx),
-                  onAddServerPressed: () => showAddServerDialog(ctx),
-                ),
-              ],
-            ),
-          ),
-        ),
+    _showFormDialog(
+      ctx,
+      'Add Account',
+      (dialogCtx) => AddUserForm(
+        onSuccess: () => Navigator.pop(dialogCtx),
+        onCancel: () => Navigator.pop(dialogCtx),
+        onAddServerPressed: () => showAddServerDialog(ctx),
       ),
     );
   }
 
   Future<SubsonicServer?> showAddServerDialog(BuildContext ctx) async {
     SubsonicServer? result;
-    await showFDialog(
-      context: ctx,
-      builder: (dialogCtx, _, animation) => FDialog.raw(
-        animation: animation,
-        builder: (innerCtx, style) => SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Add Server',
-                  style: innerCtx.theme.typography.xl.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: innerCtx.theme.colors.foreground,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                AddServerForm(
-                  onSuccess: (server) {
-                    result = server;
-                    Navigator.pop(dialogCtx);
-                  },
-                  onCancel: () => Navigator.pop(dialogCtx),
-                ),
-              ],
-            ),
-          ),
-        ),
+    await _showFormDialog(
+      ctx,
+      'Add Server',
+      (dialogCtx) => AddServerForm(
+        onSuccess: (server) {
+          result = server;
+          Navigator.pop(dialogCtx);
+        },
+        onCancel: () => Navigator.pop(dialogCtx),
       ),
     );
     return result;
@@ -776,7 +664,7 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
   Widget _buildFooterTrigger(
     BuildContext context,
     SubsonicAccount? activeAccount,
-    dynamic colors,
+    FColors colors,
   ) {
     return Container(
       decoration: BoxDecoration(
@@ -785,45 +673,73 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
       child: Row(
         children: [
-          ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundImage: activeAccount?.avatar.isNotEmpty == true
-                  ? MemoryImage(activeAccount!.avatar)
-                  : Image.asset("assets/logo.png").image,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    activeAccount?.username ?? 'No account',
-                    style: context.theme.typography.sm.copyWith(
-                      color: colors.foreground,
-                      fontWeight: FontWeight.bold,
-                    ),
+          CircleAvatar(
+            radius: 16,
+            backgroundImage: activeAccount?.avatar.isNotEmpty == true
+                ? MemoryImage(activeAccount!.avatar)
+                : Image.asset("assets/logo.png").image,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  activeAccount?.username ?? 'No account',
+                  style: context.theme.typography.sm.copyWith(
+                    color: colors.foreground,
+                    fontWeight: FontWeight.bold,
                   ),
-                  Text(
-                    activeAccount?.baseUrl ?? 'No account selected',
-                    style: context.theme.typography.xs.copyWith(
-                      color: colors.mutedForeground,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  activeAccount?.baseUrl ?? 'No account selected',
+                  style: context.theme.typography.xs.copyWith(
+                    color: colors.mutedForeground,
                   ),
-                ],
-              ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            Icon(
-              FIcons.chevronsUpDown,
-              size: 14,
-              color: colors.mutedForeground,
-            ),
-          ],
+          ),
+          const SizedBox(width: 4),
+          Icon(FIcons.chevronsUpDown, size: 14, color: colors.mutedForeground),
         ],
       ),
     );
   }
+}
+
+/// Shows a titled dialog wrapping one of the add/edit account or server forms.
+Future<void> _showFormDialog(
+  BuildContext ctx,
+  String title,
+  Widget Function(BuildContext dialogCtx) formBuilder,
+) {
+  return showFDialog(
+    context: ctx,
+    builder: (dialogCtx, _, animation) => FDialog.raw(
+      animation: animation,
+      builder: (innerCtx, style) => SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                style: innerCtx.theme.typography.xl.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: innerCtx.theme.colors.foreground,
+                ),
+              ),
+              const SizedBox(height: 20),
+              formBuilder(dialogCtx),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }

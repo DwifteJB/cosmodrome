@@ -52,12 +52,13 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
 
   @override
   Widget build(BuildContext context) {
-    if (_items == null && widget.isOffline) return const SizedBox.shrink();
-    if (!_loading && (_items == null || _items!.isEmpty)) {
+    final items = _items;
+    if (items == null && widget.isOffline) return const SizedBox.shrink();
+    if (!_loading && (items == null || items.isEmpty)) {
       return const SizedBox.shrink();
     }
 
-    final displayItems = _loading ? _fakeSpotlightItems : (_items ?? []);
+    final displayItems = _loading ? _fakeSpotlightItems : items!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

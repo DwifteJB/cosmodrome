@@ -1,5 +1,4 @@
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
-import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/utils/logger/logger.dart';
@@ -45,10 +44,8 @@ class OfflineCacheService {
     try {
       await LocalStorageService.clearAccountCache(accountId);
       _initializedAccounts.remove(accountId);
-      // reset art
+      // reset art (clears the painting binding image cache, to avoid showing stale images after logout)
       clearCoverArtCache();
-      // delete paintbinding cache to avoid showing stale images after logout
-      PaintingBinding.instance.imageCache.clear();
       loggerPrint('OfflineCache: cleared cache for account $accountId');
     } catch (e) {
       loggerPrint('OfflineCache: failed to clear cache for $accountId: $e');
@@ -61,20 +58,14 @@ class OfflineCacheService {
     return AlbumDetail.fromJson(raw.first);
   }
 
-  Future<List<Album>?> loadAlbumList(String accountId, String listKey) async {
-    final raw = await _read(accountId, '$_albumList:$listKey');
-    return raw?.map(Album.fromJson).toList();
-  }
+  Future<List<Album>?> loadAlbumList(String accountId, String listKey) =>
+      _readList(accountId, '$_albumList:$listKey', Album.fromJson);
 
-  Future<List<Album>?> loadAlbums(String accountId) async {
-    final raw = await _read(accountId, _albums);
-    return raw?.map((e) => Album.fromJson(e)).toList();
-  }
+  Future<List<Album>?> loadAlbums(String accountId) =>
+      _readList(accountId, _albums, Album.fromJson);
 
-  Future<List<Artist>?> loadArtists(String accountId) async {
-    final raw = await _read(accountId, _artists);
-    return raw?.map((e) => Artist.fromJson(e)).toList();
-  }
+  Future<List<Artist>?> loadArtists(String accountId) =>
+      _readList(accountId, _artists, Artist.fromJson);
 
   Future<PlaylistDetail?> loadPlaylistDetail(
     String accountId,
@@ -85,35 +76,23 @@ class OfflineCacheService {
     return PlaylistDetail.fromJson(raw.first);
   }
 
-  Future<List<Playlist>?> loadPlaylists(String accountId) async {
-    final raw = await _read(accountId, _playlists);
-    return raw?.map((e) => Playlist.fromJson(e)).toList();
-  }
+  Future<List<Playlist>?> loadPlaylists(String accountId) =>
+      _readList(accountId, _playlists, Playlist.fromJson);
 
-  Future<List<Album>?> loadRecentAlbums(String accountId) async {
-    final raw = await _read(accountId, _recentAlbums);
-    return raw?.map((e) => Album.fromJson(e)).toList();
-  }
+  Future<List<Album>?> loadRecentAlbums(String accountId) =>
+      _readList(accountId, _recentAlbums, Album.fromJson);
 
-  Future<List<RecentSearch>?> loadRecentSearches(String accountId) async {
-    final raw = await _read(accountId, _recentSearches);
-    return raw?.map((e) => RecentSearch.fromJson(e)).toList();
-  }
+  Future<List<RecentSearch>?> loadRecentSearches(String accountId) =>
+      _readList(accountId, _recentSearches, RecentSearch.fromJson);
 
-  Future<List<Song>?> loadSongs(String accountId) async {
-    final raw = await _read(accountId, _songs);
-    return raw?.map((e) => Song.fromJson(e)).toList();
-  }
+  Future<List<Song>?> loadSongs(String accountId) =>
+      _readList(accountId, _songs, Song.fromJson);
 
-  Future<List<SpotlightItem>?> loadSpotlightItems(String accountId) async {
-    final raw = await _read(accountId, _spotlightItems);
-    return raw?.map((e) => SpotlightItem.fromJson(e)).toList();
-  }
+  Future<List<SpotlightItem>?> loadSpotlightItems(String accountId) =>
+      _readList(accountId, _spotlightItems, SpotlightItem.fromJson);
 
-  Future<List<Album>?> loadStarredAlbums(String accountId) async {
-    final raw = await _read(accountId, _starredAlbums);
-    return raw?.map((e) => Album.fromJson(e)).toList();
-  }
+  Future<List<Album>?> loadStarredAlbums(String accountId) =>
+      _readList(accountId, _starredAlbums, Album.fromJson);
 
   Future<void> saveAlbumDetail(String accountId, AlbumDetail album) =>
       _write(accountId, '$_albumDetail:${album.id}', [album.toJson()]);
@@ -163,6 +142,12 @@ class OfflineCacheService {
 
   Future<void> saveStarredAlbums(String accountId, List<Album> items) =>
       _write(accountId, _starredAlbums, items.map((e) => e.toJson()).toList());
+
+  Future<List<T>?> _readList<T>(
+    String accountId,
+    String key,
+    T Function(Map<String, dynamic>) fromJson,
+  ) async => (await _read(accountId, key))?.map(fromJson).toList();
 
   Future<List<Map<String, dynamic>>?> _read(
     String accountId,
@@ -248,13 +233,6 @@ class RecentSearch {
       (e) => e.toString() == json['type'],
     ),
   );
-
-  /// pass through a [subsonic] instance to get the cached cover art url for this search, if it exists
-  /// ensure you are on the RIGHT account for this.
-  String? getAlbumImagePath(Subsonic subsonic, {int size = 80}) {
-    if (artId.isEmpty) return null;
-    return subsonic.cachedCoverArtUrl(artId, size: size);
-  }
 
   Map<String, dynamic> toJson() => {
     'id': id,

@@ -17,16 +17,8 @@ extension SubsonicBrowsingApi on Subsonic {
       coverArtUrl(id, size: size);
 
   // https://www.subsonic.org/pages/api.jsp#getCoverArt
-  String coverArtUrl(String id, {int size = 300}) {
-    final query = {
-      ...getLoginParams(loginMethod),
-      'v': '1.16.1',
-      'c': 'cosmodrome',
-      'id': id,
-      'size': '$size',
-    };
-    return Uri.http(baseUrl, '/rest/getCoverArt', query).toString();
-  }
+  String coverArtUrl(String id, {int size = 300}) =>
+      restUri('getCoverArt', {'id': id, 'size': '$size'}).toString();
 
   // creates a new empty playlist and returns the new playlist id.
   Future<String?> createNewPlaylist(String name) async {
@@ -423,5 +415,4 @@ extension SubsonicBrowsingApi on Subsonic {
       await offlineCacheService.savePlaylistDetail(_accountId, playlist);
     } catch (_) {}
   }
-
 }

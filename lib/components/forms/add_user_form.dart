@@ -118,21 +118,8 @@ class _AddUserFormState extends State<AddUserForm>
                         )
                       else
                         ...provider.knownServers.map(
-                          (server) => ListTile(
-                            title: Text(
-                              server.name,
-                              style: context.theme.typography.sm.copyWith(
-                                color: colors.foreground,
-                              ),
-                            ),
-                            subtitle: server.name != server.baseUrl
-                                ? Text(
-                                    server.baseUrl,
-                                    style: context.theme.typography.xs.copyWith(
-                                      color: colors.mutedForeground,
-                                    ),
-                                  )
-                                : null,
+                          (server) => _ServerTile(
+                            server: server,
                             onTap: () {
                               setState(() => _selectedServer = server);
                               ctrl.hide();
@@ -144,12 +131,9 @@ class _AddUserFormState extends State<AddUserForm>
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                           child: FButton(
                             variant: FButtonVariant.outline,
-                            onPress: () async {
+                            onPress: () {
                               ctrl.hide();
-                              final server = await widget.onAddServerPressed!();
-                              if (mounted && server != null) {
-                                setState(() => _selectedServer = server);
-                              }
+                              _addNewServer();
                             },
                             child: const Text('+ Add New Server'),
                           ),
@@ -251,14 +235,15 @@ class _AddUserFormState extends State<AddUserForm>
             ? null
             : () {
                 Navigator.pop(sheetCtx);
-                widget.onAddServerPressed!().then((server) {
-                  if (mounted && server != null) {
-                    setState(() => _selectedServer = server);
-                  }
-                });
+                _addNewServer();
               },
       ),
     );
+  }
+
+  Future<void> _addNewServer() async {
+    final server = await widget.onAddServerPressed!();
+    if (mounted && server != null) setState(() => _selectedServer = server);
   }
 
   Future<void> _submit() async {
@@ -381,21 +366,8 @@ class _ServerPickerSheet extends StatelessWidget {
                   itemCount: knownServers.length,
                   itemBuilder: (ctx, i) {
                     final server = knownServers[i];
-                    return ListTile(
-                      title: Text(
-                        server.name,
-                        style: context.theme.typography.sm.copyWith(
-                          color: colors.foreground,
-                        ),
-                      ),
-                      subtitle: server.name != server.baseUrl
-                          ? Text(
-                              server.baseUrl,
-                              style: context.theme.typography.xs.copyWith(
-                                color: colors.mutedForeground,
-                              ),
-                            )
-                          : null,
+                    return _ServerTile(
+                      server: server,
                       onTap: () => onSelected(server),
                     );
                   },
@@ -413,6 +385,33 @@ class _ServerPickerSheet extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ServerTile extends StatelessWidget {
+  final SubsonicServer server;
+  final VoidCallback onTap;
+
+  const _ServerTile({required this.server, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.theme.colors;
+    return ListTile(
+      title: Text(
+        server.name,
+        style: context.theme.typography.sm.copyWith(color: colors.foreground),
+      ),
+      subtitle: server.name != server.baseUrl
+          ? Text(
+              server.baseUrl,
+              style: context.theme.typography.xs.copyWith(
+                color: colors.mutedForeground,
+              ),
+            )
+          : null,
+      onTap: onTap,
     );
   }
 }

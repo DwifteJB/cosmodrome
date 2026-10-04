@@ -499,6 +499,5 @@ class Song {
     if (bitRate != null) 'bitRate': bitRate,
     if (suffix != null) 'suffix': suffix,
     if (starred != null) 'starred': starred!.toIso8601String(),
-
   };
 }

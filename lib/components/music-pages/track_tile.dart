@@ -6,15 +6,10 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
+import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
-
-String formatTrackDuration(int seconds) {
-  final m = seconds ~/ 60;
-  final s = seconds % 60;
-  return '$m:${s.toString().padLeft(2, '0')}';
-}
 
 class MusicPageDesktopTrackTile extends StatefulWidget {
   final Song song;
@@ -43,7 +38,7 @@ class MusicPageDesktopTrackTile extends StatefulWidget {
       _MusicPageDesktopTrackTileState();
 }
 
-class MusicPageMobileTrackTile extends StatefulWidget {
+class MusicPageMobileTrackTile extends StatelessWidget {
   final Song song;
   final int trackNumber;
   final int? index;
@@ -73,8 +68,153 @@ class MusicPageMobileTrackTile extends StatefulWidget {
        );
 
   @override
-  State<MusicPageMobileTrackTile> createState() =>
-      _MusicPageMobileTrackTileState();
+  Widget build(BuildContext context) {
+    final isPlaying = context.select<PlayerProvider, bool>(
+      (p) => p.currentSong?.id == song.id,
+    );
+    final theme = context.theme;
+    final colors = theme.colors;
+    final trackLabel = trackNumber > 0 ? '$trackNumber' : '—';
+    final artistText = song.artist?.isNotEmpty == true
+        ? song.artist
+        : albumArtist;
+
+    return RepaintBoundary(
+      child: Dismissible(
+        key: ValueKey(
+          'mobile-track-${song.id}-$trackNumber-${reorderIndex ?? 'na'}',
+        ),
+        direction: enabled
+            ? DismissDirection.endToStart
+            : DismissDirection.none,
+        background: const SizedBox.shrink(),
+        secondaryBackground: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          color: colors.secondary,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.queue_music, color: colors.foreground),
+              const SizedBox(width: 8),
+              Text(
+                'Add to queue',
+                style: theme.typography.sm.copyWith(
+                  color: colors.foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        confirmDismiss: (_) async {
+          await context.read<PlayerProvider>().addToQueue(song);
+          if (!context.mounted) return false;
+
+          final messenger = ScaffoldMessenger.maybeOf(context);
+          messenger?.hideCurrentSnackBar();
+          messenger?.showSnackBar(
+            const SnackBar(
+              content: Text('Added to queue'),
+              duration: Duration(milliseconds: 1100),
+            ),
+          );
+
+          // keep the item in the list after queuing.
+          return false;
+        },
+        child: TapArea(
+          onTap: enabled
+              ? (onTap ?? () => context.read<PlayerProvider>().playNow(song))
+              : null,
+          onLongTap: enabled
+              ? () => showSongContextSheet(
+                  context,
+                  song,
+                  onRemoveFromPlaylist: onRemove,
+                )
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 32,
+                  child: Text(
+                    trackLabel,
+                    style: theme.typography.xs.copyWith(
+                      color: enabled
+                          ? AppColors.trackNumber
+                          : colors.mutedForeground,
+                      letterSpacing: -0.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        song.title,
+                        style: theme.typography.sm.copyWith(
+                          color: !enabled
+                              ? colors.mutedForeground
+                              : (isPlaying ? accentColor : colors.foreground),
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: -0.05,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (artistText != null && artistText.isNotEmpty)
+                        Text(
+                          artistText,
+                          style: theme.typography.xs.copyWith(
+                            color: enabled
+                                ? AppColors.trackNumber
+                                : colors.mutedForeground,
+                            letterSpacing: -0.05,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+                if (song.duration != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12),
+                    child: Text(
+                      formatTrackDuration(song.duration!),
+                      style: theme.typography.sm.copyWith(
+                        color: colors.mutedForeground,
+                      ),
+                    ),
+                  ),
+                if (showDragHandle) ...[
+                  const SizedBox(width: 8),
+                  ReorderableDragStartListener(
+                    index: reorderIndex!,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.drag_handle,
+                        size: 20,
+                        color: AppColors.trackNumber,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
@@ -110,6 +250,30 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
       if (!mounted || _isHovered || _menuOpen || !_menuMounted) return;
       setState(() => _menuMounted = false);
     });
+  }
+
+  /// "More" button that opens the song popover. The popover is only mounted
+  /// while the row is hovered (or its menu is open) to keep long lists cheap.
+  Widget _buildMenuButton(FColors colors) {
+    if (!_menuMounted) return const SizedBox.square(dimension: 28);
+
+    return DesktopSongPopover(
+      song: widget.song,
+      onRemoveFromPlaylist: widget.onRemove,
+      onShownChanged: _onMenuShownChanged,
+      builder: (context, controller) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: _isHovered ? 1 : 0),
+        duration: const Duration(milliseconds: 150),
+        builder: (context, opacity, child) =>
+            Opacity(opacity: opacity, child: child),
+        child: IconButton(
+          icon: Icon(Icons.more_horiz, size: 16, color: colors.mutedForeground),
+          onPressed: controller.toggle,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+        ),
+      ),
+    );
   }
 
   @override
@@ -210,198 +374,9 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
                       ),
                     ),
                   const SizedBox(width: 8),
-                  if (widget.enabled)
-                    _menuMounted
-                        ? DesktopSongPopover(
-                            song: song,
-                            onRemoveFromPlaylist: widget.onRemove,
-                            onShownChanged: _onMenuShownChanged,
-                            builder: (context, controller) =>
-                                TweenAnimationBuilder<double>(
-                                  tween: Tween(
-                                    begin: 0,
-                                    end: _isHovered ? 1 : 0,
-                                  ),
-                                  duration: const Duration(milliseconds: 150),
-                                  builder: (context, opacity, child) =>
-                                      Opacity(opacity: opacity, child: child),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.more_horiz,
-                                      size: 16,
-                                      color: colors.mutedForeground,
-                                    ),
-                                    onPressed: controller.toggle,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(
-                                      minWidth: 28,
-                                      minHeight: 28,
-                                    ),
-                                  ),
-                                ),
-                          )
-                        : const SizedBox.square(dimension: 28),
+                  if (widget.enabled) _buildMenuButton(colors),
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
-  @override
-  Widget build(BuildContext context) {
-    final song = widget.song;
-    final isPlaying = context.select<PlayerProvider, bool>(
-      (p) => p.currentSong?.id == song.id,
-    );
-    final trackLabel = widget.trackNumber > 0 ? '${widget.trackNumber}' : '—';
-    final artistText = song.artist?.isNotEmpty == true
-        ? song.artist
-        : widget.albumArtist;
-
-    return RepaintBoundary(
-      child: Dismissible(
-        key: ValueKey(
-          'mobile-track-${song.id}-${widget.trackNumber}-${widget.reorderIndex ?? 'na'}',
-        ),
-        direction: widget.enabled
-            ? DismissDirection.endToStart
-            : DismissDirection.none,
-        background: const SizedBox.shrink(),
-        secondaryBackground: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 24),
-          color: context.theme.colors.secondary,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.queue_music, color: context.theme.colors.foreground),
-              const SizedBox(width: 8),
-              Text(
-                'Add to queue',
-                style: context.theme.typography.sm.copyWith(
-                  color: context.theme.colors.foreground,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        confirmDismiss: (direction) async {
-          if (!widget.enabled) return false;
-          if (direction != DismissDirection.endToStart) {
-            return false;
-          }
-
-          await context.read<PlayerProvider>().addToQueue(song);
-          if (!mounted) return false;
-
-          // ignore: use_build_context_synchronously
-          final messenger = ScaffoldMessenger.maybeOf(context);
-          messenger?.hideCurrentSnackBar();
-          messenger?.showSnackBar(
-            const SnackBar(
-              content: Text('Added to queue'),
-              duration: Duration(milliseconds: 1100),
-            ),
-          );
-
-          // keep the item in the list after queuing.
-          return false;
-        },
-        child: TapArea(
-          onTap: widget.enabled
-              ? (widget.onTap ??
-                    () => context.read<PlayerProvider>().playNow(song))
-              : null,
-          onLongTap: widget.enabled
-              ? () => showSongContextSheet(
-                  context,
-                  song,
-                  onRemoveFromPlaylist: widget.onRemove,
-                )
-              : null,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 32,
-                  child: Text(
-                    trackLabel,
-                    style: context.theme.typography.xs.copyWith(
-                      color: widget.enabled
-                          ? AppColors.trackNumber
-                          : context.theme.colors.mutedForeground,
-                      letterSpacing: -0.5,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        song.title,
-                        style: context.theme.typography.sm.copyWith(
-                          color: !widget.enabled
-                              ? context.theme.colors.mutedForeground
-                              : (isPlaying
-                                    ? widget.accentColor
-                                    : context.theme.colors.foreground),
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.05,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (artistText != null && artistText.isNotEmpty)
-                        Text(
-                          artistText,
-                          style: context.theme.typography.xs.copyWith(
-                            color: widget.enabled
-                                ? AppColors.trackNumber
-                                : context.theme.colors.mutedForeground,
-                            letterSpacing: -0.05,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                if (song.duration != null)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 12),
-                    child: Text(
-                      formatTrackDuration(song.duration!),
-                      style: context.theme.typography.sm.copyWith(
-                        color: context.theme.colors.mutedForeground,
-                      ),
-                    ),
-                  ),
-                if (widget.showDragHandle) ...[
-                  const SizedBox(width: 8),
-                  ReorderableDragStartListener(
-                    index: widget.reorderIndex!,
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.drag_handle,
-                        size: 20,
-                        color: AppColors.trackNumber,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cosmodrome/components/music-pages/music_page_cover_header.dart';
 import 'package:cosmodrome/components/music-pages/track_tile.dart';
@@ -59,16 +60,7 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 12),
-            Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
+            const _SheetHandle(),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -112,6 +104,16 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                   itemBuilder: (ctx, i) {
                     final song = _results[i];
                     final coverUrl = _coverUrlCache[song.id];
+                    final placeholder = Container(
+                      width: 44,
+                      height: 44,
+                      color: colors.muted,
+                      child: Icon(
+                        Icons.music_note,
+                        color: colors.mutedForeground,
+                        size: 20,
+                      ),
+                    );
                     return ListTile(
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
@@ -121,27 +123,9 @@ class _AddSongsSheetState extends State<_AddSongsSheet> {
                                 width: 44,
                                 height: 44,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, e, s) => Container(
-                                  width: 44,
-                                  height: 44,
-                                  color: colors.muted,
-                                  child: Icon(
-                                    Icons.music_note,
-                                    color: colors.mutedForeground,
-                                    size: 20,
-                                  ),
-                                ),
+                                errorBuilder: (_, _, _) => placeholder,
                               )
-                            : Container(
-                                width: 44,
-                                height: 44,
-                                color: colors.muted,
-                                child: Icon(
-                                  Icons.music_note,
-                                  color: colors.mutedForeground,
-                                  size: 20,
-                                ),
-                              ),
+                            : placeholder,
                       ),
                       title: Text(
                         song.title,
@@ -300,9 +284,6 @@ class _PlaylistHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metaText =
-        '${songs.length} song${songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}';
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
@@ -342,7 +323,7 @@ class _PlaylistHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            metaText,
+            _playlistMetaText(playlist, songs),
             style: context.theme.typography.md.copyWith(
               color: context.theme.colors.mutedForeground,
               height: 0,
@@ -350,40 +331,55 @@ class _PlaylistHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Row(
-            children: [
-              Expanded(
-                child: FButton(
-                  onPress: songs.isEmpty ? null : onPlay,
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.play_arrow_rounded, size: 20),
-                      SizedBox(width: 6),
-                      Text('Play'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FButton(
-                  variant: FButtonVariant.outline,
-                  onPress: songs.isEmpty ? null : onShuffle,
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.shuffle_rounded, size: 20),
-                      SizedBox(width: 6),
-                      Text('Shuffle'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          _PlayShuffleButtons(
+            onPlay: songs.isEmpty ? null : onPlay,
+            onShuffle: songs.isEmpty ? null : onShuffle,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PlayShuffleButtons extends StatelessWidget {
+  final VoidCallback? onPlay;
+  final VoidCallback? onShuffle;
+
+  const _PlayShuffleButtons({required this.onPlay, required this.onShuffle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FButton(
+            onPress: onPlay,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.play_arrow_rounded, size: 20),
+                SizedBox(width: 6),
+                Text('Play'),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FButton(
+            variant: FButtonVariant.outline,
+            onPress: onShuffle,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shuffle_rounded, size: 20),
+                SizedBox(width: 6),
+                Text('Shuffle'),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -459,8 +455,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     final accentColor = accentColorNotifier.value ?? AppColors.auraColor;
     final visibleTrackCount = _visibleTrackCount(_songs.length);
 
-    var cardWidth = MediaQuery.of(context).size.width * 0.8;
-    if (cardWidth > 400) cardWidth = 400;
+    final cardWidth = min(MediaQuery.of(context).size.width * 0.8, 400.0);
 
     return CustomScrollView(
       slivers: [
@@ -468,21 +463,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
         // cover art
         SliverToBoxAdapter(
-          child: Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: coverUrl != null
-                  ? Image(
-                      image: coverArtProvider(coverUrl),
-                      width: cardWidth,
-                      height: cardWidth,
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, stack) =>
-                          _coverPlaceholder(cardWidth),
-                    )
-                  : _coverPlaceholder(cardWidth),
-            ),
-          ),
+          child: Center(child: _cover(coverUrl, size: cardWidth, radius: 16)),
         ),
 
         // playlist info
@@ -513,47 +494,14 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}',
+                  _playlistMetaText(playlist, _songs),
                   textAlign: TextAlign.center,
                   style: context.theme.typography.xs.copyWith(
                     color: context.theme.colors.mutedForeground,
                   ),
                 ),
                 const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FButton(
-                        onPress: _songs.isEmpty ? null : _playAll,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.play_arrow_rounded, size: 20),
-                            SizedBox(width: 6),
-                            Text('Play'),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FButton(
-                        variant: FButtonVariant.outline,
-                        onPress: _songs.isEmpty
-                            ? null
-                            : () => _playAll(shuffle: true),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.shuffle_rounded, size: 20),
-                            SizedBox(width: 6),
-                            Text('Shuffle'),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                _playShuffleButtons(),
                 const SizedBox(height: 8),
               ],
             ),
@@ -592,20 +540,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
         Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: coverUrl != null
-                    ? Image(
-                        image: coverArtProvider(coverUrl),
-                        width: 220,
-                        height: 220,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _coverPlaceholder(220),
-                      )
-                    : _coverPlaceholder(220),
-              ),
-            ),
+            Center(child: _cover(coverUrl, size: 220, radius: 12)),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -628,47 +563,14 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${_songs.length} song${_songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}',
+                    _playlistMetaText(playlist, _songs),
                     textAlign: TextAlign.center,
                     style: context.theme.typography.sm.copyWith(
                       color: context.theme.colors.mutedForeground,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FButton(
-                          onPress: _songs.isEmpty ? null : _playAll,
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.play_arrow_rounded, size: 20),
-                              SizedBox(width: 6),
-                              Text('Play'),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FButton(
-                          variant: FButtonVariant.outline,
-                          onPress: _songs.isEmpty
-                              ? null
-                              : () => _playAll(shuffle: true),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.shuffle_rounded, size: 20),
-                              SizedBox(width: 6),
-                              Text('Shuffle'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _playShuffleButtons(),
                 ],
               ),
             ),
@@ -683,6 +585,25 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _cover(
+    String? coverUrl, {
+    required double size,
+    required double radius,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: coverUrl != null
+          ? Image(
+              image: coverArtProvider(coverUrl),
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _coverPlaceholder(size),
+            )
+          : _coverPlaceholder(size),
     );
   }
 
@@ -759,44 +680,30 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
     try {
       final playlist = await provider.subsonic.getPlaylist(widget.playlistId);
-      if (mounted) {
-        final coverUrl = playlist?.coverArt != null
-            ? provider.subsonic.cachedCoverArtUrl(
-                playlist!.coverArt!,
-                size: 600,
-              )
-            : null;
-        if (coverUrl != null) {
-          await precacheImage(
-            coverArtProvider(coverUrl),
-            context,
-          ).catchError((_) {});
-        }
-        if (!mounted) return;
-        setState(() {
-          _playlist = playlist;
-          _songs = List.of(playlist?.songs ?? []);
-          _coverUrl = coverUrl;
-          _error = playlist == null ? 'Playlist not found' : null;
-          _loading = false;
-        });
-        coverUrlNotifier.value = coverUrl;
-
-        layoutConfig.value = LayoutConfig(
-          title: playlist?.name ?? 'Playlist',
-          buttons: pageButtons,
-          isScrollable: false,
-        );
-        _extractAccentColor();
-        if (_revealedTrackCount == 0 && playlist != null) {
-          _revealedTrackCount = playlist.songs.isEmpty
-              ? 0
-              : (playlist.songs.length < _initialTrackRevealCount
-                    ? playlist.songs.length
-                    : _initialTrackRevealCount);
-          _scheduleTrackReveal();
-        }
+      if (!mounted) return;
+      final coverArt = playlist?.coverArt;
+      final coverUrl = coverArt != null
+          ? provider.subsonic.cachedCoverArtUrl(coverArt, size: 600)
+          : null;
+      if (coverUrl != null) {
+        await precacheImage(
+          coverArtProvider(coverUrl),
+          context,
+        ).catchError((_) {});
       }
+      if (!mounted) return;
+      setState(() {
+        _playlist = playlist;
+        _songs = List.of(playlist?.songs ?? []);
+        _coverUrl = coverUrl;
+        _error = playlist == null ? 'Playlist not found' : null;
+        _loading = false;
+      });
+      coverUrlNotifier.value = coverUrl;
+
+      _publishLayoutConfig(playlist?.name ?? 'Playlist');
+      _extractAccentColor();
+      if (playlist != null) _startTrackReveal(playlist.songs.length);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -827,6 +734,14 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     context.read<PlayerProvider>().playAlbum(_songs, shuffle: shuffle);
   }
 
+  void _publishLayoutConfig(String title) {
+    layoutConfig.value = LayoutConfig(
+      title: title,
+      buttons: pageButtons,
+      isScrollable: false,
+    );
+  }
+
   void _recordPlaylistPlay() {
     final playlist = _playlist;
     final accountId = context.read<SubsonicProvider>().activeAccount?.id;
@@ -854,19 +769,8 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
           _playlist = playlist;
           _songs = List.of(playlist.songs);
         });
-        layoutConfig.value = LayoutConfig(
-          title: playlist.name,
-          buttons: pageButtons,
-          isScrollable: false,
-        );
-        if (_revealedTrackCount == 0) {
-          _revealedTrackCount = playlist.songs.isEmpty
-              ? 0
-              : (playlist.songs.length < _initialTrackRevealCount
-                    ? playlist.songs.length
-                    : _initialTrackRevealCount);
-          _scheduleTrackReveal();
-        }
+        _publishLayoutConfig(playlist.name);
+        _startTrackReveal(playlist.songs.length);
       }
     } catch (_) {}
   }
@@ -908,15 +812,16 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
             songs: _songs,
           );
         });
-        layoutConfig.value = LayoutConfig(
-          title: trimmed,
-          buttons: pageButtons,
-          isScrollable: false,
-        );
+        _publishLayoutConfig(trimmed);
         notifyPlaylistsChanged();
       }
     } catch (_) {}
   }
+
+  Widget _playShuffleButtons() => _PlayShuffleButtons(
+    onPlay: _songs.isEmpty ? null : _playAll,
+    onShuffle: _songs.isEmpty ? null : () => _playAll(shuffle: true),
+  );
 
   void _scheduleTrackReveal() {
     if (!mounted || _trackRevealScheduled) return;
@@ -927,10 +832,10 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
       _trackRevealScheduled = false;
       if (!mounted) return;
 
-      final nextCount = _revealedTrackCount + _trackRevealBatchSize;
-      final clampedCount = nextCount > _songs.length
-          ? _songs.length
-          : nextCount;
+      final clampedCount = min(
+        _revealedTrackCount + _trackRevealBatchSize,
+        _songs.length,
+      );
       if (clampedCount == _revealedTrackCount) return;
 
       setState(() {
@@ -981,16 +886,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 32,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colors.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
+                  const _SheetHandle(),
                   const SizedBox(height: 16),
                   Text(
                     'Rename playlist',
@@ -1038,37 +934,28 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     );
   }
 
+  // kicks off the staggered track reveal the first time songs arrive
+  void _startTrackReveal(int songCount) {
+    if (_revealedTrackCount != 0) return;
+    _revealedTrackCount = min(songCount, _initialTrackRevealCount);
+    _scheduleTrackReveal();
+  }
+
   void _syncReorder() {
     final provider = context.read<SubsonicProvider>();
     final ids = _songs.map((s) => s.id).toList();
     provider.subsonic.replacePlaylistSongs(widget.playlistId, ids);
   }
 
-  int _visibleTrackCount(int totalTracks) {
-    if (totalTracks == 0) return 0;
-    if (_revealedTrackCount == 0) return 0;
-    return _revealedTrackCount > totalTracks
-        ? totalTracks
-        : _revealedTrackCount;
-  }
+  int _visibleTrackCount(int totalTracks) =>
+      min(_revealedTrackCount, totalTracks);
 
   Widget _widePlaylistHeader(PlaylistDetail playlist, String? coverUrl) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: coverUrl != null
-                ? Image(
-                    image: coverArtProvider(coverUrl),
-                    width: 280,
-                    height: 280,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _coverPlaceholder(280),
-                  )
-                : _coverPlaceholder(280),
-          ),
+          _cover(coverUrl, size: 280, radius: 12),
           Expanded(
             child: _PlaylistHeader(
               playlist: playlist,
@@ -1084,3 +971,24 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     );
   }
 }
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 32,
+        height: 4,
+        decoration: BoxDecoration(
+          color: context.theme.colors.border,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+String _playlistMetaText(PlaylistDetail playlist, List<Song> songs) =>
+    '${songs.length} song${songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}';

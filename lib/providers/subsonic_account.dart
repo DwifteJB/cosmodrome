@@ -12,28 +12,28 @@ class SubsonicAccount {
     0,
   ); // fetched separately and cached in memory, not stored in json
 
-  final String _password;
-  String get password => _password;
+  final String password;
 
   final SubsonicUser user;
-  late final Subsonic subsonic;
+  final Subsonic subsonic;
 
-  int timeoutSeconds = 15;
+  int timeoutSeconds;
 
   SubsonicAccount({
     required this.baseUrl,
     required this.username,
-    required String password,
+    required this.password,
     required this.user,
     this.timeoutSeconds = 15,
+    SubsonicLoginMethod loginMethod = SubsonicLoginMethod.undetermined,
   }) : id = '$username@$baseUrl',
-       _password = password {
-    subsonic = Subsonic(
-      baseUrl: baseUrl,
-      username: username,
-      password: password,
-      timeoutSeconds: timeoutSeconds,
-    );
+       subsonic = Subsonic(
+         baseUrl: baseUrl,
+         username: username,
+         password: password,
+         timeoutSeconds: timeoutSeconds,
+       ) {
+    subsonic.loginMethod = loginMethod;
   }
 
   factory SubsonicAccount.fromJson(Map<String, dynamic> json) {
@@ -42,13 +42,18 @@ class SubsonicAccount {
       username: json['username'] as String,
       password: json['password'] as String,
       user: SubsonicUser.fromJson(json['user'] as Map<String, dynamic>),
+      // accounts saved before this was stored get probed on first request
+      loginMethod:
+          SubsonicLoginMethod.values.asNameMap()[json['loginMethod']] ??
+          SubsonicLoginMethod.undetermined,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'baseUrl': baseUrl,
     'username': username,
-    'password': _password,
+    'password': password,
     'user': user.toJson(),
+    'loginMethod': subsonic.loginMethod.name,
   };
 }
