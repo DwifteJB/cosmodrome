@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cosmodrome/components/desktop/desktop_titlebar.dart';
+import 'package:cosmodrome/components/music_player/queue_keys.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
@@ -101,18 +102,38 @@ class DesktopQueuePanel extends StatelessWidget {
                       ),
                     );
                   }
-                  return ListView.builder(
+                  final keys = queueItemKeys(queue);
+                  return ReorderableListView.builder(
                     padding: EdgeInsets.only(bottom: 8),
+                    buildDefaultDragHandles: false,
                     itemCount: queue.length,
+                    proxyDecorator: (child, _, animation) => Material(
+                      color: Colors.transparent,
+                      elevation: 6,
+                      shadowColor: Colors.black54,
+                      child: child,
+                    ),
+                    onReorderItem: (oldIndex, newIndex) {
+                      if (oldIndex == 0) return;
+                      final target = newIndex < 1 ? 1 : newIndex;
+                      player.reorderQueue(
+                        oldIndex + queueOffset,
+                        (target > oldIndex ? target + 1 : target) + queueOffset,
+                      );
+                    },
                     itemBuilder: (context, index) {
                       final song = queue[index];
                       final absoluteIndex = queueOffset + index;
-                      return _QueueItem(
-                        key: ValueKey('${song.id}_$absoluteIndex'),
-                        song: song,
-                        isCurrent: player.currentSong?.id == song.id,
-                        player: player,
-                        onRemove: () => player.removeFromQueue(absoluteIndex),
+                      return ReorderableDragStartListener(
+                        key: keys[index],
+                        index: index,
+                        enabled: index != 0,
+                        child: _QueueItem(
+                          song: song,
+                          isCurrent: index == 0,
+                          player: player,
+                          onRemove: () => player.removeFromQueue(absoluteIndex),
+                        ),
                       );
                     },
                   );
@@ -133,7 +154,6 @@ class _QueueItem extends StatefulWidget {
   final VoidCallback onRemove;
 
   const _QueueItem({
-    super.key,
     required this.song,
     required this.isCurrent,
     required this.player,

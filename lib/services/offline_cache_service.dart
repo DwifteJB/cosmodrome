@@ -12,6 +12,7 @@ final offlineCacheService = OfflineCacheService();
 
 class OfflineCacheService {
   static const _albums = 'albums';
+  static const _albumList = 'album_list';
   static const _artists = 'artists';
   static const _playlists = 'playlists';
   static const _songs = 'songs';
@@ -58,6 +59,11 @@ class OfflineCacheService {
     final raw = await _read(accountId, '$_albumDetail:$albumId');
     if (raw == null || raw.isEmpty) return null;
     return AlbumDetail.fromJson(raw.first);
+  }
+
+  Future<List<Album>?> loadAlbumList(String accountId, String listKey) async {
+    final raw = await _read(accountId, '$_albumList:$listKey');
+    return raw?.map(Album.fromJson).toList();
   }
 
   Future<List<Album>?> loadAlbums(String accountId) async {
@@ -111,6 +117,16 @@ class OfflineCacheService {
 
   Future<void> saveAlbumDetail(String accountId, AlbumDetail album) =>
       _write(accountId, '$_albumDetail:${album.id}', [album.toJson()]);
+
+  Future<void> saveAlbumList(
+    String accountId,
+    String listKey,
+    List<Album> items,
+  ) => _write(
+    accountId,
+    '$_albumList:$listKey',
+    items.map((e) => e.toJson()).toList(),
+  );
 
   Future<void> saveAlbums(String accountId, List<Album> items) =>
       _write(accountId, _albums, items.map((e) => e.toJson()).toList());

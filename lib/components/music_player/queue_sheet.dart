@@ -6,12 +6,12 @@
 */
 import 'dart:math';
 
+import 'package:cosmodrome/components/music_player/queue_keys.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
-import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -86,13 +86,19 @@ class _QueueSheetState extends State<QueueSheet> {
                     );
                   }
 
+                  final keys = queueItemKeys(queue);
                   return ReorderableListView.builder(
                     key: const Key('queue_list'),
+                    buildDefaultDragHandles: false,
                     itemCount: queue.length,
-                    onReorder: (oldIndex, newIndex) => player.reorderQueue(
-                      oldIndex + queueOffset,
-                      newIndex + queueOffset,
-                    ),
+                    onReorderItem: (oldIndex, newIndex) {
+                      if (oldIndex == 0) return;
+                      final target = newIndex < 1 ? 1 : newIndex;
+                      player.reorderQueue(
+                        oldIndex + queueOffset,
+                        (target > oldIndex ? target + 1 : target) + queueOffset,
+                      );
+                    },
                     itemBuilder: (context, index) {
                       final song = queue[index];
                       final absoluteIndex = queueOffset + index;
@@ -100,37 +106,73 @@ class _QueueSheetState extends State<QueueSheet> {
                         song.id,
                         () => player.coverArtUrlForSong(song) ?? '',
                       );
+                      final colors = context.theme.colors;
 
-                      return TapArea(
-                        key: ValueKey('${song.id}_$absoluteIndex'),
-                        onTap: null,
+                      return Dismissible(
+                        key: keys[index],
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          color: colors.destructive,
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.white,
+                          ),
+                        ),
+                        onDismissed: (_) =>
+                            player.removeFromQueue(absoluteIndex),
                         child: ListTile(
-                          leading: ClipRRect(
-                            key: ValueKey('cover_${song.id}'),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Image(
-                              image: coverArtProvider(coverUrl),
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    color: context.theme.colors.muted,
-                                    child: Icon(
-                                      Icons.music_note,
-                                      color:
-                                          context.theme.colors.mutedForeground,
-                                      size: 20,
+                          contentPadding: const EdgeInsets.only(
+                            left: 4,
+                            right: 16,
+                          ),
+                          leading: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              index == 0
+                                  ? const SizedBox(width: 40)
+                                  : ReorderableDragStartListener(
+                                      index: index,
+                                      child: SizedBox(
+                                        width: 40,
+                                        height: 40,
+                                        child: Icon(
+                                          Icons.drag_indicator_rounded,
+                                          color: colors.mutedForeground,
+                                          size: 20,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                            ),
+                              ClipRRect(
+                                key: ValueKey('cover_${song.id}'),
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image(
+                                  image: coverArtProvider(coverUrl),
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        color: colors.muted,
+                                        child: Icon(
+                                          Icons.music_note,
+                                          color: colors.mutedForeground,
+                                          size: 20,
+                                        ),
+                                      ),
+                                ),
+                              ),
+                            ],
                           ),
                           title: ScrollingText(
                             text: song.title,
                             style: context.theme.typography.sm.copyWith(
-                              color: context.theme.colors.foreground,
+                              color: index == 0
+                                  ? colors.primary
+                                  : colors.foreground,
                               fontWeight: FontWeight.w500,
                               height: 0,
                             ),
@@ -141,26 +183,12 @@ class _QueueSheetState extends State<QueueSheet> {
                               ? Text(
                                   song.artist!,
                                   style: context.theme.typography.xs.copyWith(
-                                    color: context.theme.colors.mutedForeground,
+                                    color: colors.mutedForeground,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 )
                               : null,
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.remove_circle_outline,
-                                  color: context.theme.colors.mutedForeground,
-                                  size: 20,
-                                ),
-                                onPressed: () =>
-                                    player.removeFromQueue(absoluteIndex),
-                              ),
-                            ],
-                          ),
                         ),
                       );
                     },

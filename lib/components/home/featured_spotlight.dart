@@ -44,6 +44,8 @@ class FeaturedSpotlight extends StatefulWidget {
   State<FeaturedSpotlight> createState() => _FeaturedSpotlightState();
 }
 
+final _spotlightMemory = <String, List<SpotlightItem>>{};
+
 class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
   List<SpotlightItem>? _items;
   bool _loading = true;
@@ -73,28 +75,32 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
         ),
         const SizedBox(height: 12),
         RepaintBoundary(
-          child: SizedBox(
-            height: 180,
-            child: ScrollConfiguration(
-              behavior: ScrollBehavior().copyWith(
-                dragDevices: {
-                  PointerDeviceKind.mouse,
-                  PointerDeviceKind.touch,
-                  PointerDeviceKind.trackpad,
-                },
-              ),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: displayItems.length,
-                itemBuilder: (context, index) => Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: _loading
-                      ? const _SpotlightCardPlaceholder()
-                      : _SpotlightCard(
-                          item: displayItems[index],
-                          subsonic: widget.subsonic,
-                        ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: SizedBox(
+              key: ValueKey(_loading),
+              height: 180,
+              child: ScrollConfiguration(
+                behavior: ScrollBehavior().copyWith(
+                  dragDevices: {
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.trackpad,
+                  },
+                ),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: displayItems.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: _loading
+                        ? const _SpotlightCardPlaceholder()
+                        : _SpotlightCard(
+                            item: displayItems[index],
+                            subsonic: widget.subsonic,
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -107,6 +113,12 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
   @override
   void initState() {
     super.initState();
+    final remembered = _spotlightMemory[widget.accountId];
+    if (remembered != null) {
+      _items = remembered;
+      _loading = false;
+      return;
+    }
     unawaited(_load());
   }
 
@@ -136,11 +148,11 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
     }
   }
 
-  Future<void> _fetchAndUpdate() async {
+  Future<void> _fetchAndUpdate({bool display = true}) async {
     try {
       final albums = await widget.subsonic.getAlbumList2('random', size: 5);
       if (albums.isEmpty) {
-        if (mounted) setState(() => _loading = false);
+        if (mounted && display) setState(() => _loading = false);
         return;
       }
 
@@ -156,6 +168,8 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
         );
       }
 
+      if (!display) return;
+      if (items.isNotEmpty) _spotlightMemory[widget.accountId] = items;
       if (mounted) {
         setState(() {
           if (items.isNotEmpty) _items = items;
@@ -163,7 +177,7 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && display) setState(() => _loading = false);
     }
   }
 
@@ -224,16 +238,15 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
     );
 
     if (cached != null && cached.isNotEmpty) {
+      _spotlightMemory[widget.accountId] = cached;
       if (mounted) {
         setState(() {
           _items = cached;
           _loading = false;
         });
       }
-      // if offline, stop here, use the cache
       if (widget.isOffline) return;
-      // online,  we show!
-      unawaited(_fetchAndUpdate());
+      unawaited(_fetchAndUpdate(display: false));
       return;
     }
 
@@ -275,17 +288,26 @@ class _SpotlightCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                ColoredBox(color: accentColor ?? context.theme.colors.muted),
                 if (coverUrl != null)
                   Image(
                     image: coverArtProvider(coverUrl),
                     fit: BoxFit.cover,
                     filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                    frameBuilder: (context, child, frame, sync) {
+                      if (sync) return child;
+                      return AnimatedOpacity(
+                        opacity: frame == null ? 0 : 1,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                        child: child,
+                      );
+                    },
                     errorBuilder: (context, err, stack) => ColoredBox(
                       color: accentColor ?? context.theme.colors.muted,
                     ),
-                  )
-                else
-                  ColoredBox(color: accentColor ?? context.theme.colors.muted),
+                  ),
                 if (accentColor != null)
                   ColoredBox(color: accentColor.withValues(alpha: 0.3)),
                 const DecoratedBox(

@@ -8,6 +8,11 @@ bool isMobile(BuildContext context) {
 }
 
 bool isMobileView(BuildContext context) {
+  // forced mobile via --dart-define FORCED_MOBILE=true
+  if (const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false)) {
+    return true;
+  }
+
   if (kIsWeb && MediaQuery.of(context).size.width < 768) {
     return true;
   }

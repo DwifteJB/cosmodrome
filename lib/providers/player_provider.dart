@@ -6,6 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
+import 'package:cosmodrome/services/play_history_service.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
@@ -225,9 +226,11 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> removeFromQueue(int index) async {
     if (index < 0 || index >= _activeQueue.length) return;
-    final songId = _activeQueue[index].id;
-    final songIndex = _songs.indexWhere((song) => song.id == songId);
-    if (songIndex == -1) return;
+    final songIndex = _shuffle && _shuffleOrder.isNotEmpty
+        ? _shuffleOrder[index]
+        : index;
+    if (songIndex < 0 || songIndex >= _songs.length) return;
+    final songId = _songs[songIndex].id;
 
     final removedCurrent = songIndex == _currentIndex;
     _songs.removeAt(songIndex);
@@ -252,10 +255,11 @@ class PlayerProvider extends ChangeNotifier {
     }
 
     if (_shuffle) {
-      _rebuildShuffleOrder();
+      _removeFromShuffleOrder(songIndex);
     }
 
     _queueVersion++;
+    notifyListeners();
     if (removedCurrent) {
       _updateCoverArtCache();
       await _playCurrentIndex();
@@ -266,7 +270,10 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void reorderQueue(int oldIndex, int newIndex) {
-    if (_shuffle) return;
+    if (_shuffle) {
+      _reorderShuffleOrder(oldIndex, newIndex);
+      return;
+    }
     if (oldIndex < 0 || oldIndex >= _songs.length) return;
     if (newIndex < 0 || newIndex > _songs.length) return;
     if (oldIndex < newIndex) newIndex -= 1;
@@ -281,6 +288,38 @@ class PlayerProvider extends ChangeNotifier {
     }
     _queueVersion++;
     unawaited(_syncPlayerQueue(preservePosition: true));
+    notifyListeners();
+  }
+
+  void _removeFromShuffleOrder(int songIndex) {
+    final position = _shuffleOrder.indexOf(songIndex);
+    _shuffleOrder = [
+      for (final i in _shuffleOrder)
+        if (i != songIndex) i > songIndex ? i - 1 : i,
+    ];
+    if (_shuffleOrder.isEmpty) {
+      _rebuildShuffleOrder();
+      return;
+    }
+    if (position >= 0 && position < _shuffleCursor) _shuffleCursor--;
+    _shuffleCursor = _shuffleCursor.clamp(0, _shuffleOrder.length - 1);
+    _currentIndex = _shuffleOrder[_shuffleCursor];
+  }
+
+  void _reorderShuffleOrder(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _shuffleOrder.length) return;
+    if (newIndex < 0 || newIndex > _shuffleOrder.length) return;
+    if (oldIndex < newIndex) newIndex -= 1;
+    final moved = _shuffleOrder.removeAt(oldIndex);
+    _shuffleOrder.insert(newIndex, moved);
+    if (oldIndex == _shuffleCursor) {
+      _shuffleCursor = newIndex;
+    } else if (oldIndex < _shuffleCursor && newIndex >= _shuffleCursor) {
+      _shuffleCursor--;
+    } else if (oldIndex > _shuffleCursor && newIndex <= _shuffleCursor) {
+      _shuffleCursor++;
+    }
+    _queueVersion++;
     notifyListeners();
   }
 
@@ -524,6 +563,10 @@ class PlayerProvider extends ChangeNotifier {
     final song = currentSong;
     if (song?.id == _cachedSongId) return;
     _cachedSongId = song?.id;
+    final accountId = _subsonicProvider?.activeAccount?.id;
+    if (song != null && accountId != null) {
+      unawaited(playHistoryService.recordSong(accountId, song));
+    }
     if (song == null || song.coverArt == null || _subsonicProvider == null) {
       _cachedCoverArtUrl = null;
       return;

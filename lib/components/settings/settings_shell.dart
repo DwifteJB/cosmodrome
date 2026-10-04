@@ -54,6 +54,7 @@ class _SettingsDesktopShellState extends State<_SettingsDesktopShell> {
           child: Material(
             color: AppColors.background,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // left nav
                 Container(

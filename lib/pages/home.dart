@@ -1,47 +1,18 @@
 import 'dart:async';
 
-import 'package:cosmodrome/components/album_card.dart';
-import 'package:cosmodrome/components/home/featured_spotlight.dart';
+import 'package:cosmodrome/components/home/customize_home_dialog.dart';
+import 'package:cosmodrome/components/home/home_sections.dart';
 import 'package:cosmodrome/components/shared_views/no_account_view.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
-import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
-import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/services/offline_cache_service.dart';
-import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/services/home_layout_service.dart';
+import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
-import 'package:cosmodrome/utils/tap_area.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:skeletonizer/skeletonizer.dart';
-
-final fakeAlbums = List.generate(
-  10,
-  (index) => Album(
-    id: 'fake_$index',
-    name: 'Album $index',
-    artist: 'Artist $index',
-    coverArt: null,
-    songCount: 0,
-    duration: 0,
-  ),
-);
-
-final fakePlaylists = List.generate(
-  10,
-  (index) => Playlist(
-    id: 'fake_$index',
-    name: 'Playlist $index',
-    coverArt: null,
-    songCount: 0,
-    duration: 0,
-    owner: "you!",
-  ),
-);
 
 final homeItems = [
   _HomeCard(
@@ -126,27 +97,39 @@ class _HomeCard extends StatelessWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<Album>? _recentAlbums;
-  List<Album>? _starredAlbums;
-  bool _loading = true;
-  String? _prevAccountId;
+  final _sectionKeys = <String, GlobalKey>{};
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SubsonicProvider>();
+    final account = provider.activeAccount;
 
-    if (provider.activeAccount == null) {
+    if (account == null) {
       return NoAccountView();
     }
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final byId = {for (final s in homeSections) s.id: s};
+    final ordered = homeLayoutService.resolve([
+      for (final s in homeSections) s.id,
+    ]);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(height: 50),
+        SizedBox(
+          height: 50,
+          child: isMobileView(context)
+              ? null
+              : Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: _CustomizeButton(
+                      onTap: () => showCustomizeHomeDialog(context),
+                    ),
+                  ),
+                ),
+        ),
         if (provider.isOffline)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -175,265 +158,123 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         const SizedBox(height: 8),
-        FeaturedSpotlight(
-          key: ValueKey(provider.activeAccount?.id),
-          subsonic: provider.subsonic,
-          accountId: provider.activeAccount!.id,
-          isOffline: provider.isOffline,
-        ),
+        for (final section in ordered.map((id) => byId[id]!))
+          section.buildView(
+            key: _sectionKeys.putIfAbsent(
+              '${account.id}:${section.id}',
+              GlobalKey.new,
+            ),
+            subsonic: provider.subsonic,
+            accountId: account.id,
+            isOffline: provider.isOffline,
+          ),
         const SizedBox(height: 8),
-        _HorizontalCarousel(
-          title: 'Recently Added',
-          albums: _recentAlbums ?? [],
-          subsonic: provider.subsonic,
-          isLoading: _loading,
-        ),
-        _HorizontalCarousel(
-          title: 'Starred',
-          albums: _starredAlbums ?? [],
-          subsonic: provider.subsonic,
-          isLoading: _loading,
-        ),
-        const SizedBox(height: 24),
       ],
     );
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final provider = context.watch<SubsonicProvider>();
-    final currentId = provider.activeAccount?.id;
-    if (currentId != _prevAccountId) {
-      _prevAccountId = currentId;
-      _fetchAlbums();
-    }
-  }
-
-  @override
   void dispose() {
-    super.dispose();
+    homeLayoutService.removeListener(_onLayoutChanged);
     starredCountChanged.removeListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.removeListener(_onStarOrPlaylistChanged);
     homeRefreshNotifier.removeListener(_onHomeRefreshRequested);
+    super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    homeLayoutService.addListener(_onLayoutChanged);
+    unawaited(homeLayoutService.ensureLoaded());
     starredCountChanged.addListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.addListener(_onStarOrPlaylistChanged);
     homeRefreshNotifier.addListener(_onHomeRefreshRequested);
   }
 
-  Future<void> _fetchAlbums({bool forceRefresh = false}) async {
-    final provider = context.read<SubsonicProvider>();
-    final accountId = provider.activeAccount?.id;
-    if (accountId == null) {
-      setState(() {
-        _loading = false;
-        _recentAlbums = null;
-        _starredAlbums = null;
-      });
-      return;
-    }
+  Future<void> _reloadSections({bool force = false}) {
+    final accountId = context.read<SubsonicProvider>().activeAccount?.id;
+    if (accountId == null) return Future.value();
+    return Future.wait([
+      for (final section in homeSections)
+        if (_sectionKeys['$accountId:${section.id}']?.currentState
+            case final ReloadableHomeSection view)
+          view.reload(force: force),
+    ]);
+  }
 
-    if (forceRefresh) {
-      setState(() => _loading = true);
-    }
-
-    final cachedRecent = await offlineCacheService.loadRecentAlbums(accountId);
-    final cachedStarred = await offlineCacheService.loadStarredAlbums(
-      accountId,
-    );
-
-    if (provider.isOffline) {
-      if (mounted) {
-        setState(() {
-          _recentAlbums = cachedRecent?.take(10).toList();
-          _starredAlbums = cachedStarred?.take(10).toList();
-          _loading = false;
-        });
-      }
-      return;
-    }
-
-    if (mounted && (cachedRecent != null || cachedStarred != null)) {
-      setState(() {
-        _recentAlbums = cachedRecent?.take(10).toList();
-        _starredAlbums = cachedStarred?.take(10).toList();
-        _loading = false;
-      });
-    }
-
-    if (!mounted) return;
-    setState(() => _loading = _recentAlbums == null && _starredAlbums == null);
-
-    try {
-      final results = await Future.wait([
-        provider.subsonic.getAlbumList2(
-          'newest',
-          size: 20,
-          forceRefresh: forceRefresh,
-        ),
-        provider.subsonic.getAlbumList2(
-          'starred',
-          size: 20,
-          forceRefresh: forceRefresh,
-        ),
-      ]);
-
-      await Future.wait([
-        offlineCacheService.saveRecentAlbums(accountId, results[0]),
-        offlineCacheService.saveStarredAlbums(accountId, results[1]),
-      ]);
-
-      if (mounted) {
-        setState(() {
-          _recentAlbums = results[0].take(10).toList();
-          _starredAlbums = results[1].take(10).toList();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _recentAlbums = cachedRecent?.take(10).toList();
-          _starredAlbums = cachedStarred?.take(10).toList();
-          _loading = false;
-        });
-      }
-      unawaited(provider.checkConnectivity());
-    }
+  void _onLayoutChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onHomeRefreshRequested() {
     final completer = homeRefreshNotifier.value;
     if (completer == null || completer.isCompleted) return;
     SchedulerBinding.instance.addPostFrameCallback((_) async {
-      // reset cache
-      await _fetchAlbums(forceRefresh: true);
-      if (!completer.isCompleted) completer.complete();
+      try {
+        await _reloadSections(force: true);
+      } finally {
+        if (!completer.isCompleted) completer.complete();
+      }
     });
   }
 
   void _onStarOrPlaylistChanged() {
-    // defer until after current frame
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      _fetchAlbums();
+      if (mounted) unawaited(_reloadSections());
     });
   }
 }
 
-// ignore: must_be_immutable
-class _HorizontalCarousel extends StatelessWidget {
-  final String title;
-  List<Album> albums = const [];
-  final Subsonic subsonic;
-  final bool isLoading;
+class _CustomizeButton extends StatefulWidget {
+  final VoidCallback onTap;
 
-  _HorizontalCarousel({
-    required this.title,
-    this.albums = const [],
-    required this.subsonic,
-    this.isLoading = false,
-  });
+  const _CustomizeButton({required this.onTap});
+
+  @override
+  State<_CustomizeButton> createState() => _CustomizeButtonState();
+}
+
+class _CustomizeButtonState extends State<_CustomizeButton> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
-    if (!isLoading && albums.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final colors = context.theme.colors;
+    final fg = _hovered ? colors.foreground : colors.mutedForeground;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? colors.muted
+                : colors.muted.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.border),
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(FIcons.slidersHorizontal, size: 14, color: fg),
+              const SizedBox(width: 8),
               Text(
-                title,
-                style: context.theme.typography.md.copyWith(
+                'Customize',
+                style: context.theme.typography.xs.copyWith(
+                  color: fg,
                   fontWeight: FontWeight.w500,
-                  color: context.theme.colors.foreground,
-                  letterSpacing: -0.1,
                 ),
-              ),
-
-              TapArea(
-                child: Text(
-                  'See all',
-                  style: context.theme.typography.xs.copyWith(
-                    color: AppColors.auraColor,
-                    letterSpacing: -0.1,
-                  ),
-                ),
-                onTap: () {
-                  if (title == 'Recently Added') {
-                    context.push('/library/recent');
-                  } else if (title == 'Starred') {
-                    context.push('/library/starred');
-                  }
-                },
               ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-
-        // fall back to fake albums if the real ones aren't loaded yet, to show the skeleton effect
-        Skeletonizer(
-          enabled: isLoading,
-          effect: ShimmerEffect(
-            baseColor: context.theme.colors.muted,
-            highlightColor: context.theme.colors.muted.withValues(alpha: 0.5),
-          ),
-          child: !isLoading && albums.isEmpty
-              ? SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: Text(
-                      'It feels empty in here...',
-                      style: context.theme.typography.md.copyWith(
-                        color: context.theme.colors.mutedForeground,
-                      ),
-                    ),
-                  ),
-                )
-              : SizedBox(
-                  height: 210,
-                  child: ScrollConfiguration(
-                    behavior: ScrollBehavior().copyWith(
-                      dragDevices: {
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.trackpad,
-                      },
-                    ),
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount:
-                          albums.length +
-                          (albums.isEmpty ? fakeAlbums.length : 0),
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: EdgeInsets.only(right: 12),
-                          child: AlbumCard(
-                            album: albums.isNotEmpty
-                                ? albums[index]
-                                : fakeAlbums[index - albums.length],
-                            subsonic: subsonic,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-        ),
-      ],
+      ),
     );
   }
 }

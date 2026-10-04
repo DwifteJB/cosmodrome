@@ -8,6 +8,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/play_history_service.dart';
 import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
@@ -285,12 +286,16 @@ class _PlaylistHeader extends StatelessWidget {
   final List<Song> songs;
   final VoidCallback onAddSongs;
   final VoidCallback onRename;
+  final VoidCallback onPlay;
+  final VoidCallback onShuffle;
 
   const _PlaylistHeader({
     required this.playlist,
     required this.songs,
     required this.onAddSongs,
     required this.onRename,
+    required this.onPlay,
+    required this.onShuffle,
   });
 
   @override
@@ -349,9 +354,7 @@ class _PlaylistHeader extends StatelessWidget {
             children: [
               Expanded(
                 child: FButton(
-                  onPress: songs.isEmpty
-                      ? null
-                      : () => context.read<PlayerProvider>().playAlbum(songs),
+                  onPress: songs.isEmpty ? null : onPlay,
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -366,12 +369,7 @@ class _PlaylistHeader extends StatelessWidget {
               Expanded(
                 child: FButton(
                   variant: FButtonVariant.outline,
-                  onPress: songs.isEmpty
-                      ? null
-                      : () => context.read<PlayerProvider>().playAlbum(
-                          songs,
-                          shuffle: true,
-                        ),
+                  onPress: songs.isEmpty ? null : onShuffle,
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -526,11 +524,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                   children: [
                     Expanded(
                       child: FButton(
-                        onPress: _songs.isEmpty
-                            ? null
-                            : () => context.read<PlayerProvider>().playAlbum(
-                                _songs,
-                              ),
+                        onPress: _songs.isEmpty ? null : _playAll,
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -547,10 +541,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                         variant: FButtonVariant.outline,
                         onPress: _songs.isEmpty
                             ? null
-                            : () => context.read<PlayerProvider>().playAlbum(
-                                _songs,
-                                shuffle: true,
-                              ),
+                            : () => _playAll(shuffle: true),
                         child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -648,11 +639,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                     children: [
                       Expanded(
                         child: FButton(
-                          onPress: _songs.isEmpty
-                              ? null
-                              : () => context.read<PlayerProvider>().playAlbum(
-                                  _songs,
-                                ),
+                          onPress: _songs.isEmpty ? null : _playAll,
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -669,10 +656,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
                           variant: FButtonVariant.outline,
                           onPress: _songs.isEmpty
                               ? null
-                              : () => context.read<PlayerProvider>().playAlbum(
-                                  _songs,
-                                  shuffle: true,
-                                ),
+                              : () => _playAll(shuffle: true),
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -838,8 +822,21 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     _syncReorder();
   }
 
+  void _playAll({bool shuffle = false}) {
+    _recordPlaylistPlay();
+    context.read<PlayerProvider>().playAlbum(_songs, shuffle: shuffle);
+  }
+
+  void _recordPlaylistPlay() {
+    final playlist = _playlist;
+    final accountId = context.read<SubsonicProvider>().activeAccount?.id;
+    if (playlist == null || accountId == null) return;
+    playHistoryService.recordPlaylist(accountId, playlist);
+  }
+
   void _playSongAt(int index) async {
     if (!_isSongPlayable(_songs[index])) return;
+    _recordPlaylistPlay();
     final pp = context.read<PlayerProvider>();
     await pp.resetQueue();
     await pp.playNow(_songs[index]);
@@ -1078,6 +1075,8 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
               songs: _songs,
               onAddSongs: _showAddSongsSheet,
               onRename: _showEditTitleSheet,
+              onPlay: _playAll,
+              onShuffle: () => _playAll(shuffle: true),
             ),
           ),
         ],
