@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 class DesktopSongPopover extends StatefulWidget {
   final Song song;
   final VoidCallback? onRemoveFromPlaylist;
+  final ValueChanged<bool>? onShownChanged;
   final Widget Function(BuildContext context, FPopoverController controller)
   builder;
 
@@ -18,6 +19,7 @@ class DesktopSongPopover extends StatefulWidget {
     required this.song,
     required this.builder,
     this.onRemoveFromPlaylist,
+    this.onShownChanged,
   });
 
   @override
@@ -32,6 +34,7 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
   @override
   Widget build(BuildContext context) {
     return FPopover(
+      control: FPopoverControl.managed(onChange: widget.onShownChanged),
       popoverAnchor: Alignment.bottomRight,
       childAnchor: Alignment.topRight,
       popoverBuilder: (context, controller) {
@@ -194,24 +197,27 @@ class _DesktopSongPopoverState extends State<DesktopSongPopover> {
         ),
         const Divider(height: 1),
         Flexible(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text('New playlist'),
-                onTap: () => _createAndAdd(controller),
-              ),
-              ..._playlists.map(
-                (p) => ListTile(
-                  title: Text(p.name),
-                  subtitle: Text(
-                    '${p.songCount} song${p.songCount == 1 ? '' : 's'}',
-                  ),
-                  onTap: () => _addToPlaylist(p, controller),
+          child: Material(
+            type: MaterialType.transparency,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.add),
+                  title: const Text('New playlist'),
+                  onTap: () => _createAndAdd(controller),
                 ),
-              ),
-            ],
+                ..._playlists.map(
+                  (p) => ListTile(
+                    title: Text(p.name),
+                    subtitle: Text(
+                      '${p.songCount} song${p.songCount == 1 ? '' : 's'}',
+                    ),
+                    onTap: () => _addToPlaylist(p, controller),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],

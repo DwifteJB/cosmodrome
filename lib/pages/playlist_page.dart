@@ -392,6 +392,7 @@ class _PlaylistHeader extends StatelessWidget {
 
 class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   static const int _initialTrackRevealCount = 3;
+  static const int _trackRevealBatchSize = 8;
   PlaylistDetail? _playlist;
   List<Song> _songs = [];
   String? _coverUrl;
@@ -719,35 +720,30 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     final coverUrl = _coverUrl;
     final visibleTrackCount = _visibleTrackCount(_songs.length);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 700;
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isCompact)
-                _compactPlaylistHeader(playlist, coverUrl)
-              else
-                _widePlaylistHeader(playlist, coverUrl),
-              const SizedBox(height: 20),
-              ...List.generate(visibleTrackCount, (index) {
-                final song = _songs[index];
-                return MusicPageDesktopTrackTile(
-                  song: song,
-                  trackNumber: index + 1,
-                  enabled: _isSongPlayable(song),
-                  accentColor: accentColorNotifier.value ?? _localCoverColor,
-                  onTap: () => _playSongAt(index),
-                  onRemove: () => _removeAt(index),
-                );
-              }, growable: false),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) => constraints.maxWidth < 700
+                ? _compactPlaylistHeader(playlist, coverUrl)
+                : _widePlaylistHeader(playlist, coverUrl),
           ),
-        );
-      },
+          const SizedBox(height: 20),
+          ...List.generate(visibleTrackCount, (index) {
+            final song = _songs[index];
+            return MusicPageDesktopTrackTile(
+              song: song,
+              trackNumber: index + 1,
+              enabled: _isSongPlayable(song),
+              accentColor: accentColorNotifier.value ?? _localCoverColor,
+              onTap: () => _playSongAt(index),
+              onRemove: () => _removeAt(index),
+            );
+          }, growable: false),
+        ],
+      ),
     );
   }
 
@@ -761,7 +757,8 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
       final color =
           generator.vibrantColor?.color ?? generator.dominantColor?.color;
 
-      if (mounted) accentColorNotifier.value = color;
+      if (!mounted) return;
+      accentColorNotifier.value = color;
       setState(() => _localCoverColor = color ?? AppColors.auraColor);
     } catch (_) {}
   }
@@ -933,7 +930,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
       _trackRevealScheduled = false;
       if (!mounted) return;
 
-      final nextCount = _revealedTrackCount + 1;
+      final nextCount = _revealedTrackCount + _trackRevealBatchSize;
       final clampedCount = nextCount > _songs.length
           ? _songs.length
           : nextCount;

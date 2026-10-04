@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cosmodrome/components/desktop/desktop_song_popover.dart';
 import 'package:cosmodrome/components/mobile/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
@@ -78,23 +80,59 @@ class MusicPageMobileTrackTile extends StatefulWidget {
 class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
   bool _isHovered = false;
 
-  bool get isPlaying {
-    final player = context.watch<PlayerProvider>();
-    return player.currentSong?.id == widget.song.id;
+  bool _menuMounted = false;
+  bool _menuOpen = false;
+  Timer? _menuUnmountTimer;
+
+  @override
+  void dispose() {
+    _menuUnmountTimer?.cancel();
+    super.dispose();
+  }
+
+  void _setHovered(bool hovered) {
+    if (!widget.enabled) return;
+    setState(() {
+      _isHovered = hovered;
+      if (hovered) _menuMounted = true;
+    });
+    if (!hovered) _scheduleMenuUnmount();
+  }
+
+  void _onMenuShownChanged(bool shown) {
+    _menuOpen = shown;
+    if (!shown) _scheduleMenuUnmount();
+  }
+
+  void _scheduleMenuUnmount() {
+    _menuUnmountTimer?.cancel();
+    _menuUnmountTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || _isHovered || _menuOpen || !_menuMounted) return;
+      setState(() => _menuMounted = false);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final song = widget.song;
+
+    final isPlaying = context.select<PlayerProvider, bool>(
+      (p) => p.currentSong?.id == song.id,
+    );
+    final theme = context.theme;
+    final colors = theme.colors;
     final trackLabel = widget.trackNumber > 0 ? '${widget.trackNumber}' : '—';
     final showArtist =
         song.artist != null &&
         song.artist!.isNotEmpty &&
         song.artist != widget.albumArtist;
-    final hoverBg = context.theme.colors.secondary.withValues(alpha: 0.2);
+    final hoverBg = colors.secondary.withValues(alpha: 0.2);
     final isOdd = (widget.index ?? widget.trackNumber) % 2 != 0;
     final rowBg = isOdd ? const Color(0x0DFFFFFF) : Colors.transparent;
-    final disabledText = context.theme.colors.mutedForeground;
+
+    final disabledText = colors.mutedForeground.withValues(
+      alpha: colors.mutedForeground.a * 0.45,
+    );
 
     return RepaintBoundary(
       child: GestureDetector(
@@ -106,105 +144,104 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
           cursor: widget.enabled
               ? SystemMouseCursors.click
               : SystemMouseCursors.basic,
-          onEnter: (_) {
-            if (widget.enabled) setState(() => _isHovered = true);
-          },
-          onExit: (_) {
-            if (widget.enabled) setState(() => _isHovered = false);
-          },
-          child: Container(
+          onEnter: (_) => _setHovered(true),
+          onExit: (_) => _setHovered(false),
+          child: ColoredBox(
             color: widget.enabled && _isHovered ? hoverBg : rowBg,
-            child: Opacity(
-              opacity: widget.enabled ? 1.0 : 0.45,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 32,
-                      child: Text(
-                        trackLabel,
-                        style: context.theme.typography.xs.copyWith(
-                          color: widget.enabled
-                              ? AppColors.trackNumber
-                              : disabledText,
-                          letterSpacing: -0.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 32,
+                    child: Text(
+                      trackLabel,
+                      style: theme.typography.xs.copyWith(
+                        color: widget.enabled
+                            ? AppColors.trackNumber
+                            : disabledText,
+                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          song.title,
+                          style: theme.typography.sm.copyWith(
+                            color: !widget.enabled
+                                ? disabledText
+                                : (isPlaying
+                                      ? widget.accentColor
+                                      : colors.foreground),
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: -0.05,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (showArtist)
                           Text(
-                            song.title,
-                            style: context.theme.typography.sm.copyWith(
-                              color: !widget.enabled
-                                  ? disabledText
-                                  : (isPlaying
-                                        ? widget.accentColor
-                                        : context.theme.colors.foreground),
-                              fontWeight: FontWeight.w400,
+                            song.artist!,
+                            style: theme.typography.xs.copyWith(
+                              color: widget.enabled
+                                  ? AppColors.trackNumber
+                                  : disabledText,
                               letterSpacing: -0.05,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (showArtist)
-                            Text(
-                              song.artist!,
-                              style: context.theme.typography.xs.copyWith(
-                                color: widget.enabled
-                                    ? AppColors.trackNumber
-                                    : disabledText,
-                                letterSpacing: -0.05,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
+                      ],
+                    ),
+                  ),
+                  if (song.duration != null)
+                    Text(
+                      formatTrackDuration(song.duration!),
+                      style: theme.typography.sm.copyWith(
+                        color: widget.enabled
+                            ? colors.mutedForeground
+                            : disabledText,
                       ),
                     ),
-                    if (song.duration != null)
-                      Text(
-                        formatTrackDuration(song.duration!),
-                        style: context.theme.typography.sm.copyWith(
-                          color: widget.enabled
-                              ? context.theme.colors.mutedForeground
-                              : disabledText,
-                        ),
-                      ),
-                    const SizedBox(width: 8),
-                    if (widget.enabled)
-                      DesktopSongPopover(
-                        song: song,
-                        onRemoveFromPlaylist: widget.onRemove,
-                        builder: (context, controller) => AnimatedOpacity(
-                          opacity: _isHovered ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 150),
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.more_horiz,
-                              size: 16,
-                              color: context.theme.colors.mutedForeground,
-                            ),
-                            onPressed: controller.toggle,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 28,
-                              minHeight: 28,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+                  const SizedBox(width: 8),
+                  if (widget.enabled)
+                    _menuMounted
+                        ? DesktopSongPopover(
+                            song: song,
+                            onRemoveFromPlaylist: widget.onRemove,
+                            onShownChanged: _onMenuShownChanged,
+                            builder: (context, controller) =>
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween(
+                                    begin: 0,
+                                    end: _isHovered ? 1 : 0,
+                                  ),
+                                  duration: const Duration(milliseconds: 150),
+                                  builder: (context, opacity, child) =>
+                                      Opacity(opacity: opacity, child: child),
+                                  child: IconButton(
+                                    icon: Icon(
+                                      Icons.more_horiz,
+                                      size: 16,
+                                      color: colors.mutedForeground,
+                                    ),
+                                    onPressed: controller.toggle,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 28,
+                                      minHeight: 28,
+                                    ),
+                                  ),
+                                ),
+                          )
+                        : const SizedBox.square(dimension: 28),
+                ],
               ),
             ),
           ),
@@ -215,14 +252,12 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
 }
 
 class _MusicPageMobileTrackTileState extends State<MusicPageMobileTrackTile> {
-  bool get isPlaying {
-    final player = context.watch<PlayerProvider>();
-    return player.currentSong?.id == widget.song.id;
-  }
-
   @override
   Widget build(BuildContext context) {
     final song = widget.song;
+    final isPlaying = context.select<PlayerProvider, bool>(
+      (p) => p.currentSong?.id == song.id,
+    );
     final trackLabel = widget.trackNumber > 0 ? '${widget.trackNumber}' : '—';
     final artistText = song.artist?.isNotEmpty == true
         ? song.artist

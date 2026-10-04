@@ -100,59 +100,62 @@ class _AddUserFormState extends State<AddUserForm>
             popoverAnchor: Alignment.topLeft,
             popoverBuilder: (ctx, ctrl) => ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 300, maxHeight: 280),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (provider.knownServers.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          'No servers added yet.',
-                          style: context.theme.typography.sm.copyWith(
-                            color: colors.mutedForeground,
-                          ),
-                        ),
-                      )
-                    else
-                      ...provider.knownServers.map(
-                        (server) => ListTile(
-                          title: Text(
-                            server.name,
+              child: Material(
+                type: MaterialType.transparency,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (provider.knownServers.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            'No servers added yet.',
                             style: context.theme.typography.sm.copyWith(
-                              color: colors.foreground,
+                              color: colors.mutedForeground,
                             ),
                           ),
-                          subtitle: server.name != server.baseUrl
-                              ? Text(
-                                  server.baseUrl,
-                                  style: context.theme.typography.xs.copyWith(
-                                    color: colors.mutedForeground,
-                                  ),
-                                )
-                              : null,
-                          onTap: () {
-                            setState(() => _selectedServer = server);
-                            ctrl.hide();
-                          },
-                        ),
-                      ),
-                    if (widget.onAddServerPressed != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        child: FButton(
-                          variant: FButtonVariant.outline,
-                          onPress: () async {
-                            ctrl.hide();
-                            final server = await widget.onAddServerPressed!();
-                            if (mounted && server != null) {
+                        )
+                      else
+                        ...provider.knownServers.map(
+                          (server) => ListTile(
+                            title: Text(
+                              server.name,
+                              style: context.theme.typography.sm.copyWith(
+                                color: colors.foreground,
+                              ),
+                            ),
+                            subtitle: server.name != server.baseUrl
+                                ? Text(
+                                    server.baseUrl,
+                                    style: context.theme.typography.xs.copyWith(
+                                      color: colors.mutedForeground,
+                                    ),
+                                  )
+                                : null,
+                            onTap: () {
                               setState(() => _selectedServer = server);
-                            }
-                          },
-                          child: const Text('+ Add New Server'),
+                              ctrl.hide();
+                            },
+                          ),
                         ),
-                      ),
-                  ],
+                      if (widget.onAddServerPressed != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                          child: FButton(
+                            variant: FButtonVariant.outline,
+                            onPress: () async {
+                              ctrl.hide();
+                              final server = await widget.onAddServerPressed!();
+                              if (mounted && server != null) {
+                                setState(() => _selectedServer = server);
+                              }
+                            },
+                            child: const Text('+ Add New Server'),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
