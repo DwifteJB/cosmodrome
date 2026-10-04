@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
+import 'package:cosmodrome/utils/isProduction.dart';
 import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/foundation.dart';
 // desktop platforms only, bundled in
@@ -44,9 +45,17 @@ class RpcBridge extends ChangeNotifier {
       final bin = File(_getExecutablePath() ?? '');
 
       if (!bin.existsSync()) {
-        loggerError(
-          'RPC bridge executable not found. Expected at: ${bin.path}',
-        );
+        // running flutter run usually means theres not a rpc{.exe} file in the bundle
+        if (!isProduction()) {
+          loggerPrint(
+            "RPC bridge executable not found, this is expected in development mode",
+          );
+        } else {
+          loggerError(
+            'RPC bridge executable not found. Expected at: ${bin.path}',
+          );
+        }
+
         return;
       }
 
@@ -231,8 +240,7 @@ class RpcBridge extends ChangeNotifier {
   Future<List<int>?> _loadCoverBytes(String candidate) async {
     final parsed = Uri.tryParse(candidate);
     final isRemoteHttp =
-        parsed != null &&
-        (parsed.scheme == 'http' || parsed.scheme == 'https');
+        parsed != null && (parsed.scheme == 'http' || parsed.scheme == 'https');
 
     if (isRemoteHttp) {
       try {

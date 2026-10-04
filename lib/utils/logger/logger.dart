@@ -1,6 +1,8 @@
 // ignore_for_file: avoid_print
 
-bool printInProduction = true;
+import 'package:cosmodrome/utils/isProduction.dart';
+
+bool printInProduction = false;
 
 void loggerError(dynamic message) {
   // get entire stack trace
@@ -11,6 +13,7 @@ void loggerError(dynamic message) {
 }
 
 void loggerPrint(dynamic message) {
+  if (printInProduction && isProduction()) return;
   // get stack trace
   final stackTrace = StackTrace.current;
 

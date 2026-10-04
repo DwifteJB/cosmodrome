@@ -5,3 +5,4 @@ docker-data/
 .dart_tool/
 Dockerfile
 .flutter-plugin-dependencies
+cache/
