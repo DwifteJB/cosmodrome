@@ -1,17 +1,23 @@
 # Privacy Policy
 
-Last updated 05/10/2026 (DD/MM/YYYY)
+**Last updated:** 05/10/2026
 
-## Desktop
+This Privacy Policy explains how data is handled across the different platforms of our service. By using this service, you agree to the collection and use of information in accordance with this policy.
 
-By using the public api-cosmodrome.rmfosho.me api, the only things that are logged are **ip addresses** & the **image sent**. This is temporary and only within the logs, which are reset every update. You can view the source code [here](https://github.com/DwifteJB/cosmodrome-backend). This only applies to desktop versions of cosmodrome.
+## 1. Desktop & API Usage
+When you use our public API (`api-cosmodrome.rmfosho.me`), we temporarily process and log the following technical information:
+* **IP Addresses:** Logged for security, rate limiting, and server maintenance.
+* **Uploaded Images:** Logged to fulfill your API request.
 
-## iOS
+**Data Retention:** This data is strictly stored within temporary server logs and is completely wiped automatically with every system update. The complete open-source code for our backend can be publicly audited [here](https://github.com/DwifteJB/cosmodrome-backend).
 
-When crashes occur, I log anything that apple sends us. This can include your device type, the crash log and what was happening beforehand.
+## 2. iOS Application & TestFlight
+Our iOS application prioritizes your privacy, but relies on standard diagnostics provided by Apple to maintain stability:
+* **Crash Logs & Analytics:** If the application crashes, we collect standard diagnostic reports forwarded by Apple. This may include your device model, operating system version, the crash log itself, and basic application states leading up to the crash.
+* **TestFlight Beta Testing:** If you join our public TestFlight beta program, Apple automatically provides us with basic session information and your device type. We cannot alter or opt out of this collection as it is handled natively by Apple's infrastructure.
 
-When joining the public testflight, I log the sessions you use and the device you use, I cannot change this as this is what apple sends me.
+## 3. Other Platforms
+We do not offer dedicated applications or collect data on any other platforms at this time.
 
-## Other Platforms
-
-N/A
+## 4. Contact & Support
+If you have any questions or concerns regarding this policy, please review our public repository or reach out via our official GitHub channels.
