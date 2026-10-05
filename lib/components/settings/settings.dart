@@ -1,5 +1,6 @@
 import 'package:cosmodrome/components/mobile/profile_sheet.dart';
 import 'package:cosmodrome/components/settings/cache_settings_page.dart';
+import 'package:cosmodrome/components/settings/info_settings_page.dart';
 import 'package:cosmodrome/components/settings/settings_shell.dart';
 import 'package:cosmodrome/pages/downloads_page.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +57,16 @@ final settingsItems = <SettingsItem>[
       ctx,
       mainAxisMaxRatio: 0.9,
       child: const MobileSettingsSheetWrapper(child: CacheSettingsPage()),
+    ),
+  ),
+  SettingsItem(
+    title: 'Info',
+    icon: FIcons.info,
+    content: const InfoSettingsPage(),
+    onMobileTap: (ctx) => _showSettingsSheet(
+      ctx,
+      mainAxisMaxRatio: 0.5,
+      child: const MobileSettingsSheetWrapper(child: InfoSettingsPage()),
     ),
   ),
 ];
