@@ -40,6 +40,7 @@ dependencies:
 
   # carplay support
   flutter_carplay: ^1.7.0+2
+  url_launcher: ^6.3.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

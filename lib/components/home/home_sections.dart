@@ -21,6 +21,18 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
+final fakeAlbums = List.generate(
+  10,
+  (index) => Album(
+    id: 'fake_$index',
+    name: 'Album $index',
+    artist: 'Artist $index',
+    coverArt: null,
+    songCount: 0,
+    duration: 0,
+  ),
+);
+
 final homeSections = <HomeSectionDefinition>[
   CustomHomeSection(
     id: 'featured',
@@ -82,17 +94,7 @@ final homeSections = <HomeSectionDefinition>[
   ),
 ];
 
-final fakeAlbums = List.generate(
-  10,
-  (index) => Album(
-    id: 'fake_$index',
-    name: 'Album $index',
-    artist: 'Artist $index',
-    coverArt: null,
-    songCount: 0,
-    duration: 0,
-  ),
-);
+final _sectionMemory = <String, List<Object?>>{};
 
 HomeSection<Album> albumListSection({
   required String id,
@@ -122,18 +124,6 @@ HomeSection<Album> albumListSection({
     itemBuilder: (context, album, ctx) =>
         AlbumCard(album: album, subsonic: ctx.subsonic),
   );
-}
-
-abstract interface class HomeSectionDefinition {
-  String get id;
-  String get title;
-
-  Widget buildView({
-    required Key key,
-    required Subsonic subsonic,
-    required String accountId,
-    required bool isOffline,
-  });
 }
 
 class CustomHomeSection implements HomeSectionDefinition {
@@ -229,8 +219,16 @@ class HomeSectionContext {
   });
 }
 
-abstract interface class ReloadableHomeSection {
-  Future<void> reload({bool force = false});
+abstract interface class HomeSectionDefinition {
+  String get id;
+  String get title;
+
+  Widget buildView({
+    required Key key,
+    required Subsonic subsonic,
+    required String accountId,
+    required bool isOffline,
+  });
 }
 
 class HomeSectionView<T> extends StatefulWidget {
@@ -251,7 +249,9 @@ class HomeSectionView<T> extends StatefulWidget {
   State<HomeSectionView<T>> createState() => _HomeSectionViewState<T>();
 }
 
-final _sectionMemory = <String, List<Object?>>{};
+abstract interface class ReloadableHomeSection {
+  Future<void> reload({bool force = false});
+}
 
 class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
     implements ReloadableHomeSection {
@@ -259,19 +259,43 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
   bool _loading = true;
   int _loadGeneration = 0;
 
-  HomeSection<T> get _section => widget.section;
   String get _memoryKey => '${widget.accountId}:${_section.id}';
+  HomeSection<T> get _section => widget.section;
 
   @override
-  void initState() {
-    super.initState();
-    final remembered = _sectionMemory[_memoryKey];
-    if (remembered != null) {
-      _items = remembered.cast<T>();
-      _loading = false;
+  Widget build(BuildContext context) {
+    final items = _items;
+    final showSkeleton =
+        _section.showSkeleton && _loading && (items == null || items.isEmpty);
+
+    Widget child;
+    if (showSkeleton) {
+      child = _buildSection(context, _section.placeholders, skeleton: true);
+    } else if (items == null || items.isEmpty) {
+      child = const SizedBox(width: double.infinity);
+    } else {
+      child = _buildSection(context, items);
     }
-    _section.listenable?.addListener(_onSourceChanged);
-    unawaited(reload());
+
+    return SizedBox(
+      width: double.infinity,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topLeft,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topLeft,
+            children: [...previous, ?current],
+          ),
+          child: KeyedSubtree(
+            key: ValueKey(showSkeleton ? 'skeleton' : 'content'),
+            child: child,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -290,7 +314,17 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
     super.dispose();
   }
 
-  void _onSourceChanged() => unawaited(reload());
+  @override
+  void initState() {
+    super.initState();
+    final remembered = _sectionMemory[_memoryKey];
+    if (remembered != null) {
+      _items = remembered.cast<T>();
+      _loading = false;
+    }
+    _section.listenable?.addListener(_onSourceChanged);
+    unawaited(reload());
+  }
 
   @override
   Future<void> reload({bool force = false}) async {
@@ -325,12 +359,6 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
     }
   }
 
-  void _stopLoading(int generation) {
-    if (generation == _loadGeneration && mounted && _loading) {
-      setState(() => _loading = false);
-    }
-  }
-
   void _apply(List<T> items) {
     final trimmed = items.take(_section.maxItems).toList(growable: false);
     _sectionMemory[_memoryKey] = trimmed;
@@ -339,39 +367,6 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
       _items = trimmed;
       _loading = false;
     });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final items = _items;
-    final showSkeleton =
-        _section.showSkeleton && _loading && (items == null || items.isEmpty);
-
-    Widget child;
-    if (showSkeleton) {
-      child = _buildSection(context, _section.placeholders, skeleton: true);
-    } else if (items == null || items.isEmpty) {
-      child = const SizedBox(width: double.infinity);
-    } else {
-      child = _buildSection(context, items);
-    }
-
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        layoutBuilder: (current, previous) => Stack(
-          alignment: Alignment.topCenter,
-          children: [...previous, ?current],
-        ),
-        child: KeyedSubtree(
-          key: ValueKey(showSkeleton ? 'skeleton' : 'content'),
-          child: child,
-        ),
-      ),
-    );
   }
 
   Widget _buildSection(
@@ -471,30 +466,13 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
       ),
     );
   }
-}
 
-class _SongRow extends StatelessWidget {
-  final Song song;
-  final HomeSectionContext ctx;
+  void _onSourceChanged() => unawaited(reload());
 
-  const _SongRow({required this.song, required this.ctx});
-
-  @override
-  Widget build(BuildContext context) {
-    final subtitle = [
-      if (song.artist?.isNotEmpty == true) song.artist!,
-      if (song.album?.isNotEmpty == true) song.album!,
-    ].join(' · ');
-
-    return SongGridItem(
-      title: song.title,
-      subtitle: subtitle,
-      imageUrl: song.coverArt != null
-          ? ctx.subsonic.cachedCoverArtUrl(song.coverArt!, size: 120)
-          : null,
-      onPlay: () => context.read<PlayerProvider>().playNow(song),
-      onLongPress: () => showSongContextSheet(context, song),
-    );
+  void _stopLoading(int generation) {
+    if (generation == _loadGeneration && mounted && _loading) {
+      setState(() => _loading = false);
+    }
   }
 }
 
@@ -559,6 +537,31 @@ class _PlaylistCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SongRow extends StatelessWidget {
+  final Song song;
+  final HomeSectionContext ctx;
+
+  const _SongRow({required this.song, required this.ctx});
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = [
+      if (song.artist?.isNotEmpty == true) song.artist!,
+      if (song.album?.isNotEmpty == true) song.album!,
+    ].join(' · ');
+
+    return SongGridItem(
+      title: song.title,
+      subtitle: subtitle,
+      imageUrl: song.coverArt != null
+          ? ctx.subsonic.cachedCoverArtUrl(song.coverArt!, size: 120)
+          : null,
+      onPlay: () => context.read<PlayerProvider>().playNow(song),
+      onLongPress: () => showSongContextSheet(context, song),
     );
   }
 }
