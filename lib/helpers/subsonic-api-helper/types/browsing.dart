@@ -58,6 +58,7 @@ class Album {
 
 class AlbumDetail extends Album {
   final List<Song> songs;
+  final Map<int, String> discTitles;
 
   AlbumDetail({
     required super.id,
@@ -71,6 +72,7 @@ class AlbumDetail extends Album {
     super.genre,
     super.starred,
     required this.songs,
+    this.discTitles = const {},
   });
 
   factory AlbumDetail.fromJson(Map<String, dynamic> json) {
@@ -78,6 +80,15 @@ class AlbumDetail extends Album {
     final songs = songsJson
         .map((s) => Song.fromJson(s as Map<String, dynamic>))
         .toList();
+    final discTitles = <int, String>{};
+    for (final entry in json['discTitles'] as List<dynamic>? ?? []) {
+      if (entry is! Map) continue;
+      final disc = (entry['disc'] as num?)?.toInt();
+      final title = entry['title'] as String?;
+      if (disc != null && title != null && title.isNotEmpty) {
+        discTitles[disc] = title;
+      }
+    }
     return AlbumDetail(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -92,6 +103,7 @@ class AlbumDetail extends Album {
           ? DateTime.tryParse(json['starred'] as String)
           : null,
       songs: songs,
+      discTitles: discTitles,
     );
   }
 
@@ -99,6 +111,10 @@ class AlbumDetail extends Album {
   Map<String, dynamic> toJson() => {
     ...super.toJson(),
     'song': songs.map((s) => s.toJson()).toList(),
+    if (discTitles.isNotEmpty)
+      'discTitles': [
+        for (final e in discTitles.entries) {'disc': e.key, 'title': e.value},
+      ],
   };
 }
 
@@ -445,6 +461,7 @@ class Song {
   final String? album;
   final String albumId;
   final int? track;
+  final int? discNumber;
   final int? duration;
   final String? coverArt;
   final int? samplingRate;
@@ -459,6 +476,7 @@ class Song {
     this.artist,
     this.album,
     this.track,
+    this.discNumber,
     this.duration,
     this.coverArt,
     this.samplingRate,
@@ -474,6 +492,7 @@ class Song {
       artist: json['artist'] as String?,
       album: json['album'] as String?,
       track: (json['track'] as num?)?.toInt(),
+      discNumber: (json['discNumber'] as num?)?.toInt(),
       duration: (json['duration'] as num?)?.toInt(),
       coverArt: json['coverArt'] as String?,
       samplingRate: (json['samplingRate'] as num?)?.toInt(),
@@ -493,6 +512,7 @@ class Song {
     if (artist != null) 'artist': artist,
     if (album != null) 'album': album,
     if (track != null) 'track': track,
+    if (discNumber != null) 'discNumber': discNumber,
     if (duration != null) 'duration': duration,
     if (coverArt != null) 'coverArt': coverArt,
     if (samplingRate != null) 'samplingRate': samplingRate,

@@ -297,9 +297,10 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
                 : _wideHeader(album, coverUrl),
           ),
           const SizedBox(height: 20),
-          ...List.generate(visibleTrackCount, (index) {
-            final song = album.songs[index];
-            return MusicPageDesktopTrackTile(
+          ..._trackList(
+            album,
+            visibleTrackCount,
+            (song, index) => MusicPageDesktopTrackTile(
               song: song,
               trackNumber: song.track ?? 0,
               index: index,
@@ -307,8 +308,8 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               enabled: _isSongPlayable(song),
               accentColor: accentColorNotifier.value ?? _localCoverColor,
               onTap: () => onClickSong(song),
-            );
-          }, growable: false),
+            ),
+          ),
         ],
       ),
     );
@@ -345,6 +346,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
 
     try {
       final album = await provider.subsonic.getAlbum(widget.albumId);
+      if (album != null) _orderByDisc(album.songs);
       if (mounted) {
         final coverUrl = album?.coverArt != null
             ? provider.subsonic.cachedCoverArtUrl(album!.coverArt!, size: 600)
@@ -449,9 +451,10 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           child: _PlayShuffleButtons(songs: album.songs),
         ),
         const SizedBox(height: 24),
-        ...List.generate(visibleTrackCount, (index) {
-          final song = album.songs[index];
-          return MusicPageMobileTrackTile(
+        ..._trackList(
+          album,
+          visibleTrackCount,
+          (song, index) => MusicPageMobileTrackTile(
             song: song,
             trackNumber: song.track ?? 0,
             index: index,
@@ -459,8 +462,8 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             albumArtist: album.artist,
             accentColor: accentColorNotifier.value ?? AppColors.auraColor,
             onTap: () => onClickSong(song),
-          );
-        }, growable: false),
+          ),
+        ),
 
         const Divider(),
         const SizedBox(height: 12),
@@ -552,6 +555,48 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   int _visibleTrackCount(int totalTracks) =>
       min(_revealedTrackCount, totalTracks);
 
+  static void _orderByDisc(List<Song> songs) {
+    final indexed = songs.indexed.toList(growable: false);
+    indexed.sort((a, b) {
+      final disc = (a.$2.discNumber ?? 0).compareTo(b.$2.discNumber ?? 0);
+      if (disc != 0) return disc;
+      final track = (a.$2.track ?? 0).compareTo(b.$2.track ?? 0);
+      return track != 0 ? track : a.$1.compareTo(b.$1);
+    });
+    for (var i = 0; i < indexed.length; i++) {
+      songs[i] = indexed[i].$2;
+    }
+  }
+
+  static bool _hasMultipleDiscs(List<Song> songs) =>
+      songs.map((s) => s.discNumber ?? 1).toSet().length > 1;
+
+  List<Widget> _trackList(
+    AlbumDetail album,
+    int visibleCount,
+    Widget Function(Song song, int index) tile,
+  ) {
+    final multiDisc = _hasMultipleDiscs(album.songs);
+    final widgets = <Widget>[];
+    int? lastDisc;
+    for (var i = 0; i < visibleCount; i++) {
+      final song = album.songs[i];
+      final disc = song.discNumber ?? 1;
+      if (multiDisc && disc != lastDisc) {
+        widgets.add(
+          _DiscHeader(
+            key: ValueKey('disc-$disc'),
+            disc: disc,
+            title: album.discTitles[disc],
+          ),
+        );
+        lastDisc = disc;
+      }
+      widgets.add(tile(song, i));
+    }
+    return widgets;
+  }
+
   Widget _wideHeader(AlbumDetail album, String? coverUrl) {
     return IntrinsicHeight(
       child: Row(
@@ -568,6 +613,38 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               album: album,
               isStarred: _starred,
               onStarToggle: _starAlbum,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscHeader extends StatelessWidget {
+  final int disc;
+  final String? title;
+
+  const _DiscHeader({super.key, required this.disc, this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    final label = title == null || title!.isEmpty
+        ? 'Disc $disc'
+        : 'Disc $disc · $title';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+      child: Row(
+        children: [
+          Icon(Icons.album, size: 14, color: theme.colors.mutedForeground),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: theme.typography.xs.copyWith(
+              color: theme.colors.mutedForeground,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
           ),
         ],
