@@ -9,8 +9,6 @@ class DesktopTitlebar extends StatefulWidget {
   final bool showWindowControls;
   final bool canGoBack;
   final VoidCallback? onBack;
-  final bool queueOpen;
-  final VoidCallback? onToggleQueue;
   final VoidCallback? onSettingsPressed;
 
   const DesktopTitlebar({
@@ -18,8 +16,6 @@ class DesktopTitlebar extends StatefulWidget {
     this.showWindowControls = true,
     this.canGoBack = false,
     this.onBack,
-    this.queueOpen = false,
-    this.onToggleQueue,
     this.onSettingsPressed,
   });
 
@@ -62,7 +58,7 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
               ),
             ),
 
-          // on the right, queue & window controls
+          // on the right, settings & window controls
           Positioned(
             right: 0,
             top: 0,
@@ -73,12 +69,6 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
                 _TitlebarButton(
                   icon: FIcons.settings,
                   onPressed: widget.onSettingsPressed ?? () {},
-                ),
-                // queue toggle top right
-                _TitlebarButton(
-                  icon: FIcons.listMusic,
-                  onPressed: widget.onToggleQueue ?? () {},
-                  active: widget.queueOpen,
                 ),
                 if (!isMacOS && widget.showWindowControls) ...[
                   DesktopWindowButton(
@@ -146,17 +136,12 @@ class _DesktopTitlebarState extends State<DesktopTitlebar> with WindowListener {
   }
 }
 
-/// Small icon button for titlebar actions (back, queue toggle).
+/// Small icon button for titlebar actions (back, settings).
 class _TitlebarButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onPressed;
-  final bool active;
 
-  const _TitlebarButton({
-    required this.icon,
-    required this.onPressed,
-    this.active = false,
-  });
+  const _TitlebarButton({required this.icon, required this.onPressed});
 
   @override
   State<_TitlebarButton> createState() => _TitlebarButtonState();
@@ -168,9 +153,9 @@ class _TitlebarButtonState extends State<_TitlebarButton> {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final color = widget.active
-        ? theme.colors.primary
-        : (_isHovered ? theme.colors.foreground : theme.colors.mutedForeground);
+    final color = _isHovered
+        ? theme.colors.foreground
+        : theme.colors.mutedForeground;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),

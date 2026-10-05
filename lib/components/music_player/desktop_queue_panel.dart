@@ -1,140 +1,67 @@
-import 'dart:io';
-
-import 'package:cosmodrome/components/desktop/desktop_titlebar.dart';
 import 'package:cosmodrome/components/music_player/queue_keys.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
-import 'package:window_manager/window_manager.dart';
 
 class DesktopQueuePanel extends StatelessWidget {
-  final VoidCallback onClose;
+  final double bottomInset;
 
-  const DesktopQueuePanel({super.key, required this.onClose});
+  const DesktopQueuePanel({super.key, this.bottomInset = 0});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
-    final isMacOS = !kIsWeb && Platform.isMacOS;
 
-    return Material(
-      color: AppColors.sidebar,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: colors.border, width: 1)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: 32,
-              child: Row(
-                children: [
-                  // close button on left for macOS, right for others
-                  IconButton(
-                    icon: Icon(
-                      FIcons.x,
-                      size: 14,
-                      color: colors.mutedForeground,
-                    ),
-                    onPressed: onClose,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-                  const Spacer(),
-
-                  // window controls if open
-                  // macos has on left
-                  // web does not have window controls (shocker)
-                  if (!kIsWeb && !isMacOS) ...[
-                    DesktopWindowButton(
-                      icon: FIcons.minus,
-                      iconSize: 16,
-                      onPressed: windowManager.minimize,
-                      hoverColor: colors.secondary,
-                    ),
-                    DesktopWindowButton(
-                      icon: FIcons.square,
-                      iconSize: 14,
-                      onPressed: windowManager.maximize,
-                      hoverColor: colors.secondary,
-                    ),
-                    DesktopWindowButton(
-                      icon: FIcons.x,
-                      iconSize: 16,
-                      onPressed: windowManager.close,
-                      hoverColor: colors.destructive,
-                      hoverIconColor: Colors.white,
-                    ),
-                  ],
-                ],
+    return Selector<PlayerProvider, (int, int)>(
+      selector: (_, p) => (p.queueVersion, p.currentIndex),
+      builder: (context, _, _) {
+        final player = context.read<PlayerProvider>();
+        final queue = player.visibleQueue;
+        final queueOffset = player.visibleQueueStartIndex;
+        if (queue.isEmpty) {
+          return Center(
+            child: Text(
+              'Queue is empty',
+              style: context.theme.typography.sm.copyWith(
+                color: colors.mutedForeground,
               ),
             ),
-            // queue list
-            Expanded(
-              child: Selector<PlayerProvider, (int, int)>(
-                selector: (_, p) => (p.queueVersion, p.currentIndex),
-                builder: (context, _, _) {
-                  final player = context.read<PlayerProvider>();
-                  final queue = player.visibleQueue;
-                  final queueOffset = player.visibleQueueStartIndex;
-                  if (queue.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'Queue is empty',
-                        style: context.theme.typography.sm.copyWith(
-                          color: colors.mutedForeground,
-                        ),
-                      ),
-                    );
-                  }
-                  final keys = queueItemKeys(queue);
-                  return ReorderableListView.builder(
-                    padding: EdgeInsets.only(bottom: 8),
-                    buildDefaultDragHandles: false,
-                    itemCount: queue.length,
-                    proxyDecorator: (child, _, animation) => Material(
-                      color: Colors.transparent,
-                      elevation: 6,
-                      shadowColor: Colors.black54,
-                      child: child,
-                    ),
-                    onReorderItem: (oldIndex, newIndex) => reorderVisibleQueue(
-                      player,
-                      oldIndex,
-                      newIndex,
-                      queueOffset,
-                    ),
-                    itemBuilder: (context, index) {
-                      final song = queue[index];
-                      final absoluteIndex = queueOffset + index;
-                      return ReorderableDragStartListener(
-                        key: keys[index],
-                        index: index,
-                        enabled: index != 0,
-                        child: _QueueItem(
-                          song: song,
-                          isCurrent: index == 0,
-                          player: player,
-                          onRemove: () => player.removeFromQueue(absoluteIndex),
-                        ),
-                      );
-                    },
-                  );
-                },
+          );
+        }
+        final keys = queueItemKeys(queue);
+        return ReorderableListView.builder(
+          padding: EdgeInsets.only(bottom: 8 + bottomInset),
+          buildDefaultDragHandles: false,
+          itemCount: queue.length,
+          proxyDecorator: (child, _, animation) => Material(
+            color: Colors.transparent,
+            elevation: 6,
+            shadowColor: Colors.black54,
+            child: child,
+          ),
+          onReorderItem: (oldIndex, newIndex) =>
+              reorderVisibleQueue(player, oldIndex, newIndex, queueOffset),
+          itemBuilder: (context, index) {
+            final song = queue[index];
+            final absoluteIndex = queueOffset + index;
+            return ReorderableDragStartListener(
+              key: keys[index],
+              index: index,
+              enabled: index != 0,
+              child: _QueueItem(
+                song: song,
+                isCurrent: index == 0,
+                player: player,
+                onRemove: () => player.removeFromQueue(absoluteIndex),
               ),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }

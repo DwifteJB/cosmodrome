@@ -20,7 +20,7 @@ import 'package:cosmodrome/components/desktop/desktop_layout.dart';
 import 'package:cosmodrome/components/layouts/main_layout_sidebar.dart';
 import 'package:cosmodrome/components/layouts/mobile_layout.dart';
 import 'package:cosmodrome/components/music_player/desktop_player_bar.dart';
-import 'package:cosmodrome/components/music_player/desktop_queue_panel.dart';
+import 'package:cosmodrome/components/music_player/desktop_side_panel.dart';
 import 'package:cosmodrome/components/music_player/mini_player.dart';
 import 'package:cosmodrome/components/mobile/profile_sheet.dart';
 import 'package:cosmodrome/components/settings/settings_shell.dart';
@@ -82,7 +82,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   final _mobileScrollController = ScrollController();
   final _desktopScrollController = ScrollController();
-  bool _queueOpen = false;
+  DesktopSidePanelMode? _panelMode;
+  // keeps the content while the panel slides closed
+  DesktopSidePanelMode _lastPanelMode = DesktopSidePanelMode.queue;
   Future<List<Album>>? _starredAlbumsFuture;
   String? _starredAccountId;
   bool _isRefreshingStarred = false;
@@ -288,12 +290,10 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
     final topBar = _isDesktop
         ? DesktopTitlebar(
-            showWindowControls: !_queueOpen,
+            showWindowControls: _panelMode == null,
             canGoBack:
                 widget.selectedRoute != '/home' && widget.selectedRoute != null,
             onBack: () => _goBack(context),
-            queueOpen: _queueOpen,
-            onToggleQueue: () => setState(() => _queueOpen = !_queueOpen),
             onSettingsPressed: () => openSettings(context),
           )
         : (kIsWeb ? const SizedBox(height: 32) : const SizedBox.shrink());
@@ -301,22 +301,61 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     return DesktopLayout(
       backgroundColor: colors.background,
       sidebar: sidebar,
-      queueOpen: _queueOpen,
-      onCloseQueue: () => setState(() => _queueOpen = false),
+      panelOpen: _panelMode != null,
+      onClosePanel: _closePanel,
       coverUrl: _coverUrl,
       coverVisible: _coverVisible,
       scrollController: _desktopScrollController,
       topBar: topBar,
-      queuePanel: DesktopQueuePanel(
-        onClose: () => setState(() => _queueOpen = false),
+      sidePanelBuilder: (bottomInset) => DesktopSidePanel(
+        mode: _panelMode ?? _lastPanelMode,
+        onClose: _closePanel,
+        bottomInset: bottomInset,
       ),
       playerBar: DesktopPlayerBar(
-        onQueueToggle: kIsWeb
-            ? () => setState(() => _queueOpen = !_queueOpen)
-            : null,
+        panelMode: _panelMode,
+        onToggleLyrics: () => _togglePanel(DesktopSidePanelMode.lyrics),
+        onToggleQueue: () => _togglePanel(DesktopSidePanelMode.queue),
       ),
       child: widget.child,
     );
+  }
+
+  void _togglePanel(DesktopSidePanelMode mode) {
+    final wasOpen = _panelMode != null;
+    setState(() {
+      if (_panelMode == mode) {
+        _panelMode = null;
+      } else {
+        _panelMode = mode;
+        _lastPanelMode = mode;
+      }
+    });
+    if (!wasOpen && _panelMode != null) _growWindowForPanel();
+  }
+
+  // widen the window so the content keeps at least 400px beside the panel
+  void _growWindowForPanel() {
+    if (!_isDesktop) return;
+    final available =
+        MediaQuery.sizeOf(context).width -
+        AppLayout.sidebarWidth -
+        DesktopSidePanel.width;
+    if (available >= 400) return;
+    unawaited(() async {
+      try {
+        final size = await windowManager.getSize();
+        await windowManager.setSize(
+          Size(size.width + (400 - available), size.height),
+          animate: true,
+        );
+      } catch (_) {}
+    }());
+  }
+
+  void _closePanel() {
+    if (_panelMode == null) return;
+    setState(() => _panelMode = null);
   }
 
   // frosted rounded container shared by the floating mobile pills

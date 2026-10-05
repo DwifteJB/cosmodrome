@@ -5,7 +5,6 @@ import 'package:cosmodrome/components/custom_scroll_behaviour.dart';
 import 'package:cosmodrome/components/layouts/main_layout.dart';
 import 'package:cosmodrome/components/layouts/mobile_detail_layout.dart';
 import 'package:cosmodrome/components/music_player/fullscreen_player.dart';
-import 'package:cosmodrome/components/music_player/queue_sheet.dart';
 // PAGES
 import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
@@ -20,6 +19,7 @@ import 'package:cosmodrome/pages/search_page.dart';
 import 'package:cosmodrome/pages/starred_albums.dart';
 //
 import 'package:cosmodrome/providers/download_provider.dart';
+import 'package:cosmodrome/providers/lyrics_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
@@ -274,6 +274,14 @@ class _ApplicationState extends State<Application>
               PlayerProvider()..setDownloadProvider(downloadProvider),
           update: (_, sub, player) => player!..update(sub),
         ),
+        ChangeNotifierProxyProvider2<
+          SubsonicProvider,
+          PlayerProvider,
+          LyricsProvider
+        >(
+          create: (_) => LyricsProvider(),
+          update: (_, sub, player, lyrics) => lyrics!..update(sub, player),
+        ),
         if (isDesktop && _rpcBridge != null)
           ChangeNotifierProxyProvider<PlayerProvider, RpcBridge>(
             lazy: false,
@@ -364,15 +372,7 @@ class _FullscreenPlayerOverlay extends StatefulWidget {
 }
 
 class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
-  // fullscreen player drag
   double _playerDragOffset = 0;
-
-  // queue state
-  bool _queueOpen = false;
-  double _queueDragOffset = 0;
-  double? _queueDragStartY;
-
-  late final PlayerProvider _playerProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -380,149 +380,50 @@ class _FullscreenPlayerOverlayState extends State<_FullscreenPlayerOverlay> {
       builder: (_, player, _) {
         if (!player.hasCurrentSong) return const SizedBox.shrink();
 
-        final queueVisible = _queueOpen && player.isFullscreenOpen;
         final screenHeight = MediaQuery.of(context).size.height;
-        final sheetHeight = screenHeight * 0.7;
 
-        return Stack(
-          children: [
-            IgnorePointer(
-              ignoring: !player.isFullscreenOpen,
-              child: AnimatedSlide(
-                offset: Offset(0, player.isFullscreenOpen ? 0 : 1),
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutCubic,
-                child: Transform.translate(
-                  offset: Offset(0, _playerDragOffset),
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (details) {
-                      final delta = details.primaryDelta ?? 0;
-                      if (_playerDragOffset > 0 || delta > 0) {
-                        setState(() {
-                          _playerDragOffset = (_playerDragOffset + delta).clamp(
-                            0,
-                            double.infinity,
-                          );
-                        });
-                      }
-                    },
-                    onVerticalDragEnd: (details) {
-                      final velocity = details.primaryVelocity ?? 0;
-                      if (velocity > 500 ||
-                          _playerDragOffset > screenHeight * 0.25) {
-                        player.closeFullscreen();
-                        Future.delayed(const Duration(milliseconds: 350), () {
-                          if (mounted) setState(() => _playerDragOffset = 0);
-                        });
-                      } else {
-                        setState(() => _playerDragOffset = 0);
-                      }
-                    },
-                    onVerticalDragCancel: () =>
-                        setState(() => _playerDragOffset = 0),
-                    child: RepaintBoundary(
-                      child: FullscreenPlayer(onQueueOpen: _openQueue),
-                    ),
-                  ),
-                ),
+        return IgnorePointer(
+          ignoring: !player.isFullscreenOpen,
+          child: AnimatedSlide(
+            offset: Offset(0, player.isFullscreenOpen ? 0 : 1),
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutCubic,
+            child: Transform.translate(
+              offset: Offset(0, _playerDragOffset),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (details) {
+                  final delta = details.primaryDelta ?? 0;
+                  if (_playerDragOffset > 0 || delta > 0) {
+                    setState(() {
+                      _playerDragOffset = (_playerDragOffset + delta).clamp(
+                        0,
+                        double.infinity,
+                      );
+                    });
+                  }
+                },
+                onVerticalDragEnd: (details) {
+                  final velocity = details.primaryVelocity ?? 0;
+                  if (velocity > 500 ||
+                      _playerDragOffset > screenHeight * 0.25) {
+                    player.closeFullscreen();
+                    Future.delayed(const Duration(milliseconds: 350), () {
+                      if (mounted) setState(() => _playerDragOffset = 0);
+                    });
+                  } else {
+                    setState(() => _playerDragOffset = 0);
+                  }
+                },
+                onVerticalDragCancel: () =>
+                    setState(() => _playerDragOffset = 0),
+                child: const RepaintBoundary(child: FullscreenPlayer()),
               ),
             ),
-
-            if (queueVisible)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _closeQueue,
-                  child: const ColoredBox(color: Colors.black54),
-                ),
-              ),
-
-            Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (e) {
-                if (!queueVisible) return;
-                // only track drags that start inside the sheet area
-                if (e.position.dy > screenHeight - sheetHeight) {
-                  _queueDragStartY = e.position.dy;
-                }
-              },
-              onPointerMove: (e) {
-                if (_queueDragStartY == null || !queueVisible) return;
-                final dy = e.position.dy - _queueDragStartY!;
-                if (dy > 0) setState(() => _queueDragOffset = dy);
-              },
-              onPointerUp: (e) {
-                if (_queueDragStartY == null) return;
-                final dy = e.position.dy - _queueDragStartY!;
-                _queueDragStartY = null;
-                if (dy > sheetHeight * 0.25) {
-                  _closeQueue();
-                } else {
-                  setState(() => _queueDragOffset = 0);
-                }
-              },
-              onPointerCancel: (_) => setState(() {
-                _queueDragOffset = 0;
-                _queueDragStartY = null;
-              }),
-              child: IgnorePointer(
-                ignoring: !queueVisible,
-                child: AnimatedSlide(
-                  offset: Offset(0, queueVisible ? 0 : 1),
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  child: Transform.translate(
-                    offset: Offset(0, _queueDragOffset),
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: FractionallySizedBox(
-                        heightFactor: 0.7,
-                        widthFactor: 1,
-                        child: QueueSheet(onClose: _closeQueue),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         );
       },
     );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    // registered once here; didChangeDependencies runs on every MediaQuery change
-    _playerProvider = context.read<PlayerProvider>()
-      ..addListener(_onPlayerChanged);
-  }
-
-  @override
-  void dispose() {
-    _playerProvider.removeListener(_onPlayerChanged);
-    super.dispose();
-  }
-
-  void _closeQueue() {
-    if (!_queueOpen) return;
-    setState(() => _queueOpen = false);
-    // reset drag after exit animation finishes
-    Future.delayed(const Duration(milliseconds: 310), () {
-      if (mounted) setState(() => _queueDragOffset = 0);
-    });
-  }
-
-  void _onPlayerChanged() {
-    if (!_playerProvider.isFullscreenOpen && _queueOpen && mounted) {
-      _closeQueue();
-    }
-  }
-
-  void _openQueue() {
-    if (!_queueOpen) setState(() => _queueOpen = true);
   }
 }
 

@@ -97,8 +97,12 @@ class _HomeCard extends StatelessWidget {
   }
 }
 
-class _HomePageState extends State<HomePage> {
+const _homeRefreshInterval = Duration(minutes: 1);
+
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final _sectionKeys = <String, GlobalKey>{};
+  Timer? _refreshTimer;
+  String? _accountId;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +110,14 @@ class _HomePageState extends State<HomePage> {
     final account = provider.activeAccount;
 
     if (account == null) {
+      _accountId = null;
       return NoAccountView();
+    }
+
+    if (_accountId != account.id) {
+      final switched = _accountId != null;
+      _accountId = account.id;
+      if (switched) _scheduleReload(force: true);
     }
 
     final byId = {for (final s in homeSections) s.id: s};
@@ -163,7 +174,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _scheduleReload(force: true);
+  }
+
+  @override
   void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     homeLayoutService.removeListener(_onLayoutChanged);
     starredCountChanged.removeListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.removeListener(_onStarOrPlaylistChanged);
@@ -179,6 +197,11 @@ class _HomePageState extends State<HomePage> {
     starredCountChanged.addListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.addListener(_onStarOrPlaylistChanged);
     homeRefreshNotifier.addListener(_onHomeRefreshRequested);
+    WidgetsBinding.instance.addObserver(this);
+    _refreshTimer = Timer.periodic(
+      _homeRefreshInterval,
+      (_) => _scheduleReload(force: true),
+    );
   }
 
   Widget _cardRow(Widget left, Widget right) => Row(
@@ -216,9 +239,11 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _onStarOrPlaylistChanged() {
+  void _onStarOrPlaylistChanged() => _scheduleReload();
+
+  void _scheduleReload({bool force = false}) {
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_reloadSections());
+      if (mounted) unawaited(_reloadSections(force: force));
     });
   }
 }

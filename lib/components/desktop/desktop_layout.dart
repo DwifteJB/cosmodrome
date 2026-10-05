@@ -1,33 +1,39 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:cosmodrome/components/music_player/desktop_side_panel.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:flutter/material.dart';
 
 class DesktopLayout extends StatelessWidget {
+  static const double playerBarHeight = 64;
+  static const double playerBarBottomMargin = 12;
+  static const double playerBarReserved = playerBarHeight + 24;
+
   final Color backgroundColor;
   final Widget sidebar;
-  final bool queueOpen;
-  final VoidCallback onCloseQueue;
+  final bool panelOpen;
+  final VoidCallback onClosePanel;
   final String? coverUrl;
   final bool coverVisible;
   final ScrollController scrollController;
   final Widget topBar;
   final Widget child;
-  final Widget queuePanel;
+  final Widget Function(double bottomInset) sidePanelBuilder;
   final Widget playerBar;
 
   const DesktopLayout({
     super.key,
     required this.backgroundColor,
     required this.sidebar,
-    required this.queueOpen,
-    required this.onCloseQueue,
+    required this.panelOpen,
+    required this.onClosePanel,
     required this.coverUrl,
     required this.coverVisible,
     required this.scrollController,
     required this.topBar,
     required this.child,
-    required this.queuePanel,
+    required this.sidePanelBuilder,
     required this.playerBar,
   });
 
@@ -40,75 +46,95 @@ class DesktopLayout extends StatelessWidget {
         children: [
           sidebar,
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      Positioned(
-                        top: -32,
-                        left: 0,
-                        right: 0,
-                        height: MediaQuery.of(context).size.height + 32,
-                        child: IgnorePointer(
-                          child: AnimatedOpacity(
-                            opacity: coverVisible ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 700),
-                            curve: Curves.easeIn,
-                            child: coverUrl == null
-                                ? const SizedBox.expand()
-                                : _CoverBackdrop(
-                                    coverUrl: coverUrl!,
-                                    backgroundColor: backgroundColor,
-                                  ),
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final contentWidth = constraints.maxWidth;
+                final panelWidth = panelOpen ? DesktopSidePanel.width : 0.0;
+                final barWidth = math.min(800.0, contentWidth - 32);
+                final barLeft = math.max(
+                  16.0,
+                  (contentWidth - panelWidth - barWidth) / 2,
+                );
+                // the bar floats over the panel on narrow windows
+                final barOverlapsPanel =
+                    panelOpen &&
+                    barLeft + barWidth > contentWidth - DesktopSidePanel.width;
+                final panelInset = barOverlapsPanel ? playerBarReserved : 0.0;
+                return Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    Positioned(
+                      top: -32,
+                      left: 0,
+                      right: 0,
+                      height: MediaQuery.of(context).size.height + 32,
+                      child: IgnorePointer(
+                        child: AnimatedOpacity(
+                          opacity: coverVisible ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 700),
+                          curve: Curves.easeIn,
+                          child: coverUrl == null
+                              ? const SizedBox.expand()
+                              : _CoverBackdrop(
+                                  coverUrl: coverUrl!,
+                                  backgroundColor: backgroundColor,
+                                ),
                         ),
                       ),
-                      Positioned.fill(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            topBar,
-                            Expanded(
-                              child: SingleChildScrollView(
-                                controller: scrollController,
-                                child: KeyedSubtree(
-                                  key: const ValueKey('desktop-child'),
-                                  child: child,
-                                ),
+                    ),
+                    Positioned.fill(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          topBar,
+                          Expanded(
+                            child: SingleChildScrollView(
+                              controller: scrollController,
+                              // keep the last rows clear of the floating bar
+                              padding: const EdgeInsets.only(
+                                bottom: playerBarReserved + 16,
+                              ),
+                              child: KeyedSubtree(
+                                key: const ValueKey('desktop-child'),
+                                child: child,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      IgnorePointer(
-                        ignoring: !queueOpen,
-                        child: AnimatedOpacity(
-                          opacity: queueOpen ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 220),
-                          child: GestureDetector(
-                            onTap: onCloseQueue,
-                            behavior: HitTestBehavior.opaque,
-                            child: const ColoredBox(color: Color(0x66000000)),
                           ),
+                        ],
+                      ),
+                    ),
+                    IgnorePointer(
+                      ignoring: !panelOpen,
+                      child: AnimatedOpacity(
+                        opacity: panelOpen ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 220),
+                        child: GestureDetector(
+                          onTap: onClosePanel,
+                          behavior: HitTestBehavior.opaque,
+                          child: const ColoredBox(color: Color(0x66000000)),
                         ),
                       ),
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOutCubic,
-                        top: 0,
-                        right: queueOpen ? 0 : -280,
-                        bottom: 0,
-                        width: 280,
-                        child: queuePanel,
-                      ),
-                    ],
-                  ),
-                ),
-                playerBar,
-              ],
+                    ),
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      top: 0,
+                      right: panelOpen ? 0 : -DesktopSidePanel.width,
+                      bottom: 0,
+                      width: DesktopSidePanel.width,
+                      child: sidePanelBuilder(panelInset),
+                    ),
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      left: barLeft,
+                      width: barWidth,
+                      bottom: playerBarBottomMargin,
+                      child: playerBar,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],

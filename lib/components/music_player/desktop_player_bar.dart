@@ -1,6 +1,12 @@
+import 'dart:async';
+import 'dart:ui';
+
+import 'package:cosmodrome/components/desktop/desktop_song_popover.dart';
+import 'package:cosmodrome/components/music_player/desktop_side_panel.dart';
+import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/providers/lyrics_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
-import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:flutter/material.dart';
@@ -8,150 +14,307 @@ import 'package:forui/forui.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
-class DesktopPlayerBar extends StatefulWidget {
-  final VoidCallback? onQueueToggle;
+const double _kBarHeight = 64;
+const double _kBarRadius = 32;
+const double _kVolumeSliderWidth = 110;
+const double _kCoverSize = 44;
+const Duration _kAccentDuration = Duration(milliseconds: 400);
 
-  const DesktopPlayerBar({super.key, this.onQueueToggle});
+class DesktopPlayerBar extends StatefulWidget {
+  final DesktopSidePanelMode? panelMode;
+  final VoidCallback onToggleLyrics;
+  final VoidCallback onToggleQueue;
+
+  const DesktopPlayerBar({
+    super.key,
+    required this.panelMode,
+    required this.onToggleLyrics,
+    required this.onToggleQueue,
+  });
 
   @override
   State<DesktopPlayerBar> createState() => _DesktopPlayerBarState();
 }
 
-class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
-  double _volumeBeforeMute = 1.0;
+class _DesktopPlayerBarState extends State<DesktopPlayerBar>
+    with SingleTickerProviderStateMixin {
+  // buttons fade out first, then the slider expands into their space
+  late final AnimationController _volumeController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 350),
+  );
+  late final Animation<double> _buttonsFade = CurvedAnimation(
+    parent: _volumeController,
+    curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
+    reverseCurve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+  );
+  late final Animation<double> _sliderExpand = CurvedAnimation(
+    parent: _volumeController,
+    curve: const Interval(0.4, 1.0, curve: Curves.easeOutCubic),
+    reverseCurve: const Interval(0.4, 1.0, curve: Curves.easeInCubic),
+  );
+
+  late final Animation<double> _buttonsSize = ReverseAnimation(_sliderExpand);
+
+  Timer? _collapseTimer;
+
+  bool get _volumeOpen =>
+      _volumeController.status == AnimationStatus.forward ||
+      _volumeController.status == AnimationStatus.completed;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final song = context.select<PlayerProvider, Song?>((p) => p.currentSong);
-    final coverUrl = context.select<PlayerProvider, String?>(
-      (p) => p.currentCoverArtUrl,
-    );
     final isPlaying = context.select<PlayerProvider, bool>((p) => p.isPlaying);
     final shuffle = context.select<PlayerProvider, bool>((p) => p.shuffle);
     final repeatMode = context.select<PlayerProvider, LoopMode>(
       (p) => p.repeatMode,
     );
     final volume = context.select<PlayerProvider, double>((p) => p.volume);
+    final accentColor = context.select<PlayerProvider, Color?>(
+      (p) => p.accentColor,
+    );
+    final prevAccentColor = context.select<PlayerProvider, Color?>(
+      (p) => p.prevAccentColor,
+    );
+    final hasLyrics = context.select<LyricsProvider, bool>((p) => p.hasLyrics);
     final player = context.read<PlayerProvider>();
     final hasSong = song != null;
+    final accent = accentColor ?? colors.primary;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        border: Border(top: BorderSide(color: colors.border)),
-      ),
-      child: SizedBox(
-        height: 76,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 3,
-                child: hasSong
-                    ? _NowPlaying(song: song, coverUrl: coverUrl)
-                    : const SizedBox.shrink(),
+    return MouseRegion(
+      onEnter: (_) => _collapseTimer?.cancel(),
+      onExit: (_) => _scheduleVolumeCollapse(),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(_kBarRadius),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_kBarRadius),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.background.withValues(alpha: 0.6),
+                border: Border.all(color: colors.border, width: 1),
+                borderRadius: BorderRadius.circular(_kBarRadius),
               ),
-              Expanded(
-                flex: 4,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _BarIconButton(
-                              icon: Icons.shuffle_rounded,
-                              size: 18,
-                              active: shuffle,
-                              onTap: hasSong ? player.toggleShuffle : null,
-                            ),
-                            const SizedBox(width: 14),
-                            _BarIconButton(
-                              icon: Icons.fast_rewind_rounded,
-                              size: 26,
-                              onTap: hasSong ? player.skipPrevious : null,
-                            ),
-                            const SizedBox(width: 10),
-                            _BarIconButton(
-                              icon: isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              size: 36,
-                              emphasised: true,
-                              onTap: hasSong ? player.togglePlay : null,
-                            ),
-                            const SizedBox(width: 10),
-                            _BarIconButton(
-                              icon: Icons.fast_forward_rounded,
-                              size: 26,
-                              onTap: hasSong ? player.skipNext : null,
-                            ),
-                            const SizedBox(width: 14),
-                            _BarIconButton(
-                              icon: repeatMode == LoopMode.one
-                                  ? Icons.repeat_one_rounded
-                                  : Icons.repeat_rounded,
-                              size: 18,
-                              active: repeatMode != LoopMode.off,
-                              onTap: hasSong ? player.toggleRepeat : null,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        _SeekRow(enabled: hasSong),
-                      ],
-                    ),
+              child: SizedBox(
+                height: _kBarHeight,
+                child: TweenAnimationBuilder<Color?>(
+                  tween: ColorTween(
+                    begin: prevAccentColor ?? accent,
+                    end: accent,
                   ),
+                  duration: _kAccentDuration,
+                  builder: (context, animatedAccent, _) {
+                    final tint = animatedAccent ?? accent;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Row(
+                        children: [
+                          _buildTransport(
+                            player: player,
+                            hasSong: hasSong,
+                            isPlaying: isPlaying,
+                            shuffle: shuffle,
+                            repeatMode: repeatMode,
+                            accent: tint,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: hasSong
+                                ? _NowPlaying(song: song, accent: tint)
+                                : const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 12),
+                          _buildRightGroup(
+                            player: player,
+                            volume: volume,
+                            hasLyrics: hasLyrics,
+                            accent: tint,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
-              Expanded(
-                flex: 3,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (widget.onQueueToggle != null) ...[
-                      _BarIconButton(
-                        icon: Icons.format_list_bulleted_rounded,
-                        size: 18,
-                        onTap: widget.onQueueToggle,
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    _BarIconButton(
-                      icon: _volumeIcon(volume),
-                      size: 18,
-                      onTap: () => _toggleMute(player, volume),
-                    ),
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 100,
-                      child: _ThinSlider(
-                        value: volume,
-                        onChanged: player.setVolume,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  void _toggleMute(PlayerProvider player, double volume) {
-    if (volume > 0) {
-      _volumeBeforeMute = volume;
-      player.setVolume(0);
+  @override
+  void dispose() {
+    _collapseTimer?.cancel();
+    _volumeController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildTransport({
+    required PlayerProvider player,
+    required bool hasSong,
+    required bool isPlaying,
+    required bool shuffle,
+    required LoopMode repeatMode,
+    required Color accent,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _BarIconButton(
+          icon: Icons.shuffle_rounded,
+          size: 18,
+          active: shuffle,
+          accent: accent,
+          onTap: hasSong ? player.toggleShuffle : null,
+        ),
+        const SizedBox(width: 2),
+        _BarIconButton(
+          icon: Icons.fast_rewind_rounded,
+          size: 24,
+          accent: accent,
+          onTap: hasSong ? player.skipPrevious : null,
+        ),
+        const SizedBox(width: 2),
+        _BarIconButton(
+          icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          size: 30,
+          emphasised: true,
+          accent: accent,
+          onTap: hasSong ? player.togglePlay : null,
+        ),
+        const SizedBox(width: 2),
+        _BarIconButton(
+          icon: Icons.fast_forward_rounded,
+          size: 24,
+          accent: accent,
+          onTap: hasSong ? player.skipNext : null,
+        ),
+        const SizedBox(width: 2),
+        _BarIconButton(
+          icon: repeatMode == LoopMode.one
+              ? Icons.repeat_one_rounded
+              : Icons.repeat_rounded,
+          size: 18,
+          active: repeatMode != LoopMode.off,
+          accent: accent,
+          onTap: hasSong ? player.toggleRepeat : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRightGroup({
+    required PlayerProvider player,
+    required double volume,
+    required bool hasLyrics,
+    required Color accent,
+  }) {
+    final panelButtons = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _BarIconButton(
+          icon: FIcons.messageSquareQuote,
+          size: 18,
+          active: widget.panelMode == DesktopSidePanelMode.lyrics,
+          dimmed: !hasLyrics,
+          accent: accent,
+          onTap: widget.onToggleLyrics,
+        ),
+        const SizedBox(width: 2),
+        _BarIconButton(
+          icon: FIcons.listMusic,
+          size: 18,
+          active: widget.panelMode == DesktopSidePanelMode.queue,
+          accent: accent,
+          onTap: widget.onToggleQueue,
+        ),
+        const SizedBox(width: 2),
+      ],
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedBuilder(
+          animation: _volumeController,
+          child: panelButtons,
+          builder: (context, child) {
+            final fade = _buttonsFade.value;
+            return SizeTransition(
+              axis: Axis.horizontal,
+              alignment: Alignment.centerRight,
+              sizeFactor: _buttonsSize,
+              child: IgnorePointer(
+                ignoring: fade > 0.5,
+                child: Opacity(
+                  opacity: 1 - fade,
+                  child: Transform.translate(
+                    offset: Offset(-16 * fade, 0),
+                    child: child,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        SizeTransition(
+          axis: Axis.horizontal,
+          alignment: Alignment.centerRight,
+          sizeFactor: _sliderExpand,
+          child: FadeTransition(
+            opacity: _sliderExpand,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: SizedBox(
+                width: _kVolumeSliderWidth,
+                child: _ThinSlider(value: volume, onChanged: player.setVolume),
+              ),
+            ),
+          ),
+        ),
+        AnimatedBuilder(
+          animation: _volumeController,
+          builder: (context, _) => _BarIconButton(
+            icon: _volumeIcon(volume),
+            size: 20,
+            active: _volumeOpen,
+            accent: accent,
+            onTap: _toggleVolume,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _toggleVolume() {
+    _collapseTimer?.cancel();
+    if (_volumeOpen) {
+      _volumeController.reverse();
     } else {
-      player.setVolume(_volumeBeforeMute > 0 ? _volumeBeforeMute : 1.0);
+      _volumeController.forward();
     }
+  }
+
+  void _scheduleVolumeCollapse() {
+    _collapseTimer?.cancel();
+    if (!_volumeOpen) return;
+    _collapseTimer = Timer(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      if (_volumeOpen) _volumeController.reverse();
+    });
   }
 
   static IconData _volumeIcon(double volume) {
@@ -161,163 +324,185 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar> {
   }
 }
 
-class _NowPlaying extends StatelessWidget {
+class _NowPlaying extends StatefulWidget {
   final Song song;
-  final String? coverUrl;
+  final Color accent;
 
-  const _NowPlaying({required this.song, required this.coverUrl});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.theme.colors;
-    final placeholder = Container(
-      width: 52,
-      height: 52,
-      color: colors.muted,
-      child: Icon(Icons.album, color: colors.mutedForeground, size: 22),
-    );
-    final subtitle = [
-      if (song.artist?.isNotEmpty == true) song.artist!,
-      if (song.album?.isNotEmpty == true) song.album!,
-    ].join(' — ');
-
-    return Row(
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x66000000),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: coverUrl != null
-                ? Image(
-                    image: coverArtProvider(coverUrl!),
-                    width: 52,
-                    height: 52,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    errorBuilder: (_, _, _) => placeholder,
-                  )
-                : placeholder,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                song.title,
-                style: context.theme.typography.sm.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: colors.foreground,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: context.theme.typography.xs.copyWith(
-                    color: colors.mutedForeground,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SeekRow extends StatefulWidget {
-  final bool enabled;
-
-  const _SeekRow({required this.enabled});
+  const _NowPlaying({required this.song, required this.accent});
 
   @override
-  State<_SeekRow> createState() => _SeekRowState();
+  State<_NowPlaying> createState() => _NowPlayingState();
 }
 
-class _SeekRowState extends State<_SeekRow> {
+class _NowPlayingState extends State<_NowPlaying> {
+  static const double _seekRegionHeight = 16;
+  static const double _seekBottomGap = 6;
+  static const Duration _hoverDuration = Duration(milliseconds: 180);
+
+  bool _hovered = false;
   bool _seeking = false;
   double _seekValue = 0.0;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
+    final song = widget.song;
+    final coverUrl = context.select<PlayerProvider, String?>(
+      (p) => p.currentCoverArtUrl,
+    );
+    final position = context.select<PlayerProvider, Duration>(
+      (p) => p.position,
+    );
+    final duration = context.select<PlayerProvider, Duration>(
+      (p) => p.duration,
+    );
+
+    final totalMs = duration.inMilliseconds.toDouble();
+    final fraction = _seeking
+        ? _seekValue
+        : (totalMs > 0
+              ? (position.inMilliseconds / totalMs).clamp(0.0, 1.0)
+              : 0.0);
+    final shownPosition = _seeking
+        ? Duration(milliseconds: (_seekValue * totalMs).round())
+        : position;
+    final showOverlay = _hovered || _seeking;
     final timeStyle = context.theme.typography.xs.copyWith(
-      color: colors.mutedForeground,
-      fontSize: 11,
+      color: colors.foreground,
+      fontWeight: FontWeight.w700,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    return Consumer<PlayerProvider>(
-      builder: (context, player, _) {
-        final totalMs = player.duration.inMilliseconds.toDouble();
-        final posMs = player.position.inMilliseconds.toDouble();
-        final value = _seeking
-            ? _seekValue
-            : (totalMs > 0 ? (posMs / totalMs).clamp(0.0, 1.0) : 0.0);
-        final shownPosition = _seeking
-            ? Duration(milliseconds: (_seekValue * totalMs).round())
-            : player.position;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final showMore = width >= 150;
+        final textWidth =
+            width - _kCoverSize - 10 - (showMore ? 32 : 0) - (showMore ? 4 : 0);
+        final showText = textWidth >= 24;
 
-        return Row(
+        final info = Row(
           children: [
-            SizedBox(
-              width: 40,
-              child: Text(
-                widget.enabled
-                    ? formatTrackDuration(shownPosition.inSeconds)
-                    : '0:00',
-                style: timeStyle,
-                textAlign: TextAlign.right,
+            _Cover(coverUrl: coverUrl),
+            const SizedBox(width: 10),
+            if (showText)
+              SizedBox(
+                width: textWidth,
+                child: _SongText(song: song, maxWidth: textWidth),
+              )
+            else
+              const Spacer(),
+            if (showMore) ...[
+              const SizedBox(width: 4),
+              DesktopSongPopover(
+                song: song,
+                builder: (context, controller) => _BarIconButton(
+                  icon: Icons.more_horiz_rounded,
+                  size: 20,
+                  accent: widget.accent,
+                  onTap: controller.toggle,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
+            ],
+          ],
+        );
+
+        return Column(
+          children: [
             Expanded(
-              child: _ThinSlider(
-                value: value,
-                onChangeStart: widget.enabled
-                    ? (v) => setState(() {
-                        _seeking = true;
-                        _seekValue = v;
-                      })
-                    : null,
-                onChanged: widget.enabled
-                    ? (v) => setState(() => _seekValue = v)
-                    : null,
-                onChangeEnd: widget.enabled
-                    ? (v) {
-                        setState(() => _seeking = false);
-                        player.seekTo(
-                          Duration(milliseconds: (v * totalMs).round()),
-                        );
-                      }
-                    : null,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(end: showOverlay ? 1.0 : 0.0),
+                    duration: _hoverDuration,
+                    curve: Curves.easeOut,
+                    child: info,
+                    builder: (context, t, child) => Opacity(
+                      opacity: 1 - 0.55 * t,
+                      child: ImageFiltered(
+                        enabled: t > 0,
+                        imageFilter: ImageFilter.blur(
+                          sigmaX: 6 * t,
+                          sigmaY: 6 * t,
+                        ),
+                        child: child,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: AnimatedOpacity(
+                        opacity: showOverlay ? 1.0 : 0.0,
+                        duration: _hoverDuration,
+                        child: Row(
+                          children: [
+                            Text(
+                              formatTrackDuration(shownPosition.inSeconds),
+                              style: timeStyle,
+                            ),
+                            const Spacer(),
+                            Text(
+                              formatTrackDuration(duration.inSeconds),
+                              style: timeStyle,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 6),
-            SizedBox(
-              width: 40,
-              child: Text(
-                widget.enabled
-                    ? formatTrackDuration(player.duration.inSeconds)
-                    : '0:00',
-                style: timeStyle,
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) => setState(() => _hovered = true),
+              onExit: (_) => setState(() => _hovered = false),
+              child: Listener(
+                behavior: HitTestBehavior.opaque,
+                onPointerDown: (e) =>
+                    _beginSeek(e.localPosition.dx, width, totalMs),
+                onPointerMove: (e) => _updateSeek(e.localPosition.dx, width),
+                onPointerUp: (_) => _endSeek(totalMs),
+                onPointerCancel: (_) => _endSeek(totalMs),
+                child: SizedBox(
+                  height: _seekRegionHeight,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: _seekBottomGap),
+                      child: AnimatedContainer(
+                        duration: _hoverDuration,
+                        curve: Curves.easeOut,
+                        height: showOverlay ? 6 : 2,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: colors.foreground.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: fraction,
+                            child: AnimatedContainer(
+                              duration: _hoverDuration,
+                              decoration: BoxDecoration(
+                                color: showOverlay
+                                    ? colors.foreground
+                                    : colors.mutedForeground,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -325,20 +510,119 @@ class _SeekRowState extends State<_SeekRow> {
       },
     );
   }
+
+  void _beginSeek(double dx, double width, double totalMs) {
+    if (totalMs <= 0) return;
+    setState(() {
+      _seeking = true;
+      _seekValue = _fractionFor(dx, width);
+    });
+  }
+
+  void _updateSeek(double dx, double width) {
+    if (!_seeking) return;
+    setState(() => _seekValue = _fractionFor(dx, width));
+  }
+
+  void _endSeek(double totalMs) {
+    if (!_seeking) return;
+    final target = Duration(milliseconds: (_seekValue * totalMs).round());
+    setState(() => _seeking = false);
+    context.read<PlayerProvider>().seekTo(target);
+  }
+
+  static double _fractionFor(double dx, double width) =>
+      width <= 0 ? 0.0 : (dx / width).clamp(0.0, 1.0);
+}
+
+class _Cover extends StatelessWidget {
+  final String? coverUrl;
+
+  const _Cover({required this.coverUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.theme.colors;
+    final placeholder = Container(
+      width: _kCoverSize,
+      height: _kCoverSize,
+      color: colors.muted,
+      child: Icon(Icons.album, color: colors.mutedForeground, size: 20),
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: coverUrl != null
+            ? Image(
+                image: coverArtProvider(coverUrl!),
+                width: _kCoverSize,
+                height: _kCoverSize,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (_, _, _) => placeholder,
+              )
+            : placeholder,
+      ),
+    );
+  }
+}
+
+class _SongText extends StatelessWidget {
+  final Song song;
+  final double maxWidth;
+
+  const _SongText({required this.song, required this.maxWidth});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.theme.colors;
+    final typography = context.theme.typography;
+    final subtitle = [
+      if (song.artist?.isNotEmpty == true) song.artist!,
+      if (song.album?.isNotEmpty == true) song.album!,
+    ].join(' — ');
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ScrollingText(
+          text: song.title,
+          maxWidth: maxWidth,
+          style: typography.sm.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colors.foreground,
+          ),
+        ),
+        if (subtitle.isNotEmpty) ...[
+          const SizedBox(height: 1),
+          ScrollingText(
+            text: subtitle,
+            maxWidth: maxWidth,
+            style: typography.xs.copyWith(color: colors.mutedForeground),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _ThinSlider extends StatefulWidget {
   final double value;
   final ValueChanged<double>? onChanged;
-  final ValueChanged<double>? onChangeStart;
-  final ValueChanged<double>? onChangeEnd;
 
-  const _ThinSlider({
-    required this.value,
-    this.onChanged,
-    this.onChangeStart,
-    this.onChangeEnd,
-  });
+  const _ThinSlider({required this.value, this.onChanged});
 
   @override
   State<_ThinSlider> createState() => _ThinSliderState();
@@ -381,8 +665,6 @@ class _ThinSliderState extends State<_ThinSlider> {
           child: Slider(
             value: widget.value.clamp(0.0, 1.0),
             onChanged: widget.onChanged,
-            onChangeStart: widget.onChangeStart,
-            onChangeEnd: widget.onChangeEnd,
           ),
         ),
       ),
@@ -395,13 +677,17 @@ class _BarIconButton extends StatefulWidget {
   final double size;
   final bool active;
   final bool emphasised;
+  final bool dimmed;
+  final Color accent;
   final VoidCallback? onTap;
 
   const _BarIconButton({
     required this.icon,
     required this.size,
+    required this.accent,
     this.active = false,
     this.emphasised = false,
+    this.dimmed = false,
     this.onTap,
   });
 
@@ -421,12 +707,23 @@ class _BarIconButtonState extends State<_BarIconButton> {
     final Color color;
     if (!enabled) {
       color = colors.mutedForeground.withValues(alpha: 0.4);
-    } else if (widget.active) {
-      color = colors.primary;
+    } else if (_pressed || widget.active) {
+      color = widget.accent;
+    } else if (widget.dimmed) {
+      color = colors.mutedForeground.withValues(alpha: _hovered ? 0.8 : 0.5);
     } else if (widget.emphasised || _hovered) {
       color = colors.foreground;
     } else {
       color = colors.mutedForeground;
+    }
+
+    final Color background;
+    if (enabled && widget.active) {
+      background = widget.accent.withValues(alpha: _hovered ? 0.24 : 0.16);
+    } else if (enabled && _hovered) {
+      background = colors.foreground.withValues(alpha: 0.07);
+    } else {
+      background = Colors.transparent;
     }
 
     return MouseRegion(
@@ -445,29 +742,21 @@ class _BarIconButtonState extends State<_BarIconButton> {
         child: AnimatedScale(
           scale: _pressed ? 0.88 : 1.0,
           duration: const Duration(milliseconds: 100),
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 150),
-                  child: Icon(
-                    widget.icon,
-                    key: ValueKey(widget.icon),
-                    size: widget.size,
-                    color: color,
-                  ),
-                ),
-                Container(
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: widget.active ? colors.primary : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ],
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: background,
+              shape: BoxShape.circle,
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: Icon(
+                widget.icon,
+                key: ValueKey(widget.icon),
+                size: widget.size,
+                color: color,
+              ),
             ),
           ),
         ),

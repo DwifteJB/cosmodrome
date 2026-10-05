@@ -3,12 +3,14 @@
 
   since it uses a sheet, looks ass on desktop, and we have enough space to do all this stuff
 */
-
 import 'dart:ui';
 
+import 'package:cosmodrome/components/music_player/lyrics_view.dart';
+import 'package:cosmodrome/components/music_player/mobile_queue_list.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/providers/lyrics_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
@@ -19,17 +21,15 @@ import 'package:forui/forui.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
-class FullscreenPlayer extends StatefulWidget {
-  final VoidCallback? onQueueOpen;
+enum _PlayerMode { art, lyrics, queue }
 
-  const FullscreenPlayer({super.key, this.onQueueOpen});
+class FullscreenPlayer extends StatefulWidget {
+  const FullscreenPlayer({super.key});
 
   @override
   State<FullscreenPlayer> createState() => _FullscreenPlayerState();
 }
 
-/// [AnimatedSwitcher] layout/transition shared by the cover art and the song
-/// content: children are stacked full-size and cross-faded.
 Widget _stackedLayout(Widget? currentChild, List<Widget> previousChildren) {
   return Stack(
     fit: StackFit.expand,
@@ -54,6 +54,8 @@ class _FadingAlbumArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // url carries a fresh auth salt every build, the provider compares by cache key
+    final provider = coverArtProvider(imageUrl);
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       switchInCurve: Curves.easeOut,
@@ -61,12 +63,125 @@ class _FadingAlbumArt extends StatelessWidget {
       layoutBuilder: _stackedLayout,
       transitionBuilder: _fadeTransition,
       child: Image(
-        image: coverArtProvider(imageUrl),
-        key: ValueKey(imageUrl),
+        image: provider,
+        key: ValueKey(provider),
         fit: fit,
         errorBuilder: errorBuilder != null
             ? (context, error, stackTrace) => errorBuilder!(context, error)
             : null,
+      ),
+    );
+  }
+}
+
+class _TopBarButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _TopBarButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: Colors.white12,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Icon(icon, color: color, size: 20),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LyricsLoading extends StatelessWidget {
+  const _LyricsLoading({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Finding lyrics…',
+            style: context.theme.typography.sm.copyWith(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LyricsEmpty extends StatelessWidget {
+  const _LyricsEmpty({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.lyrics_outlined, size: 32, color: Colors.white54),
+          const SizedBox(height: 12),
+          Text(
+            'No lyrics for this song',
+            textAlign: TextAlign.center,
+            style: context.theme.typography.sm.copyWith(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TranslateToggle extends StatelessWidget {
+  final bool active;
+  final Color accent;
+  final VoidCallback onPressed;
+
+  const _TranslateToggle({
+    required this.active,
+    required this.accent,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Material(
+        color: Colors.white12,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Icon(
+              FIcons.languages,
+              size: 18,
+              color: active ? accent : Colors.white70,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -78,6 +193,8 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
 
   bool _isStarred = false;
   String? _starredSongId;
+
+  _PlayerMode _mode = _PlayerMode.art;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +228,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
           }
 
           final accent = player.accentColor ?? Colors.white;
+          final lyricsProvider = context.watch<LyricsProvider>();
 
           return Stack(
             children: [
@@ -143,6 +261,15 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                                     color: Colors.black26,
                                   ),
                                 ),
+                              AnimatedOpacity(
+                                opacity: _mode == _PlayerMode.art ? 0.0 : 1.0,
+                                duration: const Duration(milliseconds: 350),
+                                child: const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black26,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                   ),
@@ -155,7 +282,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(height: topPadding + 8),
-                    _buildTopBar(context, player),
+                    _buildTopBar(context, player, accent, lyricsProvider),
                     const SizedBox(height: 16),
                     Expanded(
                       child: AnimatedSwitcher(
@@ -166,29 +293,61 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                         transitionBuilder: _fadeTransition,
                         child: song == null
                             ? const SizedBox.shrink()
-                            : SafeArea(
-                                key: ValueKey(song.id),
-                                top: false,
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    _buildAlbumArt(coverUrl, screenWidth - 64),
-                                    const Spacer(),
-                                    _buildSongInfo(
-                                      context,
-                                      song,
-                                      accent,
-                                      screenWidth - 96,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _buildSeekBar(context, player, accent),
-                                    const SizedBox(height: 24),
-                                    _buildControls(player, accent),
-                                    SizedBox(height: bottomPadding + 16),
-                                  ],
+                            : switch (_mode) {
+                                _PlayerMode.lyrics => SafeArea(
+                                  key: const ValueKey('lyrics'),
+                                  top: false,
+                                  child: _buildLyricsLayout(
+                                    context,
+                                    player,
+                                    lyricsProvider,
+                                    song,
+                                    coverUrl,
+                                    accent,
+                                    screenWidth,
+                                    bottomPadding,
+                                  ),
                                 ),
-                              ),
+                                _PlayerMode.queue => SafeArea(
+                                  key: const ValueKey('queue'),
+                                  top: false,
+                                  child: _buildQueueLayout(
+                                    context,
+                                    player,
+                                    song,
+                                    coverUrl,
+                                    accent,
+                                    screenWidth,
+                                    bottomPadding,
+                                  ),
+                                ),
+                                _PlayerMode.art => SafeArea(
+                                  key: ValueKey(song.id),
+                                  top: false,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _buildAlbumArt(
+                                        coverUrl,
+                                        screenWidth - 64,
+                                      ),
+                                      const Spacer(),
+                                      _buildSongInfo(
+                                        context,
+                                        song,
+                                        accent,
+                                        screenWidth - 96,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _buildSeekBar(context, player, accent),
+                                      const SizedBox(height: 24),
+                                      _buildControls(player, accent),
+                                      SizedBox(height: bottomPadding + 16),
+                                    ],
+                                  ),
+                                ),
+                              },
                       ),
                     ),
                   ],
@@ -201,8 +360,19 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     );
   }
 
-  /// Back button, title & queue button.
-  Widget _buildTopBar(BuildContext context, PlayerProvider player) {
+  Widget _buildTopBar(
+    BuildContext context,
+    PlayerProvider player,
+    Color accent,
+    LyricsProvider lyricsProvider,
+  ) {
+    final lyricsColor = _mode == _PlayerMode.lyrics
+        ? accent
+        : lyricsProvider.hasLyrics
+        ? Colors.white
+        : Colors.white38;
+    final queueColor = _mode == _PlayerMode.queue ? accent : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
@@ -224,23 +394,209 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
             ),
           ),
           const Spacer(),
-          // q button
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Material(
-              color: Colors.white12,
-              child: InkWell(
-                onTap: widget.onQueueOpen,
-                child: const Padding(
-                  padding: EdgeInsets.all(10),
-                  child: Icon(FIcons.listMusic, color: Colors.white, size: 20),
-                ),
-              ),
-            ),
+          _TopBarButton(
+            icon: Icons.lyrics_rounded,
+            color: lyricsColor,
+            onTap: () => _toggleMode(_PlayerMode.lyrics),
+          ),
+          const SizedBox(width: 8),
+          _TopBarButton(
+            icon: FIcons.listMusic,
+            color: queueColor,
+            onTap: () => _toggleMode(_PlayerMode.queue),
           ),
           const SizedBox(width: 8),
         ],
       ),
+    );
+  }
+
+  Widget _buildLyricsLayout(
+    BuildContext context,
+    PlayerProvider player,
+    LyricsProvider lyricsProvider,
+    Song song,
+    String? coverUrl,
+    Color accent,
+    double screenWidth,
+    double bottomPadding,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildNowPlayingRow(context, song, coverUrl, accent, screenWidth - 164),
+        const SizedBox(height: 8),
+        Expanded(child: _buildLyricsBody(context, lyricsProvider, accent)),
+        const SizedBox(height: 8),
+        _buildSeekBar(context, player, accent),
+        const SizedBox(height: 16),
+        _buildControls(player, accent),
+        SizedBox(height: bottomPadding + 16),
+      ],
+    );
+  }
+
+  Widget _buildQueueLayout(
+    BuildContext context,
+    PlayerProvider player,
+    Song song,
+    String? coverUrl,
+    Color accent,
+    double screenWidth,
+    double bottomPadding,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildNowPlayingRow(context, song, coverUrl, accent, screenWidth - 164),
+        const SizedBox(height: 8),
+        Expanded(child: MobileQueueList(accent: accent)),
+        const SizedBox(height: 8),
+        _buildSeekBar(context, player, accent),
+        const SizedBox(height: 16),
+        _buildControls(player, accent),
+        SizedBox(height: bottomPadding + 16),
+      ],
+    );
+  }
+
+  Widget _buildNowPlayingRow(
+    BuildContext context,
+    Song song,
+    String? coverUrl,
+    Color accent,
+    double titleMaxWidth,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 56,
+              height: 56,
+              child: coverUrl != null
+                  ? _FadingAlbumArt(
+                      imageUrl: coverUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _) => _coverPlaceholder(56),
+                    )
+                  : _coverPlaceholder(56),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ScrollingText(
+                  text: song.title,
+                  maxWidth: titleMaxWidth,
+                  style: context.theme.typography.md.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                  duration: 5,
+                ),
+                if (song.artist != null)
+                  Text(
+                    song.artist!,
+                    style: context.theme.typography.sm.copyWith(
+                      color: Colors.white60,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              _isStarred ? Icons.star_rounded : Icons.star_border_rounded,
+              color: _isStarred ? accent : Colors.white60,
+              size: 28,
+            ),
+            onPressed: _toggleStar,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLyricsBody(
+    BuildContext context,
+    LyricsProvider provider,
+    Color accent,
+  ) {
+    final lyrics = provider.lyrics;
+    final typography = context.theme.typography;
+
+    Widget body;
+    if (provider.isLoading) {
+      body = const _LyricsLoading(key: ValueKey('loading'));
+    } else if (lyrics == null || !lyrics.hasLyrics) {
+      body = const _LyricsEmpty(key: ValueKey('empty'));
+    } else {
+      body = ShaderMask(
+        key: const ValueKey('lyrics'),
+        shaderCallback: (bounds) => const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.transparent,
+            Colors.white,
+            Colors.white,
+            Colors.transparent,
+          ],
+          stops: [0, 0.08, 0.9, 1],
+        ).createShader(bounds),
+        blendMode: BlendMode.dstIn,
+        child: LyricsView(
+          lyrics: lyrics,
+          mainStyle: typography.xl2.copyWith(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
+            color: Colors.white,
+          ),
+          secondaryStyle: typography.sm.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.white60,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          showTranslation: provider.showTranslation,
+          showPronunciation: provider.showPronunciation,
+          accentColor: accent,
+          enableHover: false,
+          topSpacer: 24,
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            layoutBuilder: _stackedLayout,
+            transitionBuilder: _fadeTransition,
+            child: body,
+          ),
+        ),
+        if (provider.hasSecondaryLayers)
+          Positioned(
+            right: 24,
+            bottom: 8,
+            child: _TranslateToggle(
+              active: provider.secondaryLayersVisible,
+              accent: accent,
+              onPressed: provider.toggleSecondaryLayers,
+            ),
+          ),
+      ],
     );
   }
 
@@ -269,7 +625,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     );
   }
 
-  /// Title, album & star button.
   Widget _buildSongInfo(
     BuildContext context,
     Song song,
@@ -322,7 +677,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     );
   }
 
-  /// Progress slider with position / duration timestamps underneath.
   Widget _buildSeekBar(
     BuildContext context,
     PlayerProvider player,
@@ -392,7 +746,6 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
     );
   }
 
-  /// Shuffle, previous, play/pause, next & repeat.
   Widget _buildControls(PlayerProvider player, Color accent) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -480,6 +833,10 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
       color: Colors.grey[800],
       child: Icon(Icons.album, color: Colors.white38, size: size * 0.4),
     );
+  }
+
+  void _toggleMode(_PlayerMode mode) {
+    setState(() => _mode = _mode == mode ? _PlayerMode.art : mode);
   }
 
   Future<void> _toggleStar() async {
