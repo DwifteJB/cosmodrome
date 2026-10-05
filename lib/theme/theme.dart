@@ -1,6 +1,6 @@
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:forui/forui.dart';
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 
 // ignore_for_file: avoid_redundant_argument_values
 
@@ -46,6 +46,42 @@ FThemeData appTheme({required bool touch}) {
     typography: typography,
     style: style,
     touch: touch,
+  );
+}
+
+FStyle _style({
+  required FColors colors,
+  required FTypography typography,
+  required bool touch,
+}) {
+  const borderRadius = FBorderRadius();
+  return FStyle(
+    formFieldStyle: .inherit(
+      colors: colors,
+      typography: typography,
+      touch: touch,
+    ),
+    focusedOutlineStyle: FFocusedOutlineStyle(
+      color: colors.primary,
+      borderRadius: borderRadius.md,
+    ),
+    sizes: FSizes.inherit(touch: touch),
+    iconStyle: IconThemeData(
+      color: colors.foreground,
+      size: typography.lg.fontSize,
+    ),
+    tappableStyle: FTappableStyle(
+      cursor: .raw(SystemMouseCursors.click, {
+        FTappableVariant.disabled: SystemMouseCursors.basic,
+      }),
+    ),
+    hapticFeedback: const FHapticFeedback(),
+    borderRadius: const FBorderRadius(),
+    borderWidth: 1,
+    pagePadding: const .symmetric(vertical: 8, horizontal: 12),
+    shadow: const [
+      BoxShadow(color: Color(0x0d000000), offset: Offset(0, 1), blurRadius: 2),
+    ],
   );
 }
 
@@ -265,36 +301,4 @@ FTypography _typography({
       ),
     );
   }
-}
-
-FStyle _style({
-  required FColors colors,
-  required FTypography typography,
-  required bool touch,
-}) {
-  const borderRadius = FBorderRadius();
-  return FStyle(
-    formFieldStyle: .inherit(
-      colors: colors,
-      typography: typography,
-      touch: touch,
-    ),
-    focusedOutlineStyle: FFocusedOutlineStyle(
-      color: colors.primary,
-      borderRadius: borderRadius.md,
-    ),
-    sizes: FSizes.inherit(touch: touch),
-    iconStyle: IconThemeData(
-      color: colors.foreground,
-      size: typography.lg.fontSize,
-    ),
-    tappableStyle: FTappableStyle(),
-    hapticFeedback: const FHapticFeedback(),
-    borderRadius: const FBorderRadius(),
-    borderWidth: 1,
-    pagePadding: const .symmetric(vertical: 8, horizontal: 12),
-    shadow: const [
-      BoxShadow(color: Color(0x0d000000), offset: Offset(0, 1), blurRadius: 2),
-    ],
-  );
 }

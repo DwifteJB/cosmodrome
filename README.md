@@ -15,7 +15,7 @@ This project is under the [GPL-2.0 License](https://github.com/DwifteJB/cosmodro
 
 | Android Auto | Carplay |
 | --- | --- |
-|<img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/android-auto2.png" /> | <img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/carplay.png"  |
+|<img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/android-auto2.png" /> | <img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/carplay.png">  |
 
 <hr />
 
