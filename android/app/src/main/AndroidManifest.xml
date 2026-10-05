@@ -5,6 +5,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+    <uses-permission android:name="androidx.car.app.MEDIA_TEMPLATES"/>
+
+    <uses-feature
+        android:name="android.software.car.app.library"
+        android:required="false"/>
 
     <application
         android:label="cosmodrome"
@@ -13,7 +18,7 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name="com.ryanheise.audioservice.AudioServiceActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -40,6 +45,15 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".CarService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService"/>
+                <category android:name="androidx.car.app.category.MEDIA"/>
+            </intent-filter>
+        </service>
+
         <receiver android:name="com.ryanheise.audioservice.MediaButtonReceiver"
             android:exported="true"
             tools:ignore="Instantiatable">
@@ -48,6 +62,12 @@
             </intent-filter>
         </receiver>
 
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc"/>
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1"/>
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

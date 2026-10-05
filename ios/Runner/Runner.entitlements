@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- disable this to build without carplay entitlements -->
+	<key>com.apple.developer.carplay-audio</key>
+	<true/>
 	<key>com.apple.developer.spatial-audio.profile-access</key>
 	<true/>
 	<key>keychain-access-groups</key>

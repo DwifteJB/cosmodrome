@@ -87,21 +87,7 @@ class PlayerProvider extends ChangeNotifier {
 
   Color? get accentColor => _accentColor;
   String? get currentCoverArtUrl => _cachedCoverArtUrl;
-  bool get isFullscreenOpen => _isFullscreenOpen;
-  Color? get prevAccentColor => _prevAccentColor;
-
-  void closeFullscreen() {
-    _isFullscreenOpen = false;
-    notifyListeners();
-  }
-
-  void openFullscreen() {
-    _isFullscreenOpen = true;
-    notifyListeners();
-  }
-
   int get currentIndex => _currentIndex;
-
   Song? get currentSong {
     final queue = _activeQueue;
     final index = _displayIndex;
@@ -109,9 +95,15 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Duration get duration => _duration;
+
   bool get hasCurrentSong => currentSong != null;
+
+  bool get isFullscreenOpen => _isFullscreenOpen;
+
   bool get isPlaying => _isPlaying;
+
   Duration get position => _position;
+  Color? get prevAccentColor => _prevAccentColor;
   List<Song> get queue => List.unmodifiable(_activeQueue);
   int get queueVersion => _queueVersion;
   bool get repeat => _repeatMode != LoopMode.off;
@@ -123,7 +115,6 @@ class PlayerProvider extends ChangeNotifier {
     if (start >= queue.length) return const <Song>[];
     return List.unmodifiable(queue.sublist(start));
   }
-
   int get visibleQueueStartIndex => _displayIndex < 0 ? 0 : _displayIndex;
   double get volume => _volume;
 
@@ -134,7 +125,6 @@ class PlayerProvider extends ChangeNotifier {
         .map((index) => _songs[index])
         .toList();
   }
-
   int get _displayIndex => _shuffle ? _shuffleCursor : _currentIndex;
 
   Future<void> addBulkToQueue(List<Song> songs) async {
@@ -150,6 +140,11 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> addToQueue(Song song) => addBulkToQueue([song]);
+
+  void closeFullscreen() {
+    _isFullscreenOpen = false;
+    notifyListeners();
+  }
 
   String? coverArtUrlForSong(Song song) {
     if (song.coverArt == null || _subsonicProvider == null) return null;
@@ -179,10 +174,19 @@ class PlayerProvider extends ChangeNotifier {
     return _downloadProvider?.isSongDownloaded(song.id) ?? false;
   }
 
+  void openFullscreen() {
+    _isFullscreenOpen = true;
+    notifyListeners();
+  }
+
   List<Song> playableSongs(Iterable<Song> songs) =>
       songs.where(isSongPlayable).toList();
 
-  Future<void> playAlbum(List<Song> songs, {bool shuffle = false}) async {
+  Future<void> playAlbum(
+    List<Song> songs, {
+    bool shuffle = false,
+    int startIndex = 0,
+  }) async {
     final playable = playableSongs(songs);
     if (playable.isEmpty) return;
     _songs = List.from(playable);
@@ -191,7 +195,7 @@ class PlayerProvider extends ChangeNotifier {
       _currentIndex = _songs.length > 1 ? Random().nextInt(_songs.length) : 0;
       _rebuildShuffleOrder();
     } else {
-      _currentIndex = 0;
+      _currentIndex = startIndex.clamp(0, _songs.length - 1);
       _shuffleOrder = [];
       _shuffleCursor = -1;
     }
@@ -280,38 +284,6 @@ class PlayerProvider extends ChangeNotifier {
     }
     _queueVersion++;
     unawaited(_syncPlayerQueue(preservePosition: true));
-    notifyListeners();
-  }
-
-  void _removeFromShuffleOrder(int songIndex) {
-    final position = _shuffleOrder.indexOf(songIndex);
-    _shuffleOrder = [
-      for (final i in _shuffleOrder)
-        if (i != songIndex) i > songIndex ? i - 1 : i,
-    ];
-    if (_shuffleOrder.isEmpty) {
-      _rebuildShuffleOrder();
-      return;
-    }
-    if (position >= 0 && position < _shuffleCursor) _shuffleCursor--;
-    _shuffleCursor = _shuffleCursor.clamp(0, _shuffleOrder.length - 1);
-    _currentIndex = _shuffleOrder[_shuffleCursor];
-  }
-
-  void _reorderShuffleOrder(int oldIndex, int newIndex) {
-    if (oldIndex < 0 || oldIndex >= _shuffleOrder.length) return;
-    if (newIndex < 0 || newIndex > _shuffleOrder.length) return;
-    if (oldIndex < newIndex) newIndex -= 1;
-    final moved = _shuffleOrder.removeAt(oldIndex);
-    _shuffleOrder.insert(newIndex, moved);
-    if (oldIndex == _shuffleCursor) {
-      _shuffleCursor = newIndex;
-    } else if (oldIndex < _shuffleCursor && newIndex >= _shuffleCursor) {
-      _shuffleCursor--;
-    } else if (oldIndex > _shuffleCursor && newIndex <= _shuffleCursor) {
-      _shuffleCursor++;
-    }
-    _queueVersion++;
     notifyListeners();
   }
 
@@ -405,6 +377,17 @@ class PlayerProvider extends ChangeNotifier {
     await _player.play();
   }
 
+  Future<void> skipToQueueIndex(int index) async {
+    if (index < 0 || index >= _activeQueue.length) return;
+    if (_shuffle && _shuffleOrder.isNotEmpty) {
+      _shuffleCursor = index;
+      await _player.seek(Duration.zero, index: _shuffleOrder[index]);
+    } else {
+      await _player.seek(Duration.zero, index: index);
+    }
+    await _player.play();
+  }
+
   Future<void> togglePlay() async {
     if (_isPlaying) {
       await _player.pause();
@@ -451,6 +434,40 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
+  // only called once the song is known to have cover art & a subsonic provider
+  Future<void> _extractAccentColor(Song song) async {
+    try {
+      final coverUrl = _subsonicProvider!.subsonic.cachedCoverArtUrl(
+        song.coverArt!,
+        size: 1200,
+      );
+
+      final generator = await PaletteGenerator.fromImageProvider(
+        coverArtProvider(coverUrl),
+        size: const Size(200, 200),
+      );
+
+      // Discard if a different song became current while we were waiting
+      if (currentSong?.id != song.id) return;
+
+      final raw =
+          generator.vibrantColor?.color ??
+          generator.lightVibrantColor?.color ??
+          generator.mutedColor?.color ??
+          generator.lightMutedColor?.color ??
+          generator.dominantColor?.color;
+
+      Color? color;
+      if (raw != null) {
+        final hsl = HSLColor.fromColor(raw);
+        color = hsl.lightness < 0.25 ? hsl.withLightness(0.35).toColor() : raw;
+      }
+
+      _accentCache[song.id] = color;
+      _setAccentColor(color);
+    } catch (_) {}
+  }
+
   Future<void> _fetchAndAppendRandom() async {
     final provider = _subsonicProvider;
     if (provider == null || provider.isOffline) return;
@@ -458,6 +475,14 @@ class PlayerProvider extends ChangeNotifier {
       final songs = await provider.subsonic.getRandomSongs(count: 10);
       await addBulkToQueue(songs);
     } catch (_) {}
+  }
+
+  void _maybeExtractAccentColor(Song song) {
+    if (_accentCache.containsKey(song.id)) {
+      _setAccentColor(_accentCache[song.id]);
+      return;
+    }
+    unawaited(_extractAccentColor(song));
   }
 
   Future<void> _playCurrentIndex() async {
@@ -481,6 +506,44 @@ class PlayerProvider extends ChangeNotifier {
 
     _shuffleOrder = [currentIndex, ...indices];
     _shuffleCursor = 0;
+  }
+
+  void _removeFromShuffleOrder(int songIndex) {
+    final position = _shuffleOrder.indexOf(songIndex);
+    _shuffleOrder = [
+      for (final i in _shuffleOrder)
+        if (i != songIndex) i > songIndex ? i - 1 : i,
+    ];
+    if (_shuffleOrder.isEmpty) {
+      _rebuildShuffleOrder();
+      return;
+    }
+    if (position >= 0 && position < _shuffleCursor) _shuffleCursor--;
+    _shuffleCursor = _shuffleCursor.clamp(0, _shuffleOrder.length - 1);
+    _currentIndex = _shuffleOrder[_shuffleCursor];
+  }
+
+  void _reorderShuffleOrder(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _shuffleOrder.length) return;
+    if (newIndex < 0 || newIndex > _shuffleOrder.length) return;
+    if (oldIndex < newIndex) newIndex -= 1;
+    final moved = _shuffleOrder.removeAt(oldIndex);
+    _shuffleOrder.insert(newIndex, moved);
+    if (oldIndex == _shuffleCursor) {
+      _shuffleCursor = newIndex;
+    } else if (oldIndex < _shuffleCursor && newIndex >= _shuffleCursor) {
+      _shuffleCursor--;
+    } else if (oldIndex > _shuffleCursor && newIndex <= _shuffleCursor) {
+      _shuffleCursor++;
+    }
+    _queueVersion++;
+    notifyListeners();
+  }
+
+  void _setAccentColor(Color? color) {
+    _prevAccentColor = _accentColor;
+    _accentColor = color;
+    notifyListeners();
   }
 
   Future<void> _syncPlayerQueue({
@@ -554,53 +617,5 @@ class PlayerProvider extends ChangeNotifier {
     }
     _cachedCoverArtUrl = coverArtUrlForSong(song);
     _maybeExtractAccentColor(song);
-  }
-
-  void _maybeExtractAccentColor(Song song) {
-    if (_accentCache.containsKey(song.id)) {
-      _setAccentColor(_accentCache[song.id]);
-      return;
-    }
-    unawaited(_extractAccentColor(song));
-  }
-
-  void _setAccentColor(Color? color) {
-    _prevAccentColor = _accentColor;
-    _accentColor = color;
-    notifyListeners();
-  }
-
-  // only called once the song is known to have cover art & a subsonic provider
-  Future<void> _extractAccentColor(Song song) async {
-    try {
-      final coverUrl = _subsonicProvider!.subsonic.cachedCoverArtUrl(
-        song.coverArt!,
-        size: 1200,
-      );
-
-      final generator = await PaletteGenerator.fromImageProvider(
-        coverArtProvider(coverUrl),
-        size: const Size(200, 200),
-      );
-
-      // Discard if a different song became current while we were waiting
-      if (currentSong?.id != song.id) return;
-
-      final raw =
-          generator.vibrantColor?.color ??
-          generator.lightVibrantColor?.color ??
-          generator.mutedColor?.color ??
-          generator.lightMutedColor?.color ??
-          generator.dominantColor?.color;
-
-      Color? color;
-      if (raw != null) {
-        final hsl = HSLColor.fromColor(raw);
-        color = hsl.lightness < 0.25 ? hsl.withLightness(0.35).toColor() : raw;
-      }
-
-      _accentCache[song.id] = color;
-      _setAccentColor(color);
-    } catch (_) {}
   }
 }
