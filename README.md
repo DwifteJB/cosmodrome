@@ -3,7 +3,7 @@
 [![Build Linux, Windows, iOS & Android.](https://github.com/DwifteJB/cosmodrome/actions/workflows/build.yml/badge.svg)](https://github.com/DwifteJB/cosmodrome/actions/workflows/build.yml)
 [![Build Web](https://github.com/DwifteJB/cosmodrome/actions/workflows/build-web.yml/badge.svg)](https://github.com/DwifteJB/cosmodrome/actions/workflows/build-web.yml)
 
-A cross-platform subsonic (specifically navidrome) music client built within Flutter.
+A cross-platform (open)subsonic music client built within Flutter.
 
 You can test with the web app at [https://cosmodrome.rmfosho.me/](https://cosmodrome.rmfosho.me/home)
 
@@ -12,6 +12,10 @@ This project is under the [GPL-2.0 License](https://github.com/DwifteJB/cosmodro
 | iOS | Mac |
 | --- | --- |
 |<img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/ios-album.png" style="width:300px;height:auto" /> | <img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/mac-album.png" style="width:600px;height:auto" /> |
+
+| Android Auto | Carplay |
+| --- | --- |
+|<img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/android-auto2.png" /> | <img src="https://raw.githubusercontent.com/DwifteJB/cosmodrome/refs/heads/main/.github/images/carplay.png"  |
 
 <hr />
 
@@ -24,13 +28,17 @@ The MacOS builds are regularly added to the [Releases Page](https://github.com/D
 
 The iOS testflight can be accessed [here.](https://testflight.apple.com/join/uuX9qUxQ)
 
-If you are on iOS 16 or below, you can download the IPA as it is made for iOS 13 and above.
+If you are on iOS 16 or below, you can download the IPA as it is made for iOS 15 and above.
 
 ## Features
 
 ### Multi-server & Multi accounts
 
 The app includes support for multiple subsonic servers, as well as multiple accounts for each server, so you wont need to keep logging in & out, you can just save the credentials and swap at a single buttons press.
+
+### Lyrics
+
+Lyrics are fully supported via the old subsonic standard or the new opensubsonic standard!
 
 ### Albums
 
@@ -64,8 +72,8 @@ Current support for the client is as following (order of what is focused):
  - [X] Linux
  - [X] MacOS 
  - [X] Windows
- - [ ] Apple Carplay 
- - [ ] Android Auto
+ - [X] Apple Carplay 
+ - [X] Android Auto
  - [X] Web
 
 Current support for known servers (subsonic-like servers) are as following:
@@ -73,12 +81,12 @@ Current support for known servers (subsonic-like servers) are as following:
 * [Subsonic](https://www.subsonic.org/pages/index.jsp)
 * [Open Subsonic](https://github.com/opensubsonic/open-subsonic-api) (including, [Navidrome](https://github.com/navidrome/navidrome))
 * [Octo-fiesta](https://github.com/V1ck3s/octo-fiesta)
+* [Aplsonic](https://github.com/DwifteJB/aplsonic) (Apple Music -> OpenSubsonic API)
 
-There is a project I do want to work on, that creates a subsonic server from apple music using something like [MusicKit](https://developer.apple.com/musickit/) and [GAMDL](https://github.com/glomatico/gamdl). So expect something like that at some point of time
 
 ## Whats the plans for when this releases?
 
-When/If this releases, the iOS & Android app will be listed on the appstore for £2/$2. The subscription cost of the iOS developer account is quite a lot, so this will be my way of trying to get the costs back for the development & my overall time.
+When/If this releases, the iOS & Android app will be listed on the appstore for £1/$1 The subscription cost of the iOS developer account is quite a lot, so this will be my way of trying to get the costs back for the development & my overall time.
 
 The app will be free & open source, free to compile and run as long as you can install an APK or an IPA file.
 

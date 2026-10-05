@@ -1,5 +1,14 @@
 package me.rmfosho.cosmodrome
 
-import io.flutter.embedding.android.FlutterActivity
+import com.oguzhnatly.flutter_android_auto.FAAConstants
+import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.embedding.engine.FlutterEngineCache
 
-class MainActivity : FlutterActivity()
+class MainActivity : AudioServiceActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        FlutterEngineCache.getInstance().put(FAAConstants.flutterEngineId, flutterEngine)
+        super.configureFlutterEngine(flutterEngine)
+        CarChannel.attach(flutterEngine)
+    }
+}

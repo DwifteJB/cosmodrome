@@ -22,13 +22,15 @@ dependencies:
   just_audio: ^0.9.41
   just_audio_background: ^0.0.1-beta.17
   just_audio_media_kit: ^2.1.0 
-  audio_session: ^0.1.25
-  media_kit_libs_linux: ^1.2.1
 
+  # needed for carplay & just_audio_background
+  audio_session: ^0.1.25
+
+  # media_kit
+  media_kit_libs_linux: ^1.2.1
   media_kit_libs_windows_audio: ^1.0.9
   media_kit_libs_ios_audio: ^1.1.4
   media_kit_libs_macos_audio: ^1.1.4
-
 
   # desktop only
   tray_manager: ^0.5.2
@@ -36,6 +38,8 @@ dependencies:
   path_provider: ^2.1.5
   idb_shim: ^2.6.6
 
+  # carplay support
+  flutter_carplay: ^1.7.0+2
 dev_dependencies:
   flutter_test:
     sdk: flutter

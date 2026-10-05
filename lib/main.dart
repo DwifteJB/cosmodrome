@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
@@ -10,11 +11,11 @@ import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/album_page.dart';
 import 'package:cosmodrome/pages/artist_detail_page.dart';
+import 'package:cosmodrome/pages/desktop_search_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
 import 'package:cosmodrome/pages/playlist_page.dart';
 import 'package:cosmodrome/pages/recent_albums.dart';
-import 'package:cosmodrome/pages/desktop_search_page.dart';
 import 'package:cosmodrome/pages/search_page.dart';
 import 'package:cosmodrome/pages/starred_albums.dart';
 //
@@ -23,6 +24,7 @@ import 'package:cosmodrome/providers/lyrics_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/car/car_service.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart'
@@ -53,6 +55,8 @@ void main() async {
     iOS: true,
     macOS: true,
   );
+
+  JustAudioMediaKit.prefetchPlaylist = true; // gapless playback
 
   JustAudioMediaKit.title = "Cosmodrome";
 
@@ -98,15 +102,27 @@ void main() async {
   final initialId = subsonicProvider.activeAccount?.id;
   if (initialId != null) await downloadProvider.loadForAccount(initialId);
 
+  playerProvider.update(subsonicProvider);
+  subsonicProvider.addListener(() => playerProvider.update(subsonicProvider));
+
+  // let it load in the bg
+  unawaited(
+    carService.init(
+      subsonic: subsonicProvider,
+      player: playerProvider,
+      downloads: downloadProvider,
+    ),
+  );
+
   router = _buildRouter('/home');
 
   runApp(const Application());
 }
 
 final downloadProvider = DownloadProvider();
-
 final isDesktop =
     !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+final playerProvider = PlayerProvider()..setDownloadProvider(downloadProvider);
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
 
@@ -269,11 +285,7 @@ class _ApplicationState extends State<Application>
       providers: [
         ChangeNotifierProvider.value(value: subsonicProvider),
         ChangeNotifierProvider.value(value: downloadProvider),
-        ChangeNotifierProxyProvider<SubsonicProvider, PlayerProvider>(
-          create: (_) =>
-              PlayerProvider()..setDownloadProvider(downloadProvider),
-          update: (_, sub, player) => player!..update(sub),
-        ),
+        ChangeNotifierProvider.value(value: playerProvider),
         ChangeNotifierProxyProvider2<
           SubsonicProvider,
           PlayerProvider,
