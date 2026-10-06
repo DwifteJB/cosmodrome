@@ -121,7 +121,7 @@ void main() async {
 
 final downloadProvider = DownloadProvider();
 final isDesktop =
-    !kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS);
+    (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) && !const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false);
 final playerProvider = PlayerProvider()..setDownloadProvider(downloadProvider);
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
