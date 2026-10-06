@@ -79,7 +79,7 @@ class DownloadProvider extends ChangeNotifier {
       client = http.Client();
       _activeClients[song.id] = client;
 
-      final request = http.Request('GET', uri);
+      final request = http.Request('GET', uri)..maxRedirects = 100;
       final response = await client.send(request);
 
       final contentLength = response.contentLength ?? 0;

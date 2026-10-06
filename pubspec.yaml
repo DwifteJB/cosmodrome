@@ -13,18 +13,18 @@ dependencies:
   crypto: ^3.0.7
   http: ^1.2.0
   provider: ^6.1.5+1
-  go_router: ^17.2.1
-  skeletonizer: ^2.1.0+1
-  flutter_secure_storage: ^10.0.0
+  go_router: ^18.0.2
+  skeletonizer: ^3.0.0
+  flutter_secure_storage: ^11.2.0
   palette_generator: ^0.3.3
   
   # just audio
-  just_audio: ^0.9.41
+  just_audio: ^0.10.6
   just_audio_background: ^0.0.1-beta.17
   just_audio_media_kit: ^2.1.0 
 
   # needed for carplay & just_audio_background
-  audio_session: ^0.1.25
+  audio_session: ^0.2.4
 
   # media_kit
   media_kit_libs_linux: ^1.2.1

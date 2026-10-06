@@ -23,9 +23,11 @@ class PlayerProvider extends ChangeNotifier {
   final AudioPlayer _player = AudioPlayer();
 
   List<Song> _songs = [];
+  List<Song>? _unshuffled;
   final Set<String> _playedSongIds = <String>{};
-  List<int> _shuffleOrder = [];
-  int _shuffleCursor = -1;
+  bool _loaded = false;
+  int _editing = 0;
+  bool _fetchingRandom = false;
 
   int _currentIndex = -1;
   bool _isPlaying = false;
@@ -71,16 +73,10 @@ class PlayerProvider extends ChangeNotifier {
       notifyListeners();
     });
     _indexSub = _player.currentIndexStream.listen((index) {
+      if (_editing > 0) return;
       if (index == null || index == _currentIndex) return;
       _currentIndex = index;
-      if (_shuffle) {
-        final cursor = _shuffleOrder.indexOf(index);
-        _shuffleCursor = cursor >= 0 ? cursor : 0;
-      }
-      if (index >= 0 && index < _songs.length) {
-        _playedSongIds.add(_songs[index].id);
-      }
-      _updateCoverArtCache();
+      _onCurrentIndexChanged();
       notifyListeners();
     });
   }
@@ -88,11 +84,9 @@ class PlayerProvider extends ChangeNotifier {
   Color? get accentColor => _accentColor;
   String? get currentCoverArtUrl => _cachedCoverArtUrl;
   int get currentIndex => _currentIndex;
-  Song? get currentSong {
-    final queue = _activeQueue;
-    final index = _displayIndex;
-    return index >= 0 && index < queue.length ? queue[index] : null;
-  }
+  Song? get currentSong => _currentIndex >= 0 && _currentIndex < _songs.length
+      ? _songs[_currentIndex]
+      : null;
 
   Duration get duration => _duration;
 
@@ -104,39 +98,33 @@ class PlayerProvider extends ChangeNotifier {
 
   Duration get position => _position;
   Color? get prevAccentColor => _prevAccentColor;
-  List<Song> get queue => List.unmodifiable(_activeQueue);
+  List<Song> get queue => List.unmodifiable(_songs);
   int get queueVersion => _queueVersion;
   bool get repeat => _repeatMode != LoopMode.off;
   LoopMode get repeatMode => _repeatMode;
   bool get shuffle => _shuffle;
   List<Song> get visibleQueue {
-    final queue = _activeQueue;
     final start = visibleQueueStartIndex;
-    if (start >= queue.length) return const <Song>[];
-    return List.unmodifiable(queue.sublist(start));
+    if (start >= _songs.length) return const <Song>[];
+    return List.unmodifiable(_songs.sublist(start));
   }
-  int get visibleQueueStartIndex => _displayIndex < 0 ? 0 : _displayIndex;
-  double get volume => _volume;
 
-  List<Song> get _activeQueue {
-    if (!_shuffle || _shuffleOrder.isEmpty) return _songs;
-    return _shuffleOrder
-        .where((index) => index >= 0 && index < _songs.length)
-        .map((index) => _songs[index])
-        .toList();
-  }
-  int get _displayIndex => _shuffle ? _shuffleCursor : _currentIndex;
+  int get visibleQueueStartIndex => _currentIndex < 0 ? 0 : _currentIndex;
+  double get volume => _volume;
 
   Future<void> addBulkToQueue(List<Song> songs) async {
     final playable = playableSongs(songs);
     if (playable.isEmpty) return;
     _songs.addAll(playable);
-    if (_shuffle) {
-      _rebuildShuffleOrder();
-    }
+    _unshuffled?.addAll(playable);
     _queueVersion++;
-    await _syncPlayerQueue(preservePosition: true);
     notifyListeners();
+    if (!_loaded || _subsonicProvider == null) return;
+    await _edit(() async {
+      for (final song in playable) {
+        await _player.addAudioSource(await _buildSource(song));
+      }
+    });
   }
 
   Future<void> addToQueue(Song song) => addBulkToQueue([song]);
@@ -189,15 +177,16 @@ class PlayerProvider extends ChangeNotifier {
   }) async {
     final playable = playableSongs(songs);
     if (playable.isEmpty) return;
-    _songs = List.from(playable);
     _shuffle = shuffle;
-    if (_shuffle) {
-      _currentIndex = _songs.length > 1 ? Random().nextInt(_songs.length) : 0;
-      _rebuildShuffleOrder();
+    if (shuffle) {
+      _unshuffled = List.of(playable);
+      final first = playable.length > 1 ? Random().nextInt(playable.length) : 0;
+      _songs = _shuffledAfter(playable, playable[first]);
+      _currentIndex = 0;
     } else {
+      _unshuffled = null;
+      _songs = List.of(playable);
       _currentIndex = startIndex.clamp(0, _songs.length - 1);
-      _shuffleOrder = [];
-      _shuffleCursor = -1;
     }
     _playedSongIds
       ..clear()
@@ -205,74 +194,81 @@ class PlayerProvider extends ChangeNotifier {
     _queueVersion++;
     _updateCoverArtCache();
     notifyListeners();
-    await _playCurrentIndex();
+    await _loadQueue(play: true);
   }
 
   Future<void> playNow(Song song) async {
     if (!isSongPlayable(song)) return;
+    final loaded = _loaded;
     final pos = _currentIndex < 0 ? 0 : _currentIndex;
+    final current = currentSong;
     _songs.insert(pos, song);
+    if (_unshuffled case final unshuffled?) {
+      final at = current == null ? -1 : _indexOfIdentical(unshuffled, current);
+      unshuffled.insert(at < 0 ? unshuffled.length : at, song);
+    }
     _currentIndex = pos;
     _playedSongIds.add(song.id);
     _queueVersion++;
     _updateCoverArtCache();
     notifyListeners();
-    await _playCurrentIndex();
+    if (!loaded || current == null) {
+      await _loadQueue(play: true);
+      return;
+    }
+    await _edit(() async {
+      await _insertSource(pos, await _buildSource(song));
+      await _warm(song);
+      await _player.seek(Duration.zero, index: pos);
+    });
+    await _player.play();
+    _warmNext();
   }
 
   Future<void> removeFromQueue(int index) async {
-    if (index < 0 || index >= _activeQueue.length) return;
-    final songIndex = _shuffle && _shuffleOrder.isNotEmpty
-        ? _shuffleOrder[index]
-        : index;
-    if (songIndex < 0 || songIndex >= _songs.length) return;
-    final songId = _songs[songIndex].id;
-
-    final removedCurrent = songIndex == _currentIndex;
-    _songs.removeAt(songIndex);
-    _playedSongIds.remove(songId);
+    if (index < 0 || index >= _songs.length) return;
+    final song = _songs.removeAt(index);
+    _playedSongIds.remove(song.id);
+    if (_unshuffled case final unshuffled?) {
+      final at = _indexOfIdentical(unshuffled, song);
+      if (at >= 0) unshuffled.removeAt(at);
+    }
 
     if (_songs.isEmpty) {
       _currentIndex = -1;
-      _shuffleOrder = [];
-      _shuffleCursor = -1;
+      _unshuffled = _shuffle ? [] : null;
       _isFullscreenOpen = false;
       _queueVersion++;
+      _loaded = false;
       _updateCoverArtCache();
       await _player.stop();
       notifyListeners();
       return;
     }
 
-    if (songIndex < _currentIndex) {
+    final removedCurrent = index == _currentIndex;
+    if (index < _currentIndex) {
       _currentIndex--;
     } else if (removedCurrent && _currentIndex >= _songs.length) {
       _currentIndex = _songs.length - 1;
     }
-
-    if (_shuffle) {
-      _removeFromShuffleOrder(songIndex);
-    }
-
     _queueVersion++;
     notifyListeners();
+
     if (removedCurrent) {
       _updateCoverArtCache();
-      await _playCurrentIndex();
-    } else {
-      await _syncPlayerQueue(preservePosition: true);
+      await _loadQueue(play: true);
+    } else if (_loaded) {
+      await _edit(() => _player.removeAudioSourceAt(index));
     }
     notifyListeners();
   }
 
   void reorderQueue(int oldIndex, int newIndex) {
-    if (_shuffle) {
-      _reorderShuffleOrder(oldIndex, newIndex);
-      return;
-    }
     if (oldIndex < 0 || oldIndex >= _songs.length) return;
     if (newIndex < 0 || newIndex > _songs.length) return;
     if (oldIndex < newIndex) newIndex -= 1;
+    if (oldIndex == newIndex) return;
     final song = _songs.removeAt(oldIndex);
     _songs.insert(newIndex, song);
     if (oldIndex == _currentIndex) {
@@ -283,15 +279,19 @@ class PlayerProvider extends ChangeNotifier {
       _currentIndex++;
     }
     _queueVersion++;
-    unawaited(_syncPlayerQueue(preservePosition: true));
+    if (_loaded) {
+      unawaited(_edit(() => _player.moveAudioSource(oldIndex, newIndex)));
+    }
     notifyListeners();
   }
 
   Future<void> resetQueue() async {
     await _clearEphemeralUris();
     _songs.clear();
+    _unshuffled = _shuffle ? [] : null;
     _playedSongIds.clear();
     _currentIndex = -1;
+    _loaded = false;
     _isFullscreenOpen = false;
     _queueVersion++;
     _updateCoverArtCache();
@@ -316,33 +316,11 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> skipNext() async {
-    if (_shuffle && _shuffleOrder.isNotEmpty) {
-      if (_shuffleCursor < _shuffleOrder.length - 1) {
-        _shuffleCursor++;
-        final targetIndex = _shuffleOrder[_shuffleCursor];
-        await _player.seek(Duration.zero, index: targetIndex);
-        await _player.play();
-        return;
-      }
-
-      if (_repeatMode != LoopMode.off) {
-        _shuffleCursor = 0;
-        await _player.seek(Duration.zero, index: _shuffleOrder[_shuffleCursor]);
-        await _player.play();
-        return;
-      }
-
-      await _fetchAndAppendRandom();
-      return;
-    }
-
+    if (!_loaded) return;
     if (!_player.hasNext) {
       if (_repeatMode != LoopMode.off) {
-        _currentIndex = _activeQueue.isEmpty ? -1 : 0;
-        _updateCoverArtCache();
-        notifyListeners();
-        if (_currentIndex >= 0) {
-          await _player.seek(Duration.zero, index: _currentIndex);
+        if (_songs.isNotEmpty) {
+          await _player.seek(Duration.zero, index: 0);
           await _player.play();
         }
         return;
@@ -350,6 +328,9 @@ class PlayerProvider extends ChangeNotifier {
       await _fetchAndAppendRandom();
     }
     if (_player.hasNext) {
+      if (_currentIndex + 1 < _songs.length) {
+        await _warm(_songs[_currentIndex + 1]);
+      }
       await _player.seekToNext();
       await _player.play();
     }
@@ -357,34 +338,25 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> skipPrevious() async {
     // restart the current song if we're a few seconds in
-    if (_position.inSeconds > 3) {
+    if (_position.inSeconds > 3 || !_player.hasPrevious) {
       await _player.seek(Duration.zero);
-      return;
-    }
-
-    if (_shuffle && _shuffleOrder.isNotEmpty) {
-      if (_shuffleCursor > 0) {
-        _shuffleCursor--;
-        await _player.seek(Duration.zero, index: _shuffleOrder[_shuffleCursor]);
-      } else {
-        await _player.seek(Duration.zero);
-      }
-    } else if (_player.hasPrevious) {
-      await _player.seekToPrevious();
     } else {
-      await _player.seek(Duration.zero);
+      await _player.seekToPrevious();
     }
     await _player.play();
   }
 
   Future<void> skipToQueueIndex(int index) async {
-    if (index < 0 || index >= _activeQueue.length) return;
-    if (_shuffle && _shuffleOrder.isNotEmpty) {
-      _shuffleCursor = index;
-      await _player.seek(Duration.zero, index: _shuffleOrder[index]);
-    } else {
-      await _player.seek(Duration.zero, index: index);
+    if (index < 0 || index >= _songs.length) return;
+    if (!_loaded) {
+      _currentIndex = index;
+      _updateCoverArtCache();
+      notifyListeners();
+      await _loadQueue(play: true);
+      return;
     }
+    await _warm(_songs[index]);
+    await _player.seek(Duration.zero, index: index);
     await _player.play();
   }
 
@@ -404,18 +376,32 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> toggleShuffle() async {
     if (_songs.isEmpty) return;
+    final current = currentSong;
 
+    List<Song> target;
     if (!_shuffle) {
       _shuffle = true;
-      _rebuildShuffleOrder();
-      _shuffleCursor = _shuffleOrder.indexOf(_currentIndex);
+      _unshuffled = List.of(_songs);
+      target = _shuffledAfter(_songs, current ?? _songs.first);
     } else {
       _shuffle = false;
-      _shuffleOrder = [];
-      _shuffleCursor = -1;
+      final present = _songs.toSet();
+      final restored = [
+        for (final song in _unshuffled ?? const <Song>[])
+          if (present.contains(song)) song,
+      ];
+      final seen = restored.toSet();
+      target = [
+        ...restored,
+        for (final song in _songs)
+          if (!seen.contains(song)) song,
+      ];
+      _unshuffled = null;
     }
 
     _queueVersion++;
+    notifyListeners();
+    await _applyOrder(target, current);
     _updateCoverArtCache();
     notifyListeners();
   }
@@ -425,12 +411,64 @@ class PlayerProvider extends ChangeNotifier {
     _updateCoverArtCache();
   }
 
+  Future<void> _applyOrder(List<Song> target, Song? current) async {
+    await _edit(() async {
+      for (var i = 0; i < target.length; i++) {
+        var j = i;
+        while (j < _songs.length && !identical(_songs[j], target[i])) {
+          j++;
+        }
+        if (j >= _songs.length || j == i) continue;
+        _songs.insert(i, _songs.removeAt(j));
+        if (_loaded) await _player.moveAudioSource(j, i);
+      }
+      _currentIndex = current == null
+          ? (_songs.isEmpty ? -1 : 0)
+          : _indexOfIdentical(_songs, current);
+    });
+  }
+
+  Future<AudioSource> _buildSource(Song song) async {
+    final subsonic = _subsonicProvider!.subsonic;
+    final localPath = _downloadProvider?.getLocalPath(song.id);
+    final uri = localPath != null
+        ? await LocalStorageService.playableUriForSongRef(localPath)
+        : null;
+    final resolvedUri = uri ?? Uri.parse(subsonic.streamUrl(song.id));
+    if (uri != null && uri.scheme == 'blob') {
+      _ephemeralCachedUris.add(uri);
+    }
+    return AudioSource.uri(
+      resolvedUri,
+      tag: MediaItem(
+        id: song.id,
+        duration: Duration(seconds: song.duration ?? 0),
+        title: song.title,
+        album: song.album,
+        artist: song.artist,
+        artUri: song.coverArt != null
+            ? Uri.parse(subsonic.cachedCoverArtUrl(song.coverArt!, size: 300))
+            : null,
+      ),
+    );
+  }
+
   Future<void> _clearEphemeralUris() async {
     if (_ephemeralCachedUris.isEmpty) return;
     final uris = List<Uri>.from(_ephemeralCachedUris);
     _ephemeralCachedUris.clear();
     for (final uri in uris) {
       await LocalStorageService.releasePlayableUri(uri);
+    }
+  }
+
+  Future<void> _edit(Future<void> Function() action) async {
+    _editing++;
+    try {
+      await action();
+    } catch (_) {
+    } finally {
+      _editing--;
     }
   }
 
@@ -470,11 +508,59 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> _fetchAndAppendRandom() async {
     final provider = _subsonicProvider;
-    if (provider == null || provider.isOffline) return;
+    if (provider == null || provider.isOffline || _fetchingRandom) return;
+    _fetchingRandom = true;
     try {
       final songs = await provider.subsonic.getRandomSongs(count: 10);
       await addBulkToQueue(songs);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _fetchingRandom = false;
+    }
+  }
+
+  int _indexOfIdentical(List<Song> list, Song song) {
+    for (var i = 0; i < list.length; i++) {
+      if (identical(list[i], song)) return i;
+    }
+    return -1;
+  }
+
+  Future<void> _insertSource(int index, AudioSource audio) async {
+    await _player.addAudioSource(audio);
+    final last = _player.audioSources.length - 1;
+    if (index < last) await _player.moveAudioSource(last, index);
+  }
+
+  Future<void> _loadQueue({
+    bool play = false,
+    Duration position = Duration.zero,
+  }) async {
+    if (_subsonicProvider == null) return;
+    if (_songs.isEmpty || _currentIndex < 0 || _currentIndex >= _songs.length) {
+      return;
+    }
+    await _edit(() async {
+      await _clearEphemeralUris();
+      final sources = <AudioSource>[
+        for (final song in _songs) await _buildSource(song),
+      ];
+      _loaded = true;
+      await _warm(_songs[_currentIndex]);
+      await _player
+          .setAudioSources(
+            sources,
+            initialIndex: _currentIndex,
+            initialPosition: position,
+          )
+          .timeout(const Duration(seconds: 60));
+      await _player.setLoopMode(_repeatMode);
+    });
+    if (play || _player.playing) {
+      await _player.play();
+    }
+    _maybeTopUp();
+    _warmNext();
   }
 
   void _maybeExtractAccentColor(Song song) {
@@ -485,59 +571,19 @@ class PlayerProvider extends ChangeNotifier {
     unawaited(_extractAccentColor(song));
   }
 
-  Future<void> _playCurrentIndex() async {
-    await _syncPlayerQueue(play: true);
+  void _maybeTopUp() {
+    if (_repeatMode == LoopMode.off && _currentIndex == _songs.length - 1) {
+      unawaited(_fetchAndAppendRandom());
+    }
   }
 
-  void _rebuildShuffleOrder() {
-    if (!_shuffle || _songs.isEmpty) {
-      _shuffleOrder = [];
-      _shuffleCursor = -1;
-      return;
+  void _onCurrentIndexChanged() {
+    if (_currentIndex >= 0 && _currentIndex < _songs.length) {
+      _playedSongIds.add(_songs[_currentIndex].id);
     }
-
-    final indices = List<int>.generate(_songs.length, (index) => index);
-    final currentIndex = _currentIndex >= 0 && _currentIndex < _songs.length
-        ? _currentIndex
-        : 0;
-
-    indices.remove(currentIndex);
-    indices.shuffle(Random());
-
-    _shuffleOrder = [currentIndex, ...indices];
-    _shuffleCursor = 0;
-  }
-
-  void _removeFromShuffleOrder(int songIndex) {
-    final position = _shuffleOrder.indexOf(songIndex);
-    _shuffleOrder = [
-      for (final i in _shuffleOrder)
-        if (i != songIndex) i > songIndex ? i - 1 : i,
-    ];
-    if (_shuffleOrder.isEmpty) {
-      _rebuildShuffleOrder();
-      return;
-    }
-    if (position >= 0 && position < _shuffleCursor) _shuffleCursor--;
-    _shuffleCursor = _shuffleCursor.clamp(0, _shuffleOrder.length - 1);
-    _currentIndex = _shuffleOrder[_shuffleCursor];
-  }
-
-  void _reorderShuffleOrder(int oldIndex, int newIndex) {
-    if (oldIndex < 0 || oldIndex >= _shuffleOrder.length) return;
-    if (newIndex < 0 || newIndex > _shuffleOrder.length) return;
-    if (oldIndex < newIndex) newIndex -= 1;
-    final moved = _shuffleOrder.removeAt(oldIndex);
-    _shuffleOrder.insert(newIndex, moved);
-    if (oldIndex == _shuffleCursor) {
-      _shuffleCursor = newIndex;
-    } else if (oldIndex < _shuffleCursor && newIndex >= _shuffleCursor) {
-      _shuffleCursor--;
-    } else if (oldIndex > _shuffleCursor && newIndex <= _shuffleCursor) {
-      _shuffleCursor++;
-    }
-    _queueVersion++;
-    notifyListeners();
+    _updateCoverArtCache();
+    _maybeTopUp();
+    _warmNext();
   }
 
   void _setAccentColor(Color? color) {
@@ -546,61 +592,25 @@ class PlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _syncPlayerQueue({
-    bool play = false,
-    bool preservePosition = false,
-    Duration? position,
-  }) async {
-    if (_subsonicProvider == null) return;
-    if (_songs.isEmpty || _currentIndex < 0 || _currentIndex >= _songs.length) {
-      return;
-    }
+  List<Song> _shuffledAfter(List<Song> songs, Song first) {
+    final rest = [
+      for (final song in songs)
+        if (!identical(song, first)) song,
+    ]..shuffle(Random());
+    return [first, ...rest];
+  }
 
-    final seekPosition =
-        position ?? (preservePosition ? _player.position : Duration.zero);
+  Future<void> _warm(Song song) async {
+    final subsonic = _subsonicProvider?.subsonic;
+    if (subsonic == null) return;
+    if (_downloadProvider?.getLocalPath(song.id) != null) return;
+    await subsonic.warmStream(song.id);
+  }
 
-    try {
-      await _clearEphemeralUris();
-      final subsonic = _subsonicProvider!.subsonic;
-      final sources = <AudioSource>[];
-      for (final song in _songs) {
-        final localPath = _downloadProvider?.getLocalPath(song.id);
-        final uri = localPath != null
-            ? await LocalStorageService.playableUriForSongRef(localPath)
-            : null;
-        final resolvedUri = uri ?? Uri.parse(subsonic.streamUrl(song.id));
-        if (uri != null && uri.scheme == 'blob') {
-          _ephemeralCachedUris.add(uri);
-        }
-        sources.add(
-          AudioSource.uri(
-            resolvedUri,
-            tag: MediaItem(
-              id: song.id,
-              duration: Duration(seconds: song.duration ?? 0),
-              title: song.title,
-              album: song.album,
-              artist: song.artist,
-              artUri: song.coverArt != null
-                  ? Uri.parse(
-                      subsonic.cachedCoverArtUrl(song.coverArt!, size: 300),
-                    )
-                  : null,
-            ),
-          ),
-        );
-      }
-
-      await _player.setAudioSource(
-        ConcatenatingAudioSource(children: sources),
-        initialIndex: _currentIndex,
-        initialPosition: seekPosition,
-      );
-      await _player.setLoopMode(_repeatMode);
-      if (play || _player.playing) {
-        await _player.play();
-      }
-    } catch (_) {}
+  void _warmNext() {
+    final next = _currentIndex + 1;
+    if (next <= 0 || next >= _songs.length) return;
+    unawaited(_warm(_songs[next]));
   }
 
   void _updateCoverArtCache() {

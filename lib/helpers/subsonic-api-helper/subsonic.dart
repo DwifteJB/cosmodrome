@@ -278,9 +278,23 @@ if strings.HasPrefix(p, "enc:") {
     return exception;
   }
 
-  /// Builds a stream URL without making an HTTP request.
-  /// Safe to use directly in just_audio's setUrl().
   String streamUrl(String id) => restUri('stream', {'id': id}).toString();
+
+  Future<void> warmStream(String id) async {
+    final client = http.Client();
+    try {
+      final request = http.Request('GET', Uri.parse(streamUrl(id)))
+        ..headers['Range'] = 'bytes=0-0'
+        ..maxRedirects = 100;
+      final response = await client
+          .send(request)
+          .timeout(const Duration(minutes: 5));
+      await response.stream.listen((_) {}, cancelOnError: true).cancel();
+    } catch (_) {
+    } finally {
+      client.close();
+    }
+  }
 
   /// Builds an authenticated `/rest/[endpoint]` uri using the current login method.
   Uri restUri(String endpoint, [Map<String, dynamic> params = const {}]) =>
