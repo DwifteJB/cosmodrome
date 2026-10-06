@@ -35,6 +35,8 @@ class PlayerProvider extends ChangeNotifier {
   final Set<String> _playedSongIds = <String>{};
   bool _loaded = false;
   int _editing = 0;
+  int _switchGen = 0;
+  bool _switching = false;
   bool _fetchingRandom = false;
 
   int _currentIndex = -1;
@@ -81,6 +83,7 @@ class PlayerProvider extends ChangeNotifier {
       notifyListeners();
     });
     _indexSub = _player.currentIndexStream.listen((index) {
+      if (_switching) return;
       if (index == null || index == _currentIndex) return;
       _currentIndex = index;
       if (_editing == 0) _onCurrentIndexChanged();
@@ -102,6 +105,7 @@ class PlayerProvider extends ChangeNotifier {
   bool get isFullscreenOpen => _isFullscreenOpen;
 
   bool get isPlaying => _isPlaying;
+  bool get isSwitching => _switching;
 
   Duration get position => _position;
   Color? get prevAccentColor => _prevAccentColor;
@@ -220,25 +224,18 @@ class PlayerProvider extends ChangeNotifier {
       return;
     }
 
-    await _prepare(song);
+    if (_switching && identical(current, song)) return;
+    final pos = _indexOfIdentical(_songs, current);
+    if (pos < 0) return;
     final audio = await _buildSource(song);
-    await _edit(() async {
-      final pos = _indexOfIdentical(_songs, current);
-      if (pos < 0) return;
-      _songs.insert(pos, song);
-      if (_unshuffled case final unshuffled?) {
-        final at = _indexOfIdentical(unshuffled, current);
-        unshuffled.insert(at < 0 ? unshuffled.length : at, song);
-      }
-      _currentIndex = pos + 1;
-      _queueVersion++;
-      notifyListeners();
-      await _insertSource(pos, audio);
-      _currentIndex = pos;
-      await _player.seek(Duration.zero, index: pos);
-    });
-    _playedSongIds.add(song.id);
-    await _player.play();
+    _songs.insert(pos, song);
+    if (_unshuffled case final unshuffled?) {
+      final at = _indexOfIdentical(unshuffled, current);
+      unshuffled.insert(at < 0 ? unshuffled.length : at, song);
+    }
+    _queueVersion++;
+    await _edit(() => _insertSource(pos, audio));
+    await _jumpTo(pos);
   }
 
   Future<void> removeFromQueue(int index) async {
@@ -332,34 +329,27 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> skipNext() async {
-    if (!_loaded) return;
-    if (!_player.hasNext) {
+    if (!_loaded || _songs.isEmpty) return;
+    if (_currentIndex + 1 >= _songs.length) {
       if (_repeatMode != LoopMode.off) {
-        if (_songs.isNotEmpty) {
-          await _player.seek(Duration.zero, index: 0);
-          await _player.play();
-        }
+        await _jumpTo(0);
         return;
       }
       await _fetchAndAppendRandom();
     }
-    if (_player.hasNext) {
-      if (_currentIndex + 1 < _songs.length) {
-        await _prepare(_songs[_currentIndex + 1]);
-      }
-      await _player.seekToNext();
-      await _player.play();
+    if (_currentIndex + 1 < _songs.length) {
+      await _jumpTo(_currentIndex + 1);
     }
   }
 
   Future<void> skipPrevious() async {
     // restart the current song if we're a few seconds in
-    if (_position.inSeconds > 3 || !_player.hasPrevious) {
+    if (_position.inSeconds > 3 || _currentIndex <= 0) {
       await _player.seek(Duration.zero);
-    } else {
-      await _player.seekToPrevious();
+      await _player.play();
+      return;
     }
-    await _player.play();
+    await _jumpTo(_currentIndex - 1);
   }
 
   Future<void> skipToQueueIndex(int index) async {
@@ -371,9 +361,7 @@ class PlayerProvider extends ChangeNotifier {
       await _loadQueue(play: true);
       return;
     }
-    await _prepare(_songs[index]);
-    await _player.seek(Duration.zero, index: index);
-    await _player.play();
+    await _jumpTo(index);
   }
 
   Future<void> togglePlay() async {
@@ -561,7 +549,8 @@ class PlayerProvider extends ChangeNotifier {
     if (_songs.isEmpty || _currentIndex < 0 || _currentIndex >= _songs.length) {
       return;
     }
-    await _prepare(_songs[_currentIndex], always: true);
+    await _player.pause();
+    if (_usesMpv) await _warm(_songs[_currentIndex]);
     await _edit(() async {
       await _clearEphemeralUris();
       final sources = <AudioSource>[
@@ -628,20 +617,43 @@ class PlayerProvider extends ChangeNotifier {
     await subsonic.warmStream(song.id);
   }
 
-  // mpv gives up on a slow open after 5s, so on those platforms make sure
-  // the server has the file before pointing the player at it. pause only
-  // if that actually takes a moment so ready songs switch instantly
-  Future<void> _prepare(Song song, {bool always = false}) async {
-    if (always) await _player.pause();
-    if (!_usesMpv) return;
-    final warm = _warm(song);
-    final quick = await Future.any([
-      warm.then((_) => true),
-      Future<bool>.delayed(const Duration(milliseconds: 250), () => false),
-    ]);
-    if (quick) return;
-    if (!always) await _player.pause();
-    await warm;
+  // show the chosen song right away, then wait for the server to have it
+  // before moving the player. mpv gives up on a slow open after 5s so on
+  // those platforms the wait happens here, paused, instead of inside mpv
+  Future<void> _jumpTo(int index) async {
+    if (index < 0 || index >= _songs.length) return;
+    final song = _songs[index];
+    final gen = ++_switchGen;
+    _switching = true;
+    _currentIndex = index;
+    _playedSongIds.add(song.id);
+    _updateCoverArtCache();
+    notifyListeners();
+    try {
+      if (_usesMpv) {
+        final warm = _warm(song);
+        final quick = await Future.any([
+          warm.then((_) => true),
+          Future<bool>.delayed(const Duration(milliseconds: 250), () => false),
+        ]);
+        if (!quick) {
+          await _player.pause();
+          await warm;
+        }
+      }
+      if (gen != _switchGen) return;
+      final at = _indexOfIdentical(_songs, song);
+      if (at < 0) return;
+      _currentIndex = at;
+      await _player.seek(Duration.zero, index: at);
+      if (gen != _switchGen) return;
+      _switching = false;
+      await _player.play();
+      _maybeTopUp();
+      _warmNext();
+    } finally {
+      if (gen == _switchGen) _switching = false;
+    }
   }
 
   void _warmNext() {

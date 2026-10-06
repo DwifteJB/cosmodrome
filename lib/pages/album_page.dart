@@ -8,17 +8,23 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
-import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
+import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
+
+String _albumMetaText(AlbumDetail album) => [
+  if (album.year != null) album.year.toString(),
+  '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
+  formatPageDuration(album.duration),
+].join(' • ');
 
 class AlbumPage extends StatefulWidget {
   final String albumId;
@@ -301,6 +307,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             album,
             visibleTrackCount,
             (song, index) => MusicPageDesktopTrackTile(
+              isPlaylist: false,
               song: song,
               trackNumber: song.track ?? 0,
               index: index,
@@ -455,6 +462,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           album,
           visibleTrackCount,
           (song, index) => MusicPageMobileTrackTile(
+            isPlaylist: false,
             song: song,
             trackNumber: song.track ?? 0,
             index: index,
@@ -552,25 +560,6 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     }
   }
 
-  int _visibleTrackCount(int totalTracks) =>
-      min(_revealedTrackCount, totalTracks);
-
-  static void _orderByDisc(List<Song> songs) {
-    final indexed = songs.indexed.toList(growable: false);
-    indexed.sort((a, b) {
-      final disc = (a.$2.discNumber ?? 0).compareTo(b.$2.discNumber ?? 0);
-      if (disc != 0) return disc;
-      final track = (a.$2.track ?? 0).compareTo(b.$2.track ?? 0);
-      return track != 0 ? track : a.$1.compareTo(b.$1);
-    });
-    for (var i = 0; i < indexed.length; i++) {
-      songs[i] = indexed[i].$2;
-    }
-  }
-
-  static bool _hasMultipleDiscs(List<Song> songs) =>
-      songs.map((s) => s.discNumber ?? 1).toSet().length > 1;
-
   List<Widget> _trackList(
     AlbumDetail album,
     int visibleCount,
@@ -597,6 +586,9 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     return widgets;
   }
 
+  int _visibleTrackCount(int totalTracks) =>
+      min(_revealedTrackCount, totalTracks);
+
   Widget _wideHeader(AlbumDetail album, String? coverUrl) {
     return IntrinsicHeight(
       child: Row(
@@ -618,6 +610,22 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
         ],
       ),
     );
+  }
+
+  static bool _hasMultipleDiscs(List<Song> songs) =>
+      songs.map((s) => s.discNumber ?? 1).toSet().length > 1;
+
+  static void _orderByDisc(List<Song> songs) {
+    final indexed = songs.indexed.toList(growable: false);
+    indexed.sort((a, b) {
+      final disc = (a.$2.discNumber ?? 0).compareTo(b.$2.discNumber ?? 0);
+      if (disc != 0) return disc;
+      final track = (a.$2.track ?? 0).compareTo(b.$2.track ?? 0);
+      return track != 0 ? track : a.$1.compareTo(b.$1);
+    });
+    for (var i = 0; i < indexed.length; i++) {
+      songs[i] = indexed[i].$2;
+    }
   }
 }
 
@@ -695,9 +703,3 @@ class _PlayShuffleButtons extends StatelessWidget {
     );
   }
 }
-
-String _albumMetaText(AlbumDetail album) => [
-  if (album.year != null) album.year.toString(),
-  '${album.songCount} track${album.songCount == 1 ? '' : 's'}',
-  formatPageDuration(album.duration),
-].join(' • ');

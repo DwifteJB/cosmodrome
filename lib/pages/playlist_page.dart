@@ -10,17 +10,20 @@ import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/play_history_service.dart';
-import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
-import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
+import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
+
+String _playlistMetaText(PlaylistDetail playlist, List<Song> songs) =>
+    '${songs.length} song${songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}';
 
 class PlaylistPage extends StatefulWidget {
   final String playlistId;
@@ -341,49 +344,6 @@ class _PlaylistHeader extends StatelessWidget {
   }
 }
 
-class _PlayShuffleButtons extends StatelessWidget {
-  final VoidCallback? onPlay;
-  final VoidCallback? onShuffle;
-
-  const _PlayShuffleButtons({required this.onPlay, required this.onShuffle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: FButton(
-            onPress: onPlay,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.play_arrow_rounded, size: 20),
-                SizedBox(width: 6),
-                Text('Play'),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: FButton(
-            variant: FButtonVariant.outline,
-            onPress: onShuffle,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.shuffle_rounded, size: 20),
-                SizedBox(width: 6),
-                Text('Shuffle'),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   static const int _initialTrackRevealCount = 3;
   static const int _trackRevealBatchSize = 8;
@@ -516,6 +476,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
             index: i,
             enabled: false,
             child: MusicPageMobileTrackTile(
+              isPlaylist: true,
               song: _songs[i],
               trackNumber: i + 1,
               enabled: _isSongPlayable(_songs[i]),
@@ -641,6 +602,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
             return MusicPageDesktopTrackTile(
               song: song,
               trackNumber: index + 1,
+              isPlaylist: true,
               enabled: _isSongPlayable(song),
               accentColor: accentColorNotifier.value ?? _localCoverColor,
               onTap: () => _playSongAt(index),
@@ -734,6 +696,22 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     context.read<PlayerProvider>().playAlbum(_songs, shuffle: shuffle);
   }
 
+  Widget _playShuffleButtons() => _PlayShuffleButtons(
+    onPlay: _songs.isEmpty ? null : _playAll,
+    onShuffle: _songs.isEmpty ? null : () => _playAll(shuffle: true),
+  );
+
+  void _playSongAt(int index) async {
+    if (!_isSongPlayable(_songs[index])) return;
+    _recordPlaylistPlay();
+    final pp = context.read<PlayerProvider>();
+    await pp.resetQueue();
+    await pp.playNow(_songs[index]);
+    if (index < _songs.length - 1) {
+      pp.addBulkToQueue(_songs.sublist(index + 1));
+    }
+  }
+
   void _publishLayoutConfig(String title) {
     layoutConfig.value = LayoutConfig(
       title: title,
@@ -747,17 +725,6 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
     final accountId = context.read<SubsonicProvider>().activeAccount?.id;
     if (playlist == null || accountId == null) return;
     playHistoryService.recordPlaylist(accountId, playlist);
-  }
-
-  void _playSongAt(int index) async {
-    if (!_isSongPlayable(_songs[index])) return;
-    _recordPlaylistPlay();
-    final pp = context.read<PlayerProvider>();
-    await pp.resetQueue();
-    await pp.playNow(_songs[index]);
-    if (index < _songs.length - 1) {
-      pp.addBulkToQueue(_songs.sublist(index + 1));
-    }
   }
 
   Future<void> _refreshPlaylist() async {
@@ -817,11 +784,6 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
       }
     } catch (_) {}
   }
-
-  Widget _playShuffleButtons() => _PlayShuffleButtons(
-    onPlay: _songs.isEmpty ? null : _playAll,
-    onShuffle: _songs.isEmpty ? null : () => _playAll(shuffle: true),
-  );
 
   void _scheduleTrackReveal() {
     if (!mounted || _trackRevealScheduled) return;
@@ -972,6 +934,49 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   }
 }
 
+class _PlayShuffleButtons extends StatelessWidget {
+  final VoidCallback? onPlay;
+  final VoidCallback? onShuffle;
+
+  const _PlayShuffleButtons({required this.onPlay, required this.onShuffle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: FButton(
+            onPress: onPlay,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.play_arrow_rounded, size: 20),
+                SizedBox(width: 6),
+                Text('Play'),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FButton(
+            variant: FButtonVariant.outline,
+            onPress: onShuffle,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shuffle_rounded, size: 20),
+                SizedBox(width: 6),
+                Text('Shuffle'),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SheetHandle extends StatelessWidget {
   const _SheetHandle();
 
@@ -989,6 +994,3 @@ class _SheetHandle extends StatelessWidget {
     );
   }
 }
-
-String _playlistMetaText(PlaylistDetail playlist, List<Song> songs) =>
-    '${songs.length} song${songs.length == 1 ? '' : 's'} • ${formatPageDuration(playlist.duration)}';

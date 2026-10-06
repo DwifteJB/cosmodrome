@@ -5,8 +5,8 @@ import 'package:cosmodrome/components/mobile/song_context_sheet.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
-import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:cosmodrome/utils/format_duration.dart';
+import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 class MusicPageDesktopTrackTile extends StatefulWidget {
   final Song song;
   final int trackNumber;
+  final bool isPlaylist;
   final int? index;
   final String? albumArtist;
   final Color? accentColor;
@@ -24,6 +25,7 @@ class MusicPageDesktopTrackTile extends StatefulWidget {
   const MusicPageDesktopTrackTile({
     super.key,
     required this.song,
+    required this.isPlaylist,
     required this.trackNumber,
     this.index,
     this.albumArtist,
@@ -49,9 +51,11 @@ class MusicPageMobileTrackTile extends StatelessWidget {
   final VoidCallback? onRemove;
   final bool showDragHandle;
   final int? reorderIndex;
+  final bool isPlaylist;
 
   const MusicPageMobileTrackTile({
     super.key,
+    required this.isPlaylist,
     required this.song,
     required this.trackNumber,
     required this.accentColor,
@@ -138,7 +142,8 @@ class MusicPageMobileTrackTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
               children: [
-                SizedBox(
+                if (!isPlaylist) ...[
+                  SizedBox(
                   width: 32,
                   child: Text(
                     trackLabel,
@@ -152,6 +157,19 @@ class MusicPageMobileTrackTile extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                 ),
+                ] else ...[
+                  // image
+                  SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: song.coverArt != null
+                          ? Image.network(song.coverArt!, fit: BoxFit.cover)
+                          : Container(color: AppColors.mutedButtonColor),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -225,58 +243,6 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
   Timer? _menuUnmountTimer;
 
   @override
-  void dispose() {
-    _menuUnmountTimer?.cancel();
-    super.dispose();
-  }
-
-  void _setHovered(bool hovered) {
-    if (!widget.enabled) return;
-    setState(() {
-      _isHovered = hovered;
-      if (hovered) _menuMounted = true;
-    });
-    if (!hovered) _scheduleMenuUnmount();
-  }
-
-  void _onMenuShownChanged(bool shown) {
-    _menuOpen = shown;
-    if (!shown) _scheduleMenuUnmount();
-  }
-
-  void _scheduleMenuUnmount() {
-    _menuUnmountTimer?.cancel();
-    _menuUnmountTimer = Timer(const Duration(milliseconds: 250), () {
-      if (!mounted || _isHovered || _menuOpen || !_menuMounted) return;
-      setState(() => _menuMounted = false);
-    });
-  }
-
-  /// "More" button that opens the song popover. The popover is only mounted
-  /// while the row is hovered (or its menu is open) to keep long lists cheap.
-  Widget _buildMenuButton(FColors colors) {
-    if (!_menuMounted) return const SizedBox.square(dimension: 28);
-
-    return DesktopSongPopover(
-      song: widget.song,
-      onRemoveFromPlaylist: widget.onRemove,
-      onShownChanged: _onMenuShownChanged,
-      builder: (context, controller) => TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: _isHovered ? 1 : 0),
-        duration: const Duration(milliseconds: 150),
-        builder: (context, opacity, child) =>
-            Opacity(opacity: opacity, child: child),
-        child: IconButton(
-          icon: Icon(Icons.more_horiz, size: 16, color: colors.mutedForeground),
-          onPressed: controller.toggle,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-        ),
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     final song = widget.song;
 
@@ -316,20 +282,34 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: Row(
                 children: [
-                  SizedBox(
-                    width: 32,
-                    child: Text(
-                      trackLabel,
-                      style: theme.typography.xs.copyWith(
-                        color: widget.enabled
-                            ? AppColors.trackNumber
-                            : disabledText,
-                        letterSpacing: -0.5,
-                        fontWeight: FontWeight.bold,
+                  if (!widget.isPlaylist) ...[
+                    SizedBox(
+                      width: 32,
+                      child: Text(
+                        trackLabel,
+                        style: theme.typography.xs.copyWith(
+                          color: widget.enabled
+                              ? AppColors.trackNumber
+                              : disabledText,
+                          letterSpacing: -0.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                  ),
+                  ] else ...[
+                    // image
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: song.coverArt != null
+                            ? Image.network(song.coverArt!, fit: BoxFit.cover)
+                            : Container(color: AppColors.mutedButtonColor),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -382,5 +362,57 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _menuUnmountTimer?.cancel();
+    super.dispose();
+  }
+
+  /// "More" button that opens the song popover. The popover is only mounted
+  /// while the row is hovered (or its menu is open) to keep long lists cheap.
+  Widget _buildMenuButton(FColors colors) {
+    if (!_menuMounted) return const SizedBox.square(dimension: 28);
+
+    return DesktopSongPopover(
+      song: widget.song,
+      onRemoveFromPlaylist: widget.onRemove,
+      onShownChanged: _onMenuShownChanged,
+      builder: (context, controller) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: _isHovered ? 1 : 0),
+        duration: const Duration(milliseconds: 150),
+        builder: (context, opacity, child) =>
+            Opacity(opacity: opacity, child: child),
+        child: IconButton(
+          icon: Icon(Icons.more_horiz, size: 16, color: colors.mutedForeground),
+          onPressed: controller.toggle,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+        ),
+      ),
+    );
+  }
+
+  void _onMenuShownChanged(bool shown) {
+    _menuOpen = shown;
+    if (!shown) _scheduleMenuUnmount();
+  }
+
+  void _scheduleMenuUnmount() {
+    _menuUnmountTimer?.cancel();
+    _menuUnmountTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || _isHovered || _menuOpen || !_menuMounted) return;
+      setState(() => _menuMounted = false);
+    });
+  }
+
+  void _setHovered(bool hovered) {
+    if (!widget.enabled) return;
+    setState(() {
+      _isHovered = hovered;
+      if (hovered) _menuMounted = true;
+    });
+    if (!hovered) _scheduleMenuUnmount();
   }
 }
