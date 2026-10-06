@@ -39,6 +39,9 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   final Set<CurrentMobileView> _fetched = {};
 
   @override
+  String? get pageTitle => _currentView.title;
+
+  @override
   Widget build(BuildContext context) {
     final ss = context.watch<SubsonicProvider>();
 
@@ -95,6 +98,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
             subtitle:
                 '${artist.albumCount} album${artist.albumCount == 1 ? '' : 's'}',
             placeholderIcon: Icons.person,
+            onTap: () => ctx.push('/library/artist/${artist.id}'),
           ),
         );
 

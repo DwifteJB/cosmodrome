@@ -239,7 +239,19 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
       artId: artist.coverArt,
       title: artist.name,
       subtitle: 'Artist',
-      onTap: null, // artist navigation disabled (parity with mobile search)
+      onTap: () {
+        _addRecent(
+          RecentSearch(
+            id: artist.id,
+            type: RecentSearchEnum.artist,
+            title: artist.name,
+            subtitle: '',
+            artId: artist.coverArt,
+          ),
+        );
+        _popover.hide();
+        GoRouter.of(context).push('/library/artist/${artist.id}');
+      },
       isArtist: true,
     );
   }
@@ -284,60 +296,57 @@ class _DesktopSearchFieldState extends State<DesktopSearchField>
 
     return TapArea(
       onTap: onTap,
-      child: Opacity(
-        opacity: isArtist ? 0.7 : 1.0,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(isArtist ? 22 : 8),
-                child: Image(
-                  image: coverArtProvider(
-                    subsonic.cachedCoverArtUrl(artId, size: 100),
-                  ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(isArtist ? 22 : 8),
+              child: Image(
+                image: coverArtProvider(
+                  subsonic.cachedCoverArtUrl(artId, size: 100),
+                ),
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
                   width: 44,
                   height: 44,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 44,
-                    height: 44,
-                    color: context.theme.colors.secondary,
-                    child: Icon(
-                      isArtist ? Icons.person : Icons.music_note,
-                      size: 18,
+                  color: context.theme.colors.secondary,
+                  child: Icon(
+                    isArtist ? Icons.person : Icons.music_note,
+                    size: 18,
+                    color: context.theme.colors.mutedForeground,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.theme.typography.sm.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.theme.typography.xs.copyWith(
                       color: context.theme.colors.mutedForeground,
                     ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.theme.typography.sm.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.theme.typography.xs.copyWith(
-                        color: context.theme.colors.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

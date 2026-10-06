@@ -10,10 +10,12 @@ import 'package:cosmodrome/components/music_player/mobile_queue_list.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/main.dart' show router;
 import 'package:cosmodrome/providers/lyrics_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:cosmodrome/utils/navigation.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:flutter/material.dart';
@@ -69,6 +71,122 @@ class _FadingAlbumArt extends StatelessWidget {
         errorBuilder: errorBuilder != null
             ? (context, error, stackTrace) => errorBuilder!(context, error)
             : null,
+      ),
+    );
+  }
+}
+
+class _SongLinksSheet extends StatelessWidget {
+  final Song song;
+  final String? coverUrl;
+  final double bottomPadding;
+  final VoidCallback? onAlbum;
+  final VoidCallback? onArtist;
+
+  const _SongLinksSheet({
+    required this.song,
+    required this.coverUrl,
+    required this.bottomPadding,
+    required this.onAlbum,
+    required this.onArtist,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.theme.colors;
+    final placeholder = Container(
+      width: 48,
+      height: 48,
+      color: colors.muted,
+      child: Icon(Icons.music_note, color: colors.mutedForeground, size: 24),
+    );
+
+    return Material(
+      color: const Color(0xFF111111),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          Container(
+            width: 32,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: coverUrl != null
+                      ? Image(
+                          image: coverArtProvider(coverUrl!),
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          errorBuilder: (_, _, _) => placeholder,
+                        )
+                      : placeholder,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        song.title,
+                        style: TextStyle(
+                          color: colors.foreground,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (song.artist != null)
+                        Text(
+                          song.artist!,
+                          style: TextStyle(
+                            color: colors.mutedForeground,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFF2A2A2A)),
+          if (onAlbum != null)
+            ListTile(
+              leading: Icon(Icons.album_outlined, color: colors.foreground),
+              title: Text(
+                'Go to album',
+                style: TextStyle(color: colors.foreground),
+              ),
+              onTap: onAlbum,
+            ),
+          if (onArtist != null)
+            ListTile(
+              leading: Icon(Icons.person_outline, color: colors.foreground),
+              title: Text(
+                'Go to artist',
+                style: TextStyle(color: colors.foreground),
+              ),
+              onTap: onArtist,
+            ),
+          SizedBox(height: bottomPadding + 8),
+        ],
       ),
     );
   }
@@ -195,6 +313,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
   String? _starredSongId;
 
   _PlayerMode _mode = _PlayerMode.art;
+  bool _linksOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +348,7 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
 
           final accent = player.accentColor ?? Colors.white;
           final lyricsProvider = context.watch<LyricsProvider>();
+          if (!player.isFullscreenOpen) _linksOpen = false;
 
           return Stack(
             children: [
@@ -353,6 +473,46 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
                   ],
                 ),
               ),
+
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_linksOpen,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _linksOpen = false),
+                    child: AnimatedOpacity(
+                      opacity: _linksOpen ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 220),
+                      child: ColoredBox(color: context.theme.colors.barrier),
+                    ),
+                  ),
+                ),
+              ),
+              if (song != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    ignoring: !_linksOpen,
+                    child: AnimatedSlide(
+                      offset: _linksOpen ? Offset.zero : const Offset(0, 1),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      child: _SongLinksSheet(
+                        song: song,
+                        coverUrl: coverUrl,
+                        bottomPadding: bottomPadding,
+                        onAlbum: song.albumId.isNotEmpty
+                            ? () => _goToAlbum(player, song)
+                            : null,
+                        onArtist: songHasArtist(song)
+                            ? () => _goToArtist(player, song)
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           );
         },
@@ -487,29 +647,33 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ScrollingText(
-                  text: song.title,
-                  maxWidth: titleMaxWidth,
-                  style: context.theme.typography.md.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                  duration: 5,
-                ),
-                if (song.artist != null)
-                  Text(
-                    song.artist!,
-                    style: context.theme.typography.sm.copyWith(
-                      color: Colors.white60,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openLinks(song),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ScrollingText(
+                    text: song.title,
+                    maxWidth: titleMaxWidth,
+                    style: context.theme.typography.md.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.2,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    duration: 5,
                   ),
-              ],
+                  if (song.artist != null)
+                    Text(
+                      song.artist!,
+                      style: context.theme.typography.sm.copyWith(
+                        color: Colors.white60,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
             ),
           ),
           IconButton(
@@ -639,29 +803,33 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ScrollingText(
-                  text: song.title,
-                  maxWidth: titleMaxWidth,
-                  style: context.theme.typography.md.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
-                  duration: 5,
-                ),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    style: context.theme.typography.sm.copyWith(
-                      color: Colors.white60,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openLinks(song),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ScrollingText(
+                    text: song.title,
+                    maxWidth: titleMaxWidth,
+                    style: context.theme.typography.md.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                      height: 1.2,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    duration: 5,
                   ),
-              ],
+                  if (subtitle != null)
+                    Text(
+                      subtitle,
+                      style: context.theme.typography.sm.copyWith(
+                        color: Colors.white60,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
             ),
           ),
           IconButton(
@@ -833,6 +1001,29 @@ class _FullscreenPlayerState extends State<FullscreenPlayer> {
       color: Colors.grey[800],
       child: Icon(Icons.album, color: Colors.white38, size: size * 0.4),
     );
+  }
+
+  void _goToAlbum(PlayerProvider player, Song song) {
+    setState(() => _linksOpen = false);
+    player.closeFullscreen();
+    openAlbum(router, song.albumId);
+  }
+
+  void _goToArtist(PlayerProvider player, Song song) {
+    final subsonic = context.read<SubsonicProvider>().subsonic;
+    setState(() => _linksOpen = false);
+    player.closeFullscreen();
+    openArtist(
+      router,
+      subsonic,
+      artistId: song.artistId,
+      artistName: song.artist,
+    );
+  }
+
+  void _openLinks(Song song) {
+    if (song.albumId.isEmpty && !songHasArtist(song)) return;
+    setState(() => _linksOpen = true);
   }
 
   void _toggleMode(_PlayerMode mode) {

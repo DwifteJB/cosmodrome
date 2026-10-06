@@ -4,6 +4,7 @@ import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:cosmodrome/utils/navigation.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -263,6 +264,18 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                 final router = GoRouter.of(context);
                 Navigator.pop(context);
                 router.push('/library/album/${song.albumId}');
+              }),
+            if (songHasArtist(song))
+              _actionTile(colors, Icons.person_outline, 'Go to artist', () {
+                final router = GoRouter.of(context);
+                final subsonic = context.read<SubsonicProvider>().subsonic;
+                Navigator.pop(context);
+                openArtist(
+                  router,
+                  subsonic,
+                  artistId: song.artistId,
+                  artistName: song.artist,
+                );
               }),
             if (widget.onRemoveFromPlaylist != null)
               ListTile(

@@ -12,6 +12,7 @@ import 'package:cosmodrome/pages/add_server_page.dart';
 import 'package:cosmodrome/pages/add_user_page.dart';
 import 'package:cosmodrome/pages/album_page.dart';
 import 'package:cosmodrome/pages/artist_detail_page.dart';
+import 'package:cosmodrome/pages/artist_page.dart';
 import 'package:cosmodrome/pages/desktop_search_page.dart';
 import 'package:cosmodrome/pages/home.dart';
 import 'package:cosmodrome/pages/library_page.dart';
@@ -178,6 +179,16 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
             },
           ),
           GoRoute(
+            path: '/library/artist/:id',
+            pageBuilder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return _shellPage(
+                key: ValueKey('library-artist/$id'),
+                ArtistPage(artistId: id),
+              );
+            },
+          ),
+          GoRoute(
             path: '/artist-detail/:id',
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
@@ -217,6 +228,11 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
         (state) => PlaylistPage(playlistId: state.pathParameters['id']!),
       ),
       _mobileDetailRoute(
+        '/library/artist/:id',
+        ignoreTopSpacing: true,
+        (state) => ArtistPage(artistId: state.pathParameters['id']!),
+      ),
+      _mobileDetailRoute(
         '/artist-detail/:id',
         (state) => ArtistDetailPage(item: state.extra as SpotlightItem),
       ),
@@ -254,12 +270,14 @@ GoRoute _mobileDetailRoute(
   String path,
   Widget Function(GoRouterState state) builder, {
   bool isScrollable = true,
+  bool ignoreTopSpacing = false,
 }) => GoRoute(
   path: path,
   parentNavigatorKey: _rootNavigatorKey,
   pageBuilder: (context, state) => CupertinoPage(
     child: MobileDetailLayout(
       isScrollable: isScrollable,
+      ignoreTopSpacing: ignoreTopSpacing,
       child: builder(state),
     ),
   ),

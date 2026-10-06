@@ -13,11 +13,13 @@ import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/disc_order.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
+import 'package:cosmodrome/utils/navigation.dart';
 import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
 import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:go_router/go_router.dart';
 import 'package:palette_generator/palette_generator.dart';
 import 'package:provider/provider.dart';
 
@@ -39,11 +41,15 @@ class AlbumPage extends StatefulWidget {
 class _AlbumHeader extends StatelessWidget {
   final AlbumDetail album;
   final bool isStarred;
+  final Color accentColor;
   final void Function()? onStarToggle;
+  final VoidCallback? onArtistTap;
 
   const _AlbumHeader({
     required this.album,
+    required this.accentColor,
     this.onStarToggle,
+    this.onArtistTap,
     required this.isStarred,
   });
 
@@ -83,10 +89,11 @@ class _AlbumHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            album.artist,
+          _ArtistLink(
+            name: album.artist,
+            onTap: onArtistTap,
             style: context.theme.typography.xl.copyWith(
-              color: Colors.white,
+              color: accentColor,
               height: 0,
               fontWeight: FontWeight.w400,
             ),
@@ -216,10 +223,11 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
                   height: 0,
                 ),
               ),
-              Text(
-                album.artist,
+              _ArtistLink(
+                name: album.artist,
+                onTap: _openArtist,
                 style: context.theme.typography.xl.copyWith(
-                  color: Colors.white,
+                  color: _localCoverColor,
                   height: 0,
                   fontWeight: FontWeight.w400,
                 ),
@@ -434,13 +442,15 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
             height: 0,
           ),
         ),
-        Text(
-          album.artist,
-          textAlign: TextAlign.center,
-          style: context.theme.typography.sm.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.05,
+        Center(
+          child: _ArtistLink(
+            name: album.artist,
+            onTap: _openArtist,
+            style: context.theme.typography.sm.copyWith(
+              color: _localCoverColor,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.05,
+            ),
           ),
         ),
         const SizedBox(height: 4),
@@ -501,6 +511,17 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
 
         const SizedBox(height: 32),
       ],
+    );
+  }
+
+  void _openArtist() {
+    final album = _album;
+    if (album == null) return;
+    openArtist(
+      GoRouter.of(context),
+      context.read<SubsonicProvider>().subsonic,
+      artistId: album.artistId,
+      artistName: album.artist,
     );
   }
 
@@ -602,11 +623,41 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
           Expanded(
             child: _AlbumHeader(
               album: album,
+              accentColor: _localCoverColor,
               isStarred: _starred,
               onStarToggle: _starAlbum,
+              onArtistTap: _openArtist,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ArtistLink extends StatelessWidget {
+  final String name;
+  final TextStyle style;
+  final VoidCallback? onTap;
+
+  const _ArtistLink({required this.name, required this.style, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Text(
+          name,
+          style: style,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }

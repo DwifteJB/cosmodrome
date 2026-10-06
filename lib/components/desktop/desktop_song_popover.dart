@@ -5,6 +5,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/utils/navigation.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,18 @@ VoidCallback? goToAlbumAction(BuildContext context, Song song) {
   if (song.albumId.isEmpty) return null;
   final router = GoRouter.of(context);
   return () => router.push('/library/album/${song.albumId}');
+}
+
+VoidCallback? goToArtistAction(BuildContext context, Song song) {
+  if (!songHasArtist(song)) return null;
+  final router = GoRouter.of(context);
+  final subsonic = context.read<SubsonicProvider>().subsonic;
+  return () => openArtist(
+    router,
+    subsonic,
+    artistId: song.artistId,
+    artistName: song.artist,
+  );
 }
 
 // context menu anchored at a pointer position (right click / long press)
@@ -207,6 +220,16 @@ class _SongMenuContentState extends State<SongMenuContent> {
             onPress: () {
               widget.close();
               widget.onGoToAlbum!();
+            },
+          ),
+        if (songHasArtist(widget.song))
+          FItem(
+            prefix: const Icon(Icons.person_outline, size: 16),
+            title: const Text('Go to artist'),
+            onPress: () {
+              final goToArtist = goToArtistAction(context, widget.song);
+              widget.close();
+              goToArtist?.call();
             },
           ),
         if (widget.onRemoveFromPlaylist != null)

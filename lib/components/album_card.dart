@@ -11,8 +11,14 @@ class AlbumCard extends StatelessWidget {
   final Album album;
 
   final Subsonic subsonic;
+  final String? subtitle;
 
-  const AlbumCard({super.key, required this.album, required this.subsonic});
+  const AlbumCard({
+    super.key,
+    required this.album,
+    required this.subsonic,
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +81,7 @@ class AlbumCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             Text(
-              album.artist,
+              subtitle ?? album.artist,
               style: context.theme.typography.xs.copyWith(
                 color: colors.mutedForeground,
               ),

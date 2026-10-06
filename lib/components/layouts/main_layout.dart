@@ -294,6 +294,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
             onSettingsPressed: () => openSettings(context),
           )
         : (kIsWeb ? const SizedBox(height: 32) : const SizedBox.shrink());
+    final hasTopBar = _isDesktop || kIsWeb;
 
     return DesktopLayout(
       backgroundColor: colors.background,
@@ -303,6 +304,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       coverUrl: _coverUrl,
       coverVisible: _coverVisible,
       topBar: topBar,
+      topBarInset: hasTopBar && !_isArtistRoute(widget.selectedRoute)
+          ? DesktopLayout.topBarHeight
+          : 0,
       sidePanelBuilder: (bottomInset) => DesktopSidePanel(
         mode: _panelMode ?? _lastPanelMode,
         onClose: _closePanel,
@@ -879,6 +883,9 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
 
   void _goBack(BuildContext context) =>
       context.canPop() ? context.pop() : context.go('/home');
+
+  bool _isArtistRoute(String? route) =>
+      route?.startsWith('/library/artist/') == true;
 
   bool _isDesktopMenuExpanded(String label) =>
       _desktopMenuExpanded[label] ?? true;

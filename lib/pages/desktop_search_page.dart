@@ -168,6 +168,19 @@ class _DesktopSearchPageState extends State<DesktopSearchPage>
     GoRouter.of(context).push('/library/album/${album.id}');
   }
 
+  void _openArtist(SearchArtist artist) {
+    _addRecent(
+      RecentSearch(
+        id: artist.id,
+        type: RecentSearchEnum.artist,
+        title: artist.name,
+        subtitle: '',
+        artId: artist.coverArt,
+      ),
+    );
+    GoRouter.of(context).push('/library/artist/${artist.id}');
+  }
+
   Future<void> _playSong(SearchSong song) async {
     final subsonic = context.read<SubsonicProvider>().subsonic;
     final full = await subsonic.getSong(song.id);
@@ -217,10 +230,15 @@ class _DesktopSearchPageState extends State<DesktopSearchPage>
               results: _topResults(result),
               subsonic: subsonic,
               onAlbum: _openAlbum,
+              onArtist: _openArtist,
               onSong: _playSong,
             ),
             if (result.artists.isNotEmpty)
-              _ArtistsSection(artists: result.artists, subsonic: subsonic),
+              _ArtistsSection(
+                artists: result.artists,
+                subsonic: subsonic,
+                onArtist: _openArtist,
+              ),
             if (result.albums.isNotEmpty)
               _AlbumsSection(albums: result.albums, subsonic: subsonic),
             if (result.songs.isNotEmpty)
@@ -274,12 +292,14 @@ class _TopResultsSection extends StatelessWidget {
   final List<_TopResult> results;
   final Subsonic subsonic;
   final void Function(SearchAlbum album) onAlbum;
+  final void Function(SearchArtist artist) onArtist;
   final Future<void> Function(SearchSong song) onSong;
 
   const _TopResultsSection({
     required this.results,
     required this.subsonic,
     required this.onAlbum,
+    required this.onArtist,
     required this.onSong,
   });
 
@@ -316,7 +336,7 @@ class _TopResultsSection extends StatelessWidget {
       artId = r.artist!.coverArt;
       title = r.artist!.name;
       subtitle = 'Artist';
-      onTap = null;
+      onTap = () => onArtist(r.artist!);
     } else {
       artId = r.song!.coverArt;
       title = r.song!.title;
@@ -392,8 +412,13 @@ class _TopResultsSection extends StatelessWidget {
 class _ArtistsSection extends StatelessWidget {
   final List<SearchArtist> artists;
   final Subsonic subsonic;
+  final void Function(SearchArtist artist) onArtist;
 
-  const _ArtistsSection({required this.artists, required this.subsonic});
+  const _ArtistsSection({
+    required this.artists,
+    required this.subsonic,
+    required this.onArtist,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -409,41 +434,46 @@ class _ArtistsSection extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 16),
             itemBuilder: (context, i) {
               final artist = artists[i];
-              return SizedBox(
-                width: 100,
-                child: Column(
-                  children: [
-                    ClipOval(
-                      child: Image(
-                        image: coverArtProvider(
-                          subsonic.cachedCoverArtUrl(
-                            artist.coverArt,
-                            size: 200,
+              return TapArea(
+                onTap: () => onArtist(artist),
+                borderRadius: 8,
+                child: SizedBox(
+                  width: 100,
+                  child: Column(
+                    children: [
+                      ClipOval(
+                        child: Image(
+                          image: coverArtProvider(
+                            subsonic.cachedCoverArtUrl(
+                              artist.coverArt,
+                              size: 200,
+                            ),
                           ),
-                        ),
-                        width: 100,
-                        height: 100,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
                           width: 100,
                           height: 100,
-                          color: context.theme.colors.muted,
-                          child: Icon(
-                            Icons.person,
-                            color: context.theme.colors.mutedForeground,
-                          ),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: 100,
+                                height: 100,
+                                color: context.theme.colors.muted,
+                                child: Icon(
+                                  Icons.person,
+                                  color: context.theme.colors.mutedForeground,
+                                ),
+                              ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      artist.name,
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.theme.typography.sm,
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        artist.name,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.theme.typography.sm,
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

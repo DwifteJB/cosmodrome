@@ -50,8 +50,7 @@ class _RecentSearchsItem extends StatelessWidget {
                 router.push("/library/album/${search.id}");
                 break;
               case RecentSearchEnum.artist:
-                // router.push("/library/artist/${search.id}");
-                // TODO: artist page :)
+                router.push("/library/artist/${search.id}");
                 break;
               case RecentSearchEnum.playlist:
                 router.push("/library/playlist/${search.id}");
@@ -217,7 +216,18 @@ class _SearchPageState extends State<SearchPage> with LayoutPageMixin {
                   title: artist.name,
                   subtitle: 'Artist',
                   trailing: '${artist.albumCount} albums',
-                  onTap: null,
+                  onTap: () {
+                    addRecentSearch(
+                      RecentSearch(
+                        id: artist.id,
+                        type: RecentSearchEnum.artist,
+                        title: artist.name,
+                        subtitle: '',
+                        artId: artist.coverArt,
+                      ),
+                    );
+                    GoRouter.of(context).push('/library/artist/${artist.id}');
+                  },
                 ),
               ),
             ],

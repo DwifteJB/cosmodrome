@@ -80,17 +80,67 @@ extension SubsonicBrowsingApi on Subsonic {
   }
 
   // https://www.subsonic.org/pages/api.jsp#getArtist
-  Future<List<Album>> getArtist(String id) async {
+  Future<List<Album>> getArtist(String id) async =>
+      (await getArtistDetail(id))?.albums ?? [];
+
+  Future<ArtistDetail?> getArtistDetail(String id) async {
     try {
       final response = await apiRequest('getArtist', params: {'id': id});
       final artist = response['artist'] as Map<String, dynamic>?;
-      if (artist == null) return [];
-      final albumsJson = artist['album'] as List<dynamic>? ?? [];
-      return albumsJson
-          .map((j) => Album.fromJson(j as Map<String, dynamic>))
-          .toList();
+      if (artist == null) return null;
+      return ArtistDetail.fromJson(artist);
     } catch (e) {
       loggerPrint('Error fetching artist $id: $e');
+      return null;
+    }
+  }
+
+  Future<ArtistInfo?> getArtistInfo(String id, {int count = 12}) async {
+    try {
+      final response = await apiRequest(
+        'getArtistInfo2',
+        params: {'id': id, 'count': '$count'},
+      );
+      final info = response['artistInfo2'] as Map<String, dynamic>?;
+      if (info == null) return null;
+      return ArtistInfo.fromJson(info);
+    } catch (e) {
+      loggerPrint('Error fetching artist info $id: $e');
+      return null;
+    }
+  }
+
+  Future<List<Song>> getArtistSongs(
+    String artistId,
+    String artistName, {
+    int count = 20,
+  }) async {
+    try {
+      final response = await apiRequest(
+        'search3',
+        params: {
+          'query': artistName,
+          'songCount': '100',
+          'artistCount': '0',
+          'albumCount': '0',
+        },
+      );
+      final songs = response['searchResult3']?['song'] as List<dynamic>? ?? [];
+      final name = artistName.toLowerCase();
+      num plays(Map<String, dynamic> song) => song['playCount'] as num? ?? 0;
+      final matches =
+          songs
+              .cast<Map<String, dynamic>>()
+              .where(
+                (s) =>
+                    s['artistId'] == artistId ||
+                    (s['artist'] as String?)?.toLowerCase() == name,
+              )
+              .toList()
+            ..sort((a, b) => plays(b).compareTo(plays(a)));
+      return matches.take(count).map(Song.fromJson).toList();
+    } catch (e) {
+      loggerPrint('Error fetching songs for artist $artistId: $e');
       return [];
     }
   }
@@ -239,6 +289,22 @@ extension SubsonicBrowsingApi on Subsonic {
     }
   }
 
+  Future<List<Song>> getTopSongs(String artistName, {int count = 20}) async {
+    try {
+      final response = await apiRequest(
+        'getTopSongs',
+        params: {'artist': artistName, 'count': '$count'},
+      );
+      final songs = response['topSongs']?['song'] as List<dynamic>? ?? [];
+      return songs
+          .map((s) => Song.fromJson(s as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      loggerPrint('Error fetching top songs for $artistName: $e');
+      return [];
+    }
+  }
+
   // replaces all songs with a given list
   Future<void> replacePlaylistSongs(
     String playlistId,
@@ -325,6 +391,8 @@ extension SubsonicBrowsingApi on Subsonic {
     }
   }
 
+  Future<bool> starArtist(String artistId) => _setArtistStarred(artistId, true);
+
   Future<bool> starSong(String id) async {
     try {
       await apiRequest('star', params: {'id': id});
@@ -350,6 +418,9 @@ extension SubsonicBrowsingApi on Subsonic {
       return false;
     }
   }
+
+  Future<bool> unstarArtist(String artistId) =>
+      _setArtistStarred(artistId, false);
 
   Future<bool> unstarSong(String id) async {
     try {
@@ -414,5 +485,20 @@ extension SubsonicBrowsingApi on Subsonic {
     try {
       await offlineCacheService.savePlaylistDetail(_accountId, playlist);
     } catch (_) {}
+  }
+
+  Future<bool> _setArtistStarred(String artistId, bool starred) async {
+    try {
+      await apiRequest(
+        starred ? 'star' : 'unstar',
+        params: {'artistId': artistId},
+        forceRefresh: true,
+      );
+      clearCacheStartingWith("getArtist");
+      return true;
+    } catch (e) {
+      loggerPrint('Error updating star for artist $artistId: $e');
+      return false;
+    }
   }
 }

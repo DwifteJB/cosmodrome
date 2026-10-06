@@ -9,8 +9,10 @@ import 'package:cosmodrome/providers/lyrics_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/format_duration.dart';
+import 'package:cosmodrome/utils/navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 
@@ -527,7 +529,10 @@ class _NowPlayingState extends State<_NowPlaying> {
             if (showText)
               SizedBox(
                 width: textWidth,
-                child: _SongText(song: song, maxWidth: textWidth),
+                child: _SongLinks(
+                  song: song,
+                  child: _SongText(song: song, maxWidth: textWidth),
+                ),
               )
             else
               const Spacer(),
@@ -535,6 +540,7 @@ class _NowPlayingState extends State<_NowPlaying> {
               const SizedBox(width: 4),
               DesktopSongPopover(
                 song: song,
+                onGoToAlbum: goToAlbumAction(context, song),
                 builder: (context, controller) => _BarIconButton(
                   icon: Icons.more_horiz_rounded,
                   size: 20,
@@ -675,6 +681,63 @@ class _NowPlayingState extends State<_NowPlaying> {
 
   static double _fractionFor(double dx, double width) =>
       width <= 0 ? 0.0 : (dx / width).clamp(0.0, 1.0);
+}
+
+class _SongLinks extends StatelessWidget {
+  final Song song;
+  final Widget child;
+
+  const _SongLinks({required this.song, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAlbum = song.albumId.isNotEmpty;
+    final hasArtist = songHasArtist(song);
+    if (!hasAlbum && !hasArtist) return child;
+
+    return FPopover(
+      popoverAnchor: Alignment.bottomLeft,
+      childAnchor: Alignment.topLeft,
+      popoverBuilder: (context, controller) => Padding(
+        padding: const EdgeInsets.all(4),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 200, maxWidth: 260),
+          child: FItemGroup(
+            children: [
+              if (hasAlbum)
+                FItem(
+                  prefix: const Icon(Icons.album_outlined, size: 16),
+                  title: const Text('Go to album'),
+                  onPress: () {
+                    final router = GoRouter.of(context);
+                    controller.hide();
+                    openAlbum(router, song.albumId);
+                  },
+                ),
+              if (hasArtist)
+                FItem(
+                  prefix: const Icon(Icons.person_outline, size: 16),
+                  title: const Text('Go to artist'),
+                  onPress: () {
+                    final goToArtist = goToArtistAction(context, song);
+                    controller.hide();
+                    goToArtist?.call();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+      builder: (context, controller, _) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: controller.toggle,
+          child: child,
+        ),
+      ),
+    );
+  }
 }
 
 class _SongText extends StatelessWidget {

@@ -9,6 +9,7 @@ class DesktopLayout extends StatelessWidget {
   static const double playerBarHeight = 64;
   static const double playerBarBottomMargin = 12;
   static const double playerBarReserved = playerBarHeight + 24;
+  static const double topBarHeight = 32;
 
   final Color backgroundColor;
   final Widget sidebar;
@@ -17,6 +18,7 @@ class DesktopLayout extends StatelessWidget {
   final String? coverUrl;
   final bool coverVisible;
   final Widget topBar;
+  final double topBarInset;
   final Widget child;
   final Widget Function(double bottomInset) sidePanelBuilder;
   final Widget playerBar;
@@ -30,6 +32,7 @@ class DesktopLayout extends StatelessWidget {
     required this.coverUrl,
     required this.coverVisible,
     required this.topBar,
+    this.topBarInset = topBarHeight,
     required this.child,
     required this.sidePanelBuilder,
     required this.playerBar,
@@ -67,19 +70,13 @@ class DesktopLayout extends StatelessWidget {
                   ),
                 ),
                 Positioned.fill(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      topBar,
-                      Expanded(
-                        child: KeyedSubtree(
-                          key: const ValueKey('desktop-child'),
-                          child: child,
-                        ),
-                      ),
-                    ],
+                  top: topBarInset,
+                  child: KeyedSubtree(
+                    key: const ValueKey('desktop-child'),
+                    child: child,
                   ),
                 ),
+                Positioned(top: 0, left: 0, right: 0, child: topBar),
                 // overlays only, so the page itself is never rebuilt inside
                 // a layout callback
                 Positioned.fill(

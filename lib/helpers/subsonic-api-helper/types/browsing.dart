@@ -1,4 +1,7 @@
 // TYPES FOR BROWSING-RELATED SUBSONIC API RESPONSES
+String? _text(Object? value) =>
+    value is String && value.trim().isNotEmpty ? value.trim() : null;
+
 class Album {
   final String id;
   final String name;
@@ -152,6 +155,72 @@ class Artist {
     if (coverArt != null) 'coverArt': coverArt,
     if (starred != null) 'starred': starred!.toIso8601String(),
   };
+}
+
+class ArtistDetail extends Artist {
+  final List<Album> albums;
+  final String? artistImageUrl;
+  final String? musicBrainzId;
+
+  ArtistDetail({
+    required super.id,
+    required super.name,
+    required super.albumCount,
+    super.coverArt,
+    super.starred,
+    required this.albums,
+    this.artistImageUrl,
+    this.musicBrainzId,
+  });
+
+  factory ArtistDetail.fromJson(Map<String, dynamic> json) {
+    final albums = (json['album'] as List<dynamic>? ?? [])
+        .map((a) => Album.fromJson(a as Map<String, dynamic>))
+        .toList();
+    return ArtistDetail(
+      id: json['id'] as String,
+      name: json['name'] as String? ?? '',
+      albumCount: (json['albumCount'] as num?)?.toInt() ?? albums.length,
+      coverArt: _text(json['coverArt']),
+      starred: json['starred'] != null
+          ? DateTime.tryParse(json['starred'] as String)
+          : null,
+      albums: albums,
+      artistImageUrl: _text(json['artistImageUrl']),
+      musicBrainzId: _text(json['musicBrainzId']),
+    );
+  }
+}
+
+class ArtistInfo {
+  final String? biography;
+  final String? musicBrainzId;
+  final String? imageUrl;
+  final List<Artist> similarArtists;
+
+  const ArtistInfo({
+    this.biography,
+    this.musicBrainzId,
+    this.imageUrl,
+    this.similarArtists = const [],
+  });
+
+  factory ArtistInfo.fromJson(Map<String, dynamic> json) {
+    final raw = json['similarArtist'];
+    final similar = raw is List ? raw : [?raw];
+    return ArtistInfo(
+      biography: _text(json['biography']),
+      musicBrainzId: _text(json['musicBrainzId']),
+      imageUrl:
+          _text(json['largeImageUrl']) ??
+          _text(json['mediumImageUrl']) ??
+          _text(json['smallImageUrl']),
+      similarArtists: similar
+          .whereType<Map<String, dynamic>>()
+          .map(Artist.fromJson)
+          .toList(),
+    );
+  }
 }
 
 class Index {
@@ -458,6 +527,7 @@ class Song {
   final String id;
   final String title;
   final String? artist;
+  final String? artistId;
   final String? album;
   final String albumId;
   final int? track;
@@ -474,6 +544,7 @@ class Song {
     required this.title,
     this.albumId = '',
     this.artist,
+    this.artistId,
     this.album,
     this.track,
     this.discNumber,
@@ -490,6 +561,7 @@ class Song {
       id: json['id'] as String,
       title: json['title'] as String,
       artist: json['artist'] as String?,
+      artistId: json['artistId'] as String?,
       album: json['album'] as String?,
       track: (json['track'] as num?)?.toInt(),
       discNumber: (json['discNumber'] as num?)?.toInt(),
@@ -510,6 +582,7 @@ class Song {
     'title': title,
     'albumId': albumId,
     if (artist != null) 'artist': artist,
+    if (artistId != null) 'artistId': artistId,
     if (album != null) 'album': album,
     if (track != null) 'track': track,
     if (discNumber != null) 'discNumber': discNumber,

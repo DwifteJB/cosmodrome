@@ -79,18 +79,48 @@ class CarService {
     if (!bridge.presetsRoot) _probe(bridge, 30);
   }
 
-  Future<List<CarRow>> _albumRows(List<Album> albums, int depth) async {
+  Future<List<CarRow>> _albumRows(
+    List<Album> albums,
+    int depth, {
+    bool byYear = false,
+  }) async {
     final covers = await _covers(albums.map((a) => a.coverArt));
     return [
       for (final album in albums)
         CarRow(
           title: _text(album.name),
-          subtitle: album.artist,
+          subtitle: !byYear
+              ? album.artist
+              : album.year != null && album.year! > 0
+              ? '${album.year}'
+              : _songCount(album.songCount),
           image: covers[album.coverArt],
           browsable: true,
           onTap: () => _openAlbum(album.id, depth),
         ),
     ];
+  }
+
+  Future<List<CarRow>> _artistRows(List<Artist> artists, int depth) async {
+    final covers = await _covers(artists.map((a) => a.coverArt));
+    return [
+      for (final artist in artists)
+        CarRow(
+          title: _text(artist.name),
+          subtitle: artist.albumCount == 1
+              ? '1 album'
+              : '${artist.albumCount} albums',
+          image: covers[artist.coverArt],
+          browsable: true,
+          onTap: () => _openArtist(artist.id, artist.name, depth),
+        ),
+    ];
+  }
+
+  Future<List<Song>> _artistSongs(Subsonic api, String id, String name) async {
+    final top = await api.getTopSongs(name, count: 10);
+    if (top.isNotEmpty) return top;
+    return api.getArtistSongs(id, name, count: 10);
   }
 
   // build the root view of the carplay / android auto interface, this is called when the account changes or the connection is established
@@ -471,13 +501,61 @@ class CarService {
   Future<void> _openArtist(String id, String name, int depth) async {
     final api = _api;
     if (api == null) return;
-    final albums = await api.getArtist(id);
+    final next = depth + 1;
+    final (artist, info, songs) = await (
+      api.getArtistDetail(id),
+      api.getArtistInfo(id),
+      _artistSongs(api, id, name),
+    ).wait;
+    final albums = [...?artist?.albums]
+      ..sort((a, b) => (b.year ?? 0).compareTo(a.year ?? 0));
+    final similar = next < _maxDepth
+        ? info?.similarArtists ?? const <Artist>[]
+        : const <Artist>[];
+    final covers = await _covers(songs.map((s) => s.coverArt));
+
     await _push(
       CarPage(
         id: _id('artist'),
-        title: _text(name),
+        title: _text(artist?.name ?? name),
         emptyText: 'No albums found',
-        sections: [CarSection(rows: await _albumRows(albums, depth + 1))],
+        sections: [
+          if (songs.isNotEmpty)
+            CarSection(
+              header: 'Top Songs',
+              rows: [
+                await _iconRow(
+                  Icons.play_arrow_rounded,
+                  'Play',
+                  onTap: () => _play(songs, next),
+                ),
+                await _iconRow(
+                  Icons.shuffle_rounded,
+                  'Shuffle',
+                  onTap: () => _play(songs, next, shuffle: true),
+                ),
+                for (final song in songs)
+                  CarRow(
+                    title: _text(song.title),
+                    subtitle: song.album,
+                    image: covers[song.coverArt],
+                    onTap: _player.isSongPlayable(song)
+                        ? () => _play(songs, next, from: song)
+                        : null,
+                  ),
+              ],
+            ),
+          if (albums.isNotEmpty)
+            CarSection(
+              header: 'Albums',
+              rows: await _albumRows(albums, next, byYear: true),
+            ),
+          if (similar.isNotEmpty)
+            CarSection(
+              header: 'Similar Artists',
+              rows: await _artistRows(similar, next),
+            ),
+        ],
       ),
       depth,
     );
@@ -618,8 +696,20 @@ class CarService {
         ? 0
         : playable.indexWhere((song) => song.id == from.id);
     if (index < 0) return;
-    unawaited(_player.playAlbum(playable, shuffle: shuffle, startIndex: index));
+    if (index == 0) {
+      unawaited(_player.playAlbum(playable, shuffle: shuffle));
+    } else {
+      unawaited(_playFrom(playable, index));
+    }
     await _openNowPlaying(depth);
+  }
+
+  Future<void> _playFrom(List<Song> songs, int index) async {
+    await _player.resetQueue();
+    await _player.playNow(songs[index]);
+    if (index < songs.length - 1) {
+      await _player.addBulkToQueue(songs.sublist(index + 1));
+    }
   }
 
   void _probe(CarBridge bridge, int attempts) {
@@ -641,26 +731,12 @@ class CarService {
 
   Future<void> _pushArtists(String title, List<Artist> all, int depth) async {
     final artists = all.take(_bridge!.rowLimit).toList();
-    final covers = await _covers(artists.map((a) => a.coverArt));
     await _push(
       CarPage(
         id: _id('artists'),
         title: title,
         emptyText: 'No artists found',
-        sections: [
-          CarSection(
-            rows: [
-              for (final artist in artists)
-                CarRow(
-                  title: _text(artist.name),
-                  subtitle: '${artist.albumCount} albums',
-                  image: covers[artist.coverArt],
-                  browsable: true,
-                  onTap: () => _openArtist(artist.id, artist.name, depth + 1),
-                ),
-            ],
-          ),
-        ],
+        sections: [CarSection(rows: await _artistRows(artists, depth + 1))],
       ),
       depth,
     );

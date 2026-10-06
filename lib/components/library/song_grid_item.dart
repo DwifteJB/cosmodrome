@@ -10,6 +10,7 @@ class SongGridItem extends StatefulWidget {
   final String? imageUrl;
   final String title;
   final String subtitle;
+  final Color? titleColor;
   final VoidCallback? onPlay;
   final VoidCallback? onLongPress;
   final ValueChanged<Offset>? onContextMenu;
@@ -19,6 +20,7 @@ class SongGridItem extends StatefulWidget {
     super.key,
     required this.title,
     required this.subtitle,
+    this.titleColor,
     this.imageUrl,
     this.onPlay,
     this.onLongPress,
@@ -107,7 +109,9 @@ class _SongGridItemState extends State<SongGridItem> {
                     Text(
                       widget.title,
                       style: context.theme.typography.sm.copyWith(
-                        color: context.theme.colors.foreground,
+                        color:
+                            widget.titleColor ??
+                            context.theme.colors.foreground,
                         fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,

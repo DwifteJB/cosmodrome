@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
 
-int _layoutGeneration = 0;
+final _pages = <LayoutPageMixin>[];
 
 // mixin for the layout to replace elements
 mixin LayoutPageMixin<T extends StatefulWidget> on State<T> {
@@ -13,36 +13,36 @@ mixin LayoutPageMixin<T extends StatefulWidget> on State<T> {
   bool get isScrollable => true;
   bool get ignoreTopSpacing => false;
 
-  int _myGeneration = 0;
+  LayoutConfig get _config => LayoutConfig(
+    title: pageTitle,
+    buttons: pageButtons,
+    mainPillBuilder: mainPillBuilder,
+    searchPillBuilder: searchPillBuilder,
+    hidePill: hidePill,
+    isScrollable: isScrollable,
+    ignoreTopSpacing: ignoreTopSpacing,
+  );
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _myGeneration = ++_layoutGeneration;
-      layoutConfig.value = LayoutConfig(
-        title: pageTitle,
-        buttons: pageButtons,
-        mainPillBuilder: mainPillBuilder,
-        searchPillBuilder: searchPillBuilder,
-        hidePill: hidePill,
-        isScrollable: isScrollable,
-        ignoreTopSpacing: ignoreTopSpacing,
-      );
+      _pages.add(this);
+      layoutConfig.value = _config;
     });
   }
 
   @override
   void dispose() {
-    final gen = _myGeneration;
+    final wasTop = _pages.isNotEmpty && identical(_pages.last, this);
+    _pages.remove(this);
     super.dispose();
-    // only reset if we haven't already been replaced by another page
+    if (!wasTop) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_layoutGeneration == gen) {
-        layoutConfig.value = LayoutConfig.empty;
-        _layoutGeneration = 0;
-      }
+      layoutConfig.value = _pages.isEmpty
+          ? LayoutConfig.empty
+          : _pages.last._config;
     });
   }
 }

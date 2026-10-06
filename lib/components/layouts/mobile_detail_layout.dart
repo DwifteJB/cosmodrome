@@ -17,11 +17,13 @@ import 'package:provider/provider.dart';
 class MobileDetailLayout extends StatefulWidget {
   final Widget child;
   final bool isScrollable;
+  final bool ignoreTopSpacing;
 
   const MobileDetailLayout({
     super.key,
     required this.child,
     this.isScrollable = true,
+    this.ignoreTopSpacing = false,
   });
 
   @override
@@ -197,7 +199,7 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
                   children: [
                     ValueListenableBuilder<LayoutConfig>(
                       valueListenable: layoutConfig,
-                      builder: (_, config, _) => config.ignoreTopSpacing
+                      builder: (_, config, _) => _ignoreTopSpacing(config)
                           ? const SizedBox.shrink()
                           : SizedBox(height: topPadding + 20),
                     ),
@@ -207,7 +209,9 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
                         constraints: BoxConstraints(
                           minHeight:
                               MediaQuery.of(context).size.height -
-                              (config.ignoreTopSpacing ? 0 : topPadding + 20) -
+                              (_ignoreTopSpacing(config)
+                                  ? 0
+                                  : topPadding + 20) -
                               (navHeight + bottomPadding),
                         ),
                         child: child,
@@ -527,6 +531,9 @@ class _MobileDetailLayoutState extends State<MobileDetailLayout>
 
   void _goBack(BuildContext context) =>
       context.canPop() ? context.pop() : context.go('/home');
+
+  bool _ignoreTopSpacing(LayoutConfig config) =>
+      widget.ignoreTopSpacing || config.ignoreTopSpacing;
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
