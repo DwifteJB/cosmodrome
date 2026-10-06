@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 const _apiVersion = '1.16.1';
 const _cacheTTL = Duration(seconds: 60 * 5); // 5 minutes
 const _clientName = 'cosmodrome';
+final _schemePattern = RegExp(r'^https?://', caseSensitive: false);
 
 final excludedPingEndpoints = {'ping.view', 'getUser'};
 
@@ -26,6 +27,7 @@ class ApiResultCache<T> {
 
 class Subsonic {
   final String baseUrl; // includes port e.g. localhost:4455
+  final String scheme; // http unless the url asked for https
   final SubsonicAuth auth;
   int timeoutSeconds;
 
@@ -36,7 +38,10 @@ class Subsonic {
     required String username,
     required String password,
     this.timeoutSeconds = 15,
-  }) : baseUrl = baseUrl.replaceFirst(RegExp(r'^https?://'), ''),
+  }) : baseUrl = baseUrl.replaceFirst(_schemePattern, ''),
+       scheme = _schemePattern.stringMatch(baseUrl)?.toLowerCase() == 'https://'
+           ? 'https'
+           : 'http',
        auth = SubsonicAuth(username: username, password: password);
 
   Future<Map<String, dynamic>> apiRequest(
@@ -180,7 +185,7 @@ if strings.HasPrefix(p, "enc:") {
     String label,
   ) async {
     try {
-      final uri = Uri.http(baseUrl, '/rest/ping.view', getLoginParams(method));
+      final uri = _uri('ping.view', getLoginParams(method));
       loggerPrint('Determining login method: trying $label login at $uri');
       final response = await http
           .get(uri)
@@ -298,12 +303,16 @@ if strings.HasPrefix(p, "enc:") {
 
   /// Builds an authenticated `/rest/[endpoint]` uri using the current login method.
   Uri restUri(String endpoint, [Map<String, dynamic> params = const {}]) =>
-      Uri.http(baseUrl, '/rest/$endpoint', {
+      _uri(endpoint, {
         ...getLoginParams(loginMethod),
         'v': _apiVersion,
         'c': _clientName,
         ...params,
       });
+
+  Uri _uri(String endpoint, Map<String, dynamic> params) => Uri.parse(
+    '$scheme://$baseUrl/rest/$endpoint',
+  ).replace(queryParameters: params);
 }
 
 enum SubsonicLoginMethod { password, encryptedPassword, token, undetermined }

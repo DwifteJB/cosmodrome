@@ -201,13 +201,9 @@ class SubsonicProvider extends ChangeNotifier {
         knownServers[idx].canConnect = !offline;
         changed = true;
       }
+      if (changed) notifyListeners();
 
-      final serverChanged = await _refreshKnownServersConnectivity(
-        skipBaseUrl: account.baseUrl,
-      );
-      if (changed || serverChanged) {
-        notifyListeners();
-      }
+      await _refreshKnownServersConnectivity(skipBaseUrl: account.baseUrl);
     } finally {
       _connectivityCheckInFlight = false;
     }
@@ -393,15 +389,23 @@ class SubsonicProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Attempts to restore accounts and active session from storage.
-  /// Also attempts to get all known servers from the accounts and test connectivity, removing those that fail.
-  /// For ALL accounts.
+  /// Restores known servers, accounts and the active session from storage.
+  /// Doesn't wait on the network, servers are checked once this returns.
   Future<void> tryRestoreSession() async {
     _setState(AuthState.loading);
 
     // read known servers first
     await _getKnownServersFromStorage();
+    await _restoreAccounts();
 
+    if (activeAccount != null) {
+      unawaited(checkConnectivity());
+    } else {
+      unawaited(_refreshKnownServersConnectivity());
+    }
+  }
+
+  Future<void> _restoreAccounts() async {
     final raw = await _storage.read(key: _keyAccounts);
     final activeId = await _storage.read(key: _keyActiveId);
 
@@ -438,7 +442,6 @@ class SubsonicProvider extends ChangeNotifier {
     _startConnectivityPolling();
     loggerPrint('SubsonicProvider: active account is $_activeId');
     _setState(AuthState.authenticated);
-    await checkConnectivity();
   }
 
   Future<void> _getAvatarsForActiveAccount() async {
@@ -498,13 +501,6 @@ class SubsonicProvider extends ChangeNotifier {
           baseUrl: item['baseUrl'] as String,
           name: item['name'] as String,
         );
-
-        // try connecting to the server before adding it to the known servers list
-        if (!await server.tryConnect(timeoutSeconds: 3)) {
-          loggerPrint(
-            'SubsonicProvider: cannot connect to known server ${server.baseUrl}, skipping',
-          );
-        }
 
         knownServers.add(server);
         loggerPrint(
@@ -569,34 +565,33 @@ class SubsonicProvider extends ChangeNotifier {
     _connectivityDebounceUntil.remove(baseUrl);
   }
 
-  Future<bool> _refreshKnownServersConnectivity({String? skipBaseUrl}) async {
-    if (!_canPollConnectivity) return false;
+  /// Checks every known server at once, notifying as each one changes.
+  Future<void> _refreshKnownServersConnectivity({String? skipBaseUrl}) async {
+    if (!_canPollConnectivity) return;
 
-    var changed = false;
     final now = DateTime.now();
-    for (final server in knownServers) {
-      if (skipBaseUrl != null && server.baseUrl == skipBaseUrl) {
-        continue;
-      }
-      if (_isServerDebounced(server.baseUrl, now)) {
-        continue;
-      }
+    final servers = knownServers
+        .where(
+          (s) =>
+              s.baseUrl != skipBaseUrl && !_isServerDebounced(s.baseUrl, now),
+        )
+        .toList();
 
-      final before = server.canConnect;
-      final after = await server.tryConnect(timeoutSeconds: 3);
-      if (after) {
-        _connectivityFailureCounts.remove(server.baseUrl);
-        _connectivityDebounceUntil[server.baseUrl] = now.add(
-          const Duration(minutes: 3),
-        );
-      } else {
-        _recordServerFailure(server.baseUrl, now);
-      }
-      if (before != after) {
-        changed = true;
-      }
-    }
-    return changed;
+    await Future.wait(
+      servers.map((server) async {
+        final before = server.canConnect;
+        final after = await server.tryConnect(timeoutSeconds: 3);
+        if (after) {
+          _connectivityFailureCounts.remove(server.baseUrl);
+          _connectivityDebounceUntil[server.baseUrl] = now.add(
+            const Duration(minutes: 3),
+          );
+        } else {
+          _recordServerFailure(server.baseUrl, now);
+        }
+        if (before != after) notifyListeners();
+      }),
+    );
   }
 
   void _setState(AuthState state) {
