@@ -103,6 +103,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final _sectionKeys = <String, GlobalKey>{};
   Timer? _refreshTimer;
   String? _accountId;
+  bool _staleLayout = false;
+  bool _staleReload = false;
+
+  bool get _visible => ModalRoute.of(context)?.isCurrent ?? true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_visible) return;
+    if (_staleLayout) {
+      _staleLayout = false;
+      setState(() {});
+    }
+    if (_staleReload) {
+      _staleReload = false;
+      _scheduleReload(force: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +242,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _onLayoutChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (!_visible) {
+      _staleLayout = true;
+      return;
+    }
+    setState(() {});
   }
 
   void _onHomeRefreshRequested() {
@@ -242,6 +265,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _onStarOrPlaylistChanged() => _scheduleReload();
 
   void _scheduleReload({bool force = false}) {
+    if (mounted && !_visible) {
+      _staleReload = true;
+      return;
+    }
     SchedulerBinding.instance.addPostFrameCallback((_) {
       if (mounted) unawaited(_reloadSections(force: force));
     });

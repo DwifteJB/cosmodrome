@@ -296,6 +296,8 @@ class _SpotlightCard extends StatelessWidget {
                 if (coverUrl != null)
                   Image(
                     image: coverArtProvider(coverUrl),
+                    width: double.infinity,
+                    height: double.infinity,
                     fit: BoxFit.cover,
                     filterQuality: FilterQuality.low,
                     gaplessPlayback: true,

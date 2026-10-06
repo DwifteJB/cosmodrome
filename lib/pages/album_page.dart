@@ -10,6 +10,7 @@ import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:cosmodrome/utils/disc_order.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:cosmodrome/utils/notifiers/accent_notifier.dart';
@@ -353,7 +354,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
 
     try {
       final album = await provider.subsonic.getAlbum(widget.albumId);
-      if (album != null) _orderByDisc(album.songs);
+      if (album != null) orderSongsByDisc(album.songs);
       if (mounted) {
         final coverUrl = album?.coverArt != null
             ? provider.subsonic.cachedCoverArtUrl(album!.coverArt!, size: 600)
@@ -565,7 +566,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
     int visibleCount,
     Widget Function(Song song, int index) tile,
   ) {
-    final multiDisc = _hasMultipleDiscs(album.songs);
+    final multiDisc = hasMultipleDiscs(album.songs);
     final widgets = <Widget>[];
     int? lastDisc;
     for (var i = 0; i < visibleCount; i++) {
@@ -610,22 +611,6 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
         ],
       ),
     );
-  }
-
-  static bool _hasMultipleDiscs(List<Song> songs) =>
-      songs.map((s) => s.discNumber ?? 1).toSet().length > 1;
-
-  static void _orderByDisc(List<Song> songs) {
-    final indexed = songs.indexed.toList(growable: false);
-    indexed.sort((a, b) {
-      final disc = (a.$2.discNumber ?? 0).compareTo(b.$2.discNumber ?? 0);
-      if (disc != 0) return disc;
-      final track = (a.$2.track ?? 0).compareTo(b.$2.track ?? 0);
-      return track != 0 ? track : a.$1.compareTo(b.$1);
-    });
-    for (var i = 0; i < indexed.length; i++) {
-      songs[i] = indexed[i].$2;
-    }
   }
 }
 

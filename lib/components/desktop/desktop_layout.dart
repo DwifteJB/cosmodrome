@@ -46,95 +46,111 @@ class DesktopLayout extends StatelessWidget {
         children: [
           sidebar,
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final contentWidth = constraints.maxWidth;
-                final panelWidth = panelOpen ? DesktopSidePanel.width : 0.0;
-                final barWidth = math.min(800.0, contentWidth - 32);
-                final barLeft = math.max(
-                  16.0,
-                  (contentWidth - panelWidth - barWidth) / 2,
-                );
-                // the bar floats over the panel on narrow windows
-                final barOverlapsPanel =
-                    panelOpen &&
-                    barLeft + barWidth > contentWidth - DesktopSidePanel.width;
-                final panelInset = barOverlapsPanel ? playerBarReserved : 0.0;
-                return Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    Positioned(
-                      top: -32,
-                      left: 0,
-                      right: 0,
-                      height: MediaQuery.of(context).size.height + 32,
-                      child: IgnorePointer(
-                        child: AnimatedOpacity(
-                          opacity: coverVisible ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 700),
-                          curve: Curves.easeIn,
-                          child: coverUrl == null
-                              ? const SizedBox.expand()
-                              : _CoverBackdrop(
-                                  coverUrl: coverUrl!,
-                                  backgroundColor: backgroundColor,
-                                ),
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Positioned(
+                  top: -32,
+                  left: 0,
+                  right: 0,
+                  height: MediaQuery.sizeOf(context).height + 32,
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      opacity: coverVisible ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 700),
+                      curve: Curves.easeIn,
+                      child: coverUrl == null
+                          ? const SizedBox.expand()
+                          : _CoverBackdrop(
+                              coverUrl: coverUrl!,
+                              backgroundColor: backgroundColor,
+                            ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      topBar,
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          // keep the last rows clear of the floating bar
+                          padding: const EdgeInsets.only(
+                            bottom: playerBarReserved + 16,
+                          ),
+                          child: KeyedSubtree(
+                            key: const ValueKey('desktop-child'),
+                            child: child,
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned.fill(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                    ],
+                  ),
+                ),
+                // overlays only, so the page itself is never rebuilt inside
+                // a layout callback
+                Positioned.fill(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final contentWidth = constraints.maxWidth;
+                      final panelWidth = panelOpen
+                          ? DesktopSidePanel.width
+                          : 0.0;
+                      final barWidth = math.min(800.0, contentWidth - 32);
+                      final barLeft = math.max(
+                        16.0,
+                        (contentWidth - panelWidth - barWidth) / 2,
+                      );
+                      // the bar floats over the panel on narrow windows
+                      final barOverlapsPanel =
+                          panelOpen &&
+                          barLeft + barWidth >
+                              contentWidth - DesktopSidePanel.width;
+                      final panelInset = barOverlapsPanel
+                          ? playerBarReserved
+                          : 0.0;
+                      return Stack(
+                        clipBehavior: Clip.hardEdge,
                         children: [
-                          topBar,
-                          Expanded(
-                            child: SingleChildScrollView(
-                              controller: scrollController,
-                              // keep the last rows clear of the floating bar
-                              padding: const EdgeInsets.only(
-                                bottom: playerBarReserved + 16,
-                              ),
-                              child: KeyedSubtree(
-                                key: const ValueKey('desktop-child'),
-                                child: child,
+                          IgnorePointer(
+                            ignoring: !panelOpen,
+                            child: AnimatedOpacity(
+                              opacity: panelOpen ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 220),
+                              child: GestureDetector(
+                                onTap: onClosePanel,
+                                behavior: HitTestBehavior.opaque,
+                                child: const ColoredBox(
+                                  color: Color(0x66000000),
+                                ),
                               ),
                             ),
                           ),
+                          AnimatedPositioned(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                            top: 0,
+                            right: panelOpen ? 0 : -DesktopSidePanel.width,
+                            bottom: 0,
+                            width: DesktopSidePanel.width,
+                            child: sidePanelBuilder(panelInset),
+                          ),
+                          AnimatedPositioned(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                            left: barLeft,
+                            width: barWidth,
+                            bottom: playerBarBottomMargin,
+                            child: playerBar,
+                          ),
                         ],
-                      ),
-                    ),
-                    IgnorePointer(
-                      ignoring: !panelOpen,
-                      child: AnimatedOpacity(
-                        opacity: panelOpen ? 1.0 : 0.0,
-                        duration: const Duration(milliseconds: 220),
-                        child: GestureDetector(
-                          onTap: onClosePanel,
-                          behavior: HitTestBehavior.opaque,
-                          child: const ColoredBox(color: Color(0x66000000)),
-                        ),
-                      ),
-                    ),
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      top: 0,
-                      right: panelOpen ? 0 : -DesktopSidePanel.width,
-                      bottom: 0,
-                      width: DesktopSidePanel.width,
-                      child: sidePanelBuilder(panelInset),
-                    ),
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      left: barLeft,
-                      width: barWidth,
-                      bottom: playerBarBottomMargin,
-                      child: playerBar,
-                    ),
-                  ],
-                );
-              },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -163,6 +179,8 @@ class _CoverBackdrop extends StatelessWidget {
           ),
           child: Image(
             image: coverArtProvider(coverUrl),
+            width: double.infinity,
+            height: double.infinity,
             fit: BoxFit.cover,
             colorBlendMode: BlendMode.overlay,
           ),

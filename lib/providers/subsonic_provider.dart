@@ -43,6 +43,16 @@ class SubsonicProvider extends ChangeNotifier {
 
   bool get isOffline => _isOffline;
 
+  @visibleForTesting
+  void debugUseAccount(SubsonicAccount account) {
+    _accounts
+      ..clear()
+      ..add(account);
+    _activeId = account.id;
+    _authState = AuthState.authenticated;
+    notifyListeners();
+  }
+
   /// The current subsonic istance for the active account. Will throw if not authenticated.
   /// Should use this instead of .activeAccount.subsonic
   Subsonic get subsonic {
@@ -166,7 +176,7 @@ class SubsonicProvider extends ChangeNotifier {
       }
 
       // ping never throws, it reports failures in its result
-      final result = await account.subsonic.ping(timeoutSeconds: 3);
+      final result = await account.subsonic.ping(timeoutSeconds: 8);
       // auth errors mean we can still "connect" with proper creds
       final failed = !result.success && result.errorCode == null;
 

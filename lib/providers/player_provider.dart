@@ -22,7 +22,7 @@ class PlayerProvider extends ChangeNotifier {
     LoopMode.all: LoopMode.off,
   };
 
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player;
   static final bool _usesMpv =
       !kIsWeb &&
       (Platform.isIOS ||
@@ -65,7 +65,7 @@ class PlayerProvider extends ChangeNotifier {
   StreamSubscription<PlayerState>? _stateSub;
   StreamSubscription<int?>? _indexSub;
 
-  PlayerProvider() {
+  PlayerProvider({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
     _positionSub = _player.positionStream.listen((pos) {
       _position = pos;
       notifyListeners();

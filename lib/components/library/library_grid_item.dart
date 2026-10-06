@@ -33,6 +33,8 @@ class LibraryGridItem extends StatelessWidget {
               child: imageUrl != null
                   ? Image(
                       image: coverArtProvider(imageUrl!),
+                      width: double.infinity,
+                      height: double.infinity,
                       fit: BoxFit.cover,
                       frameBuilder:
                           (ctx, child, frame, wasSynchronouslyLoaded) {

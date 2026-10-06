@@ -258,6 +258,9 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
   List<T>? _items;
   bool _loading = true;
   int _loadGeneration = 0;
+  bool _stale = false;
+
+  bool get _visible => ModalRoute.of(context)?.isCurrent ?? true;
 
   String get _memoryKey => '${widget.accountId}:${_section.id}';
   HomeSection<T> get _section => widget.section;
@@ -306,6 +309,15 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
       _section.listenable?.addListener(_onSourceChanged);
     }
     if (oldWidget.isOffline && !widget.isOffline) unawaited(reload());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_stale && _visible) {
+      _stale = false;
+      unawaited(reload());
+    }
   }
 
   @override
@@ -363,6 +375,10 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
     final trimmed = items.take(_section.maxItems).toList(growable: false);
     _sectionMemory[_memoryKey] = trimmed;
     if (!mounted) return;
+    if (!_visible) {
+      _stale = true;
+      return;
+    }
     setState(() {
       _items = trimmed;
       _loading = false;
@@ -467,10 +483,21 @@ class _HomeSectionViewState<T> extends State<HomeSectionView<T>>
     );
   }
 
-  void _onSourceChanged() => unawaited(reload());
+  // offstage pages must not change shape, see flutter/flutter#161718
+  void _onSourceChanged() {
+    if (!mounted || !_visible) {
+      _stale = true;
+      return;
+    }
+    unawaited(reload());
+  }
 
   void _stopLoading(int generation) {
     if (generation == _loadGeneration && mounted && _loading) {
+      if (!_visible) {
+        _stale = true;
+        return;
+      }
       setState(() => _loading = false);
     }
   }

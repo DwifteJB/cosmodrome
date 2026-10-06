@@ -144,19 +144,19 @@ class MusicPageMobileTrackTile extends StatelessWidget {
               children: [
                 if (!isPlaylist) ...[
                   SizedBox(
-                  width: 32,
-                  child: Text(
-                    trackLabel,
-                    style: theme.typography.xs.copyWith(
-                      color: enabled
-                          ? AppColors.trackNumber
-                          : colors.mutedForeground,
-                      letterSpacing: -0.5,
-                      fontWeight: FontWeight.bold,
+                    width: 32,
+                    child: Text(
+                      trackLabel,
+                      style: theme.typography.xs.copyWith(
+                        color: enabled
+                            ? AppColors.trackNumber
+                            : colors.mutedForeground,
+                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
                 ] else ...[
                   // image
                   SizedBox(
@@ -165,7 +165,12 @@ class MusicPageMobileTrackTile extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: song.coverArt != null
-                          ? Image.network(song.coverArt!, fit: BoxFit.cover)
+                          ? Image.network(
+                              song.coverArt!,
+                              width: 32,
+                              height: 32,
+                              fit: BoxFit.cover,
+                            )
                           : Container(color: AppColors.mutedButtonColor),
                     ),
                   ),
@@ -305,7 +310,12 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: song.coverArt != null
-                            ? Image.network(song.coverArt!, fit: BoxFit.cover)
+                            ? Image.network(
+                                song.coverArt!,
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.cover,
+                              )
                             : Container(color: AppColors.mutedButtonColor),
                       ),
                     ),

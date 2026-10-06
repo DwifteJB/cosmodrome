@@ -334,6 +334,8 @@ class _ArtistHero extends StatelessWidget {
           if (url != null)
             Image(
               image: coverArtProvider(url),
+              width: double.infinity,
+              height: double.infinity,
               fit: BoxFit.cover,
               errorBuilder: (ctx, e, st) => fallback,
             )
