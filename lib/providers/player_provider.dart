@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
@@ -8,6 +9,7 @@ import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/services/play_history_service.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
@@ -21,6 +23,12 @@ class PlayerProvider extends ChangeNotifier {
   };
 
   final AudioPlayer _player = AudioPlayer();
+  static final bool _usesMpv =
+      !kIsWeb &&
+      (Platform.isIOS ||
+          Platform.isMacOS ||
+          Platform.isLinux ||
+          Platform.isWindows);
 
   List<Song> _songs = [];
   List<Song>? _unshuffled;
@@ -73,10 +81,9 @@ class PlayerProvider extends ChangeNotifier {
       notifyListeners();
     });
     _indexSub = _player.currentIndexStream.listen((index) {
-      if (_editing > 0) return;
       if (index == null || index == _currentIndex) return;
       _currentIndex = index;
-      _onCurrentIndexChanged();
+      if (_editing == 0) _onCurrentIndexChanged();
       notifyListeners();
     });
   }
@@ -199,30 +206,39 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> playNow(Song song) async {
     if (!isSongPlayable(song)) return;
-    final loaded = _loaded;
-    final pos = _currentIndex < 0 ? 0 : _currentIndex;
     final current = currentSong;
-    _songs.insert(pos, song);
-    if (_unshuffled case final unshuffled?) {
-      final at = current == null ? -1 : _indexOfIdentical(unshuffled, current);
-      unshuffled.insert(at < 0 ? unshuffled.length : at, song);
-    }
-    _currentIndex = pos;
-    _playedSongIds.add(song.id);
-    _queueVersion++;
-    _updateCoverArtCache();
-    notifyListeners();
-    if (!loaded || current == null) {
+    if (!_loaded || current == null) {
+      final pos = _currentIndex < 0 ? 0 : _currentIndex;
+      _songs.insert(pos, song);
+      _unshuffled?.insert(_unshuffled!.length, song);
+      _currentIndex = pos;
+      _playedSongIds.add(song.id);
+      _queueVersion++;
+      _updateCoverArtCache();
+      notifyListeners();
       await _loadQueue(play: true);
       return;
     }
+
+    await _prepare(song);
+    final audio = await _buildSource(song);
     await _edit(() async {
-      await _insertSource(pos, await _buildSource(song));
-      await _warm(song);
+      final pos = _indexOfIdentical(_songs, current);
+      if (pos < 0) return;
+      _songs.insert(pos, song);
+      if (_unshuffled case final unshuffled?) {
+        final at = _indexOfIdentical(unshuffled, current);
+        unshuffled.insert(at < 0 ? unshuffled.length : at, song);
+      }
+      _currentIndex = pos + 1;
+      _queueVersion++;
+      notifyListeners();
+      await _insertSource(pos, audio);
+      _currentIndex = pos;
       await _player.seek(Duration.zero, index: pos);
     });
+    _playedSongIds.add(song.id);
     await _player.play();
-    _warmNext();
   }
 
   Future<void> removeFromQueue(int index) async {
@@ -329,7 +345,7 @@ class PlayerProvider extends ChangeNotifier {
     }
     if (_player.hasNext) {
       if (_currentIndex + 1 < _songs.length) {
-        await _warm(_songs[_currentIndex + 1]);
+        await _prepare(_songs[_currentIndex + 1]);
       }
       await _player.seekToNext();
       await _player.play();
@@ -355,7 +371,7 @@ class PlayerProvider extends ChangeNotifier {
       await _loadQueue(play: true);
       return;
     }
-    await _warm(_songs[index]);
+    await _prepare(_songs[index]);
     await _player.seek(Duration.zero, index: index);
     await _player.play();
   }
@@ -463,12 +479,17 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> _edit(Future<void> Function() action) async {
+    final before = currentSong;
     _editing++;
     try {
       await action();
     } catch (_) {
     } finally {
       _editing--;
+    }
+    if (_editing == 0 && !identical(currentSong, before)) {
+      _onCurrentIndexChanged();
+      notifyListeners();
     }
   }
 
@@ -477,7 +498,7 @@ class PlayerProvider extends ChangeNotifier {
     try {
       final coverUrl = _subsonicProvider!.subsonic.cachedCoverArtUrl(
         song.coverArt!,
-        size: 1200,
+        size: 300,
       );
 
       final generator = await PaletteGenerator.fromImageProvider(
@@ -540,13 +561,13 @@ class PlayerProvider extends ChangeNotifier {
     if (_songs.isEmpty || _currentIndex < 0 || _currentIndex >= _songs.length) {
       return;
     }
+    await _prepare(_songs[_currentIndex], always: true);
     await _edit(() async {
       await _clearEphemeralUris();
       final sources = <AudioSource>[
         for (final song in _songs) await _buildSource(song),
       ];
       _loaded = true;
-      await _warm(_songs[_currentIndex]);
       await _player
           .setAudioSources(
             sources,
@@ -605,6 +626,22 @@ class PlayerProvider extends ChangeNotifier {
     if (subsonic == null) return;
     if (_downloadProvider?.getLocalPath(song.id) != null) return;
     await subsonic.warmStream(song.id);
+  }
+
+  // mpv gives up on a slow open after 5s, so on those platforms make sure
+  // the server has the file before pointing the player at it. pause only
+  // if that actually takes a moment so ready songs switch instantly
+  Future<void> _prepare(Song song, {bool always = false}) async {
+    if (always) await _player.pause();
+    if (!_usesMpv) return;
+    final warm = _warm(song);
+    final quick = await Future.any([
+      warm.then((_) => true),
+      Future<bool>.delayed(const Duration(milliseconds: 250), () => false),
+    ]);
+    if (quick) return;
+    if (!always) await _player.pause();
+    await warm;
   }
 
   void _warmNext() {

@@ -79,6 +79,7 @@ class AndroidAutoBridge extends CarBridge {
 
   @override
   Future<void> setRoot(List<CarPage> tabs) async {
+    _offsets.clear();
     final templates = tabs.map(_template).toList();
     try {
       await FlutterAndroidAuto.setRootTemplate(
@@ -86,7 +87,6 @@ class AndroidAutoBridge extends CarBridge {
             ? templates.single
             : AATabBarTemplate(tabs: templates),
       );
-      _offsets.clear();
       _templates
         ..clear()
         ..addEntries(templates.map((t) => MapEntry(t.uniqueId, t)));

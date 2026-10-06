@@ -723,6 +723,7 @@ class CarService {
       depth,
     );
   }
+
   // queue is a little weird
   List<CarSection> _queueSections() {
     final queue = _player.visibleQueue;

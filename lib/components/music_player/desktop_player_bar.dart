@@ -549,93 +549,94 @@ class _NowPlayingState extends State<_NowPlaying> {
         return Padding(
           padding: const EdgeInsets.only(top: _topGap),
           child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(end: showOverlay ? 1.0 : 0.0),
-                    duration: _hoverDuration,
-                    curve: Curves.easeOut,
-                    child: info,
-                    builder: (context, t, child) => Opacity(
-                      opacity: 1 - 0.55 * t,
-                      child: ImageFiltered(
-                        enabled: t > 0,
-                        imageFilter: ImageFilter.blur(
-                          sigmaX: 6 * t,
-                          sigmaY: 6 * t,
-                        ),
-                        child: child,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: IgnorePointer(
-                      child: AnimatedOpacity(
-                        opacity: showOverlay ? 1.0 : 0.0,
-                        duration: _hoverDuration,
-                        child: Row(
-                          children: [
-                            Text(
-                              formatTrackDuration(shownPosition.inSeconds),
-                              style: timeStyle,
-                            ),
-                            const Spacer(),
-                            Text(
-                              formatTrackDuration(duration.inSeconds),
-                              style: timeStyle,
-                            ),
-                          ],
+            children: [
+              Expanded(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(end: showOverlay ? 1.0 : 0.0),
+                      duration: _hoverDuration,
+                      curve: Curves.easeOut,
+                      child: info,
+                      builder: (context, t, child) => Opacity(
+                        opacity: 1 - 0.55 * t,
+                        child: ImageFiltered(
+                          enabled: t > 0,
+                          imageFilter: ImageFilter.blur(
+                            sigmaX: 6 * t,
+                            sigmaY: 6 * t,
+                          ),
+                          child: child,
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: AnimatedOpacity(
+                          opacity: showOverlay ? 1.0 : 0.0,
+                          duration: _hoverDuration,
+                          child: Row(
+                            children: [
+                              Text(
+                                formatTrackDuration(shownPosition.inSeconds),
+                                style: timeStyle,
+                              ),
+                              const Spacer(),
+                              Text(
+                                formatTrackDuration(duration.inSeconds),
+                                style: timeStyle,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) => setState(() => _hovered = true),
-              onExit: (_) => setState(() => _hovered = false),
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (e) =>
-                    _beginSeek(e.localPosition.dx, width, totalMs),
-                onPointerMove: (e) => _updateSeek(e.localPosition.dx, width),
-                onPointerUp: (_) => _endSeek(totalMs),
-                onPointerCancel: (_) => _endSeek(totalMs),
-                child: SizedBox(
-                  height: _seekRegionHeight,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: _seekBottomGap),
-                      child: AnimatedContainer(
-                        duration: _hoverDuration,
-                        curve: Curves.easeOut,
-                        height: showOverlay ? 6 : 2,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: colors.foreground.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: FractionallySizedBox(
-                            widthFactor: fraction,
-                            child: AnimatedContainer(
-                              duration: _hoverDuration,
-                              decoration: BoxDecoration(
-                                color: showOverlay
-                                    ? colors.foreground
-                                    : colors.mutedForeground,
-                                borderRadius: BorderRadius.circular(3),
+              MouseRegion(
+                cursor: SystemMouseCursors.click,
+                onEnter: (_) => setState(() => _hovered = true),
+                onExit: (_) => setState(() => _hovered = false),
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: (e) =>
+                      _beginSeek(e.localPosition.dx, width, totalMs),
+                  onPointerMove: (e) => _updateSeek(e.localPosition.dx, width),
+                  onPointerUp: (_) => _endSeek(totalMs),
+                  onPointerCancel: (_) => _endSeek(totalMs),
+                  child: SizedBox(
+                    height: _seekRegionHeight,
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: _seekBottomGap),
+                        child: AnimatedContainer(
+                          duration: _hoverDuration,
+                          curve: Curves.easeOut,
+                          height: showOverlay ? 6 : 2,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: colors.foreground.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: fraction,
+                              child: AnimatedContainer(
+                                duration: _hoverDuration,
+                                decoration: BoxDecoration(
+                                  color: showOverlay
+                                      ? colors.foreground
+                                      : colors.mutedForeground,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
                               ),
                             ),
                           ),
@@ -645,8 +646,7 @@ class _NowPlayingState extends State<_NowPlaying> {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
           ),
         );
       },

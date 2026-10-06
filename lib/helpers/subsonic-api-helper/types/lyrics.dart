@@ -5,13 +5,13 @@
 
 /// The primary lyric-layer classification of a [StructuredLyrics] entry.
 enum LyricsKind {
-  /// primary vocals 
+  /// primary vocals
   main,
 
   /// translation
   translation,
 
-  /// phonetic / romanised 
+  /// phonetic / romanised
   pronunciation;
 
   static LyricsKind fromString(String? raw) {

@@ -28,6 +28,8 @@ final _fakeSpotlightItems = List.generate(
   ),
 );
 
+final _spotlightMemory = <String, List<SpotlightItem>>{};
+
 class FeaturedSpotlight extends StatefulWidget {
   final Subsonic subsonic;
   final String accountId;
@@ -43,8 +45,6 @@ class FeaturedSpotlight extends StatefulWidget {
   @override
   State<FeaturedSpotlight> createState() => _FeaturedSpotlightState();
 }
-
-final _spotlightMemory = <String, List<SpotlightItem>>{};
 
 class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
   List<SpotlightItem>? _items;
@@ -64,7 +64,7 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           child: Text(
             'Featured',
             style: context.theme.typography.md.copyWith(
@@ -91,7 +91,10 @@ class _FeaturedSpotlightState extends State<FeaturedSpotlight> {
                 ),
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   itemCount: displayItems.length,
                   itemBuilder: (context, index) => Padding(
                     padding: const EdgeInsets.only(right: 12),
