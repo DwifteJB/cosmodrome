@@ -41,6 +41,7 @@ class CarArt {
 
   static Future<String?> _loadCover(Uri uri, String key) async {
     try {
+      // img is not "really" a file but it works cuz we just check magic bytes
       final file = File('${(await _directory()).path}/$key.img');
       if (!await file.exists() || await file.length() == 0) {
         final response = await http

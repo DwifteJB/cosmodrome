@@ -135,7 +135,7 @@ class RpcBridge extends ChangeNotifier {
       'paused': !playing,
     };
 
-    loggerPrint("[rpc:bridge]: Sending activity update: $activity");
+    loggerPrint("[rpc:bridge]: Sending activity update");
 
     _write(activity);
     _lastSongId = song.id;

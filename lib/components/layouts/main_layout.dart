@@ -17,6 +17,7 @@ import 'package:cosmodrome/components/desktop/desktop_profile_popover.dart';
 import 'package:cosmodrome/components/desktop/desktop_search_field.dart';
 import 'package:cosmodrome/components/desktop/desktop_titlebar.dart';
 import 'package:cosmodrome/components/desktop/desktop_layout.dart';
+import 'package:cosmodrome/components/desktop/desktop_page_scroll.dart';
 import 'package:cosmodrome/components/layouts/main_layout_sidebar.dart';
 import 'package:cosmodrome/components/layouts/mobile_layout.dart';
 import 'package:cosmodrome/components/music_player/desktop_player_bar.dart';
@@ -81,7 +82,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   final Map<String, bool> _desktopMenuHovered = {};
 
   final _mobileScrollController = ScrollController();
-  final _desktopScrollController = ScrollController();
   DesktopSidePanelMode? _panelMode;
   // keeps the content while the panel slides closed
   DesktopSidePanelMode _lastPanelMode = DesktopSidePanelMode.queue;
@@ -151,9 +151,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       _layoutConfig = LayoutConfig.empty;
       aniu.value = 0;
       if (_mobileScrollController.hasClients) _mobileScrollController.jumpTo(0);
-      if (_desktopScrollController.hasClients) {
-        _desktopScrollController.jumpTo(0);
-      }
       if (!_isMusicPageRoute(widget.selectedRoute)) {
         accentColorNotifier.value = null;
         coverUrlNotifier.value = null;
@@ -179,7 +176,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     _mobileSearchController.dispose();
     _mobileSearchFocus.dispose();
     _mobileScrollController.dispose();
-    _desktopScrollController.dispose();
+    desktopScrollOffset.removeListener(_onScroll);
 
     layoutConfig.removeListener(_onLayoutConfigChanged);
     detailPageActive.removeListener(_onDetailPageActiveChanged);
@@ -215,7 +212,7 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
     searchQuery.addListener(_searchQueryListener);
     if (_isSearchRoute(widget.selectedRoute)) _searchAnim.value = 1.0;
     _mobileScrollController.addListener(_onScroll);
-    _desktopScrollController.addListener(_onScroll);
+    desktopScrollOffset.addListener(_onScroll);
 
     layoutConfig.addListener(_onLayoutConfigChanged);
     detailPageActive.addListener(_onDetailPageActiveChanged);
@@ -305,7 +302,6 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
       onClosePanel: _closePanel,
       coverUrl: _coverUrl,
       coverVisible: _coverVisible,
-      scrollController: _desktopScrollController,
       topBar: topBar,
       sidePanelBuilder: (bottomInset) => DesktopSidePanel(
         mode: _panelMode ?? _lastPanelMode,
@@ -989,20 +985,16 @@ class _MainLayoutState extends State<MainLayout> with TickerProviderStateMixin {
   }
 
   void _onScroll() {
-    ScrollController? activeController;
-
-    if (_desktopScrollController.hasClients) {
-      activeController = _desktopScrollController;
+    final double offset;
+    if (_mobileScrollController.hasClients) {
+      if (_mobileScrollController.offset < 0) return;
+      offset = _mobileScrollController.offset;
+    } else {
+      offset = desktopScrollOffset.value;
     }
-    if (_mobileScrollController.hasClients &&
-        _mobileScrollController.offset >= 0) {
-      activeController = _mobileScrollController;
-    }
-
-    if (activeController == null) return;
 
     final maxScroll = 250.0;
-    var scrollOffset = activeController.offset.clamp(0.0, maxScroll);
+    var scrollOffset = offset.clamp(0.0, maxScroll);
     final opacity = scrollOffset / maxScroll;
 
     if (opacity != aniu.value) {

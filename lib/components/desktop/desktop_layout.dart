@@ -16,7 +16,6 @@ class DesktopLayout extends StatelessWidget {
   final VoidCallback onClosePanel;
   final String? coverUrl;
   final bool coverVisible;
-  final ScrollController scrollController;
   final Widget topBar;
   final Widget child;
   final Widget Function(double bottomInset) sidePanelBuilder;
@@ -30,7 +29,6 @@ class DesktopLayout extends StatelessWidget {
     required this.onClosePanel,
     required this.coverUrl,
     required this.coverVisible,
-    required this.scrollController,
     required this.topBar,
     required this.child,
     required this.sidePanelBuilder,
@@ -74,16 +72,9 @@ class DesktopLayout extends StatelessWidget {
                     children: [
                       topBar,
                       Expanded(
-                        child: SingleChildScrollView(
-                          controller: scrollController,
-                          // keep the last rows clear of the floating bar
-                          padding: const EdgeInsets.only(
-                            bottom: playerBarReserved + 16,
-                          ),
-                          child: KeyedSubtree(
-                            key: const ValueKey('desktop-child'),
-                            child: child,
-                          ),
+                        child: KeyedSubtree(
+                          key: const ValueKey('desktop-child'),
+                          child: child,
                         ),
                       ),
                     ],

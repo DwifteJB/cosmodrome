@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:cosmodrome/components/custom_scroll_behaviour.dart';
+import 'package:cosmodrome/components/desktop/desktop_page_scroll.dart';
 import 'package:cosmodrome/components/layouts/main_layout.dart';
 import 'package:cosmodrome/components/layouts/mobile_detail_layout.dart';
 import 'package:cosmodrome/components/music_player/fullscreen_player.dart';
@@ -121,7 +122,8 @@ void main() async {
 
 final downloadProvider = DownloadProvider();
 final isDesktop =
-    (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) && !const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false);
+    (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) &&
+    !const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false);
 final playerProvider = PlayerProvider()..setDownloadProvider(downloadProvider);
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
@@ -139,20 +141,18 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       routes: [
         GoRoute(
           path: '/home',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: HomePage()),
+          pageBuilder: (context, state) => _shellPage(const HomePage()),
         ),
 
         GoRoute(
           path: '/library',
-          pageBuilder: (context, state) =>
-              const NoTransitionPage(child: LibraryPage()),
+          pageBuilder: (context, state) => _shellPage(const LibraryPage()),
         ),
 
         GoRoute(
           path: '/search',
-          pageBuilder: (context, state) => NoTransitionPage(
-            child: isDesktop ? const DesktopSearchPage() : const SearchPage(),
+          pageBuilder: (context, state) => _shellPage(
+            isDesktop ? const DesktopSearchPage() : const SearchPage(),
           ),
         ),
 
@@ -161,9 +161,9 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
             path: '/library/album/:id',
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return NoTransitionPage(
+              return _shellPage(
                 key: ValueKey('album/$id'),
-                child: AlbumPage(albumId: id),
+                AlbumPage(albumId: id),
               );
             },
           ),
@@ -171,9 +171,9 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
             path: '/library/playlist/:id',
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return NoTransitionPage(
+              return _shellPage(
                 key: ValueKey('playlist/$id'),
-                child: PlaylistPage(playlistId: id),
+                PlaylistPage(playlistId: id),
               );
             },
           ),
@@ -181,9 +181,9 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
             path: '/artist-detail/:id',
             pageBuilder: (context, state) {
               final id = state.pathParameters['id']!;
-              return NoTransitionPage(
+              return _shellPage(
                 key: ValueKey('artist/$id'),
-                child: ArtistDetailPage(item: state.extra as SpotlightItem),
+                ArtistDetailPage(item: state.extra as SpotlightItem),
               );
             },
           ),
@@ -191,12 +191,12 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           GoRoute(
             path: '/library/recent',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: RecentAlbumsPage()),
+                _shellPage(const RecentAlbumsPage()),
           ),
           GoRoute(
             path: '/library/starred',
             pageBuilder: (context, state) =>
-                const NoTransitionPage(child: StarredAlbumsPage()),
+                _shellPage(const StarredAlbumsPage()),
           ),
         ],
       ],
@@ -242,6 +242,11 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       ),
     ),
   ],
+);
+
+Page<void> _shellPage(Widget child, {LocalKey? key}) => NoTransitionPage(
+  key: key,
+  child: isDesktop ? DesktopPageScroll(child: child) : child,
 );
 
 // full-screen detail page pushed over the shell on mobile

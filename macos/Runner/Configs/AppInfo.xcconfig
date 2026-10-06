@@ -11,5 +11,5 @@ PRODUCT_NAME = cosmodrome
 PRODUCT_BUNDLE_IDENTIFIER = me.rmfosho.cosmodrome
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Robbie Morgan. All rights reserved.
 
