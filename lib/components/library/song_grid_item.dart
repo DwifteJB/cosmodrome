@@ -3,12 +3,17 @@ import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
-class SongGridItem extends StatelessWidget {
+typedef SongGridTrailingBuilder =
+    Widget Function(BuildContext context, bool hovered);
+
+class SongGridItem extends StatefulWidget {
   final String? imageUrl;
   final String title;
   final String subtitle;
   final VoidCallback? onPlay;
   final VoidCallback? onLongPress;
+  final ValueChanged<Offset>? onContextMenu;
+  final SongGridTrailingBuilder? trailingBuilder;
 
   const SongGridItem({
     super.key,
@@ -17,13 +22,45 @@ class SongGridItem extends StatelessWidget {
     this.imageUrl,
     this.onPlay,
     this.onLongPress,
+    this.onContextMenu,
+    this.trailingBuilder,
   });
 
   @override
+  State<SongGridItem> createState() => _SongGridItemState();
+}
+
+class _SongGridItemState extends State<SongGridItem> {
+  bool _hovered = false;
+  bool? _pendingHovered;
+
+  bool get _visible => ModalRoute.isCurrentOf(context) ?? true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_pendingHovered != null && _visible) {
+      _hovered = _pendingHovered!;
+      _pendingHovered = null;
+    }
+  }
+
+  void _setHovered(bool hovered) {
+    if (_hovered == hovered) return;
+    if (!_visible) {
+      _pendingHovered = hovered;
+      return;
+    }
+    setState(() => _hovered = hovered);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TapArea(
-      onTap: onPlay,
-      onLongTap: onLongPress,
+    final onContextMenu = widget.onContextMenu;
+
+    Widget child = TapArea(
+      onTap: widget.onPlay,
+      onLongTap: onContextMenu == null ? widget.onLongPress : null,
       child: Padding(
         padding: const EdgeInsets.all(4),
         child: SizedBox(
@@ -34,9 +71,9 @@ class SongGridItem extends StatelessWidget {
                 aspectRatio: 1,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: imageUrl != null
+                  child: widget.imageUrl != null
                       ? Image(
-                          image: coverArtProvider(imageUrl!),
+                          image: coverArtProvider(widget.imageUrl!),
                           width: double.infinity,
                           height: double.infinity,
                           fit: BoxFit.cover,
@@ -68,7 +105,7 @@ class SongGridItem extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      title,
+                      widget.title,
                       style: context.theme.typography.sm.copyWith(
                         color: context.theme.colors.foreground,
                         fontWeight: FontWeight.w500,
@@ -78,7 +115,7 @@ class SongGridItem extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
+                      widget.subtitle,
                       style: context.theme.typography.xs.copyWith(
                         color: context.theme.colors.mutedForeground,
                       ),
@@ -88,12 +125,36 @@ class SongGridItem extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              if (widget.trailingBuilder != null) ...[
+                const SizedBox(width: 4),
+                widget.trailingBuilder!(context, _hovered),
+                const SizedBox(width: 4),
+              ] else
+                const SizedBox(width: 12),
             ],
           ),
         ),
       ),
     );
+
+    if (onContextMenu != null) {
+      child = GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onSecondaryTapUp: (d) => onContextMenu(d.globalPosition),
+        onLongPressStart: (d) => onContextMenu(d.globalPosition),
+        child: child,
+      );
+    }
+
+    if (widget.trailingBuilder != null) {
+      child = MouseRegion(
+        onEnter: (_) => _setHovered(true),
+        onExit: (_) => _setHovered(false),
+        child: child,
+      );
+    }
+
+    return child;
   }
 
   Widget _placeholder(BuildContext context, {Key? key}) => Container(

@@ -298,11 +298,9 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) => constraints.maxWidth < 700
-                ? _compactHeader(album, coverUrl)
-                : _wideHeader(album, coverUrl),
-          ),
+          AppLayout.desktopContentWidth(context) - 48 < 700
+              ? _compactHeader(album, coverUrl)
+              : _wideHeader(album, coverUrl),
           const SizedBox(height: 20),
           ..._trackList(
             album,

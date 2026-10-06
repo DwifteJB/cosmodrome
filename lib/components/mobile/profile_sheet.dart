@@ -1,4 +1,5 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use
+import 'package:cosmodrome/components/desktop/desktop_profile_popover.dart';
 import 'package:cosmodrome/components/forms/add_server_form.dart';
 import 'package:cosmodrome/components/forms/add_user_form.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
@@ -118,7 +119,11 @@ class _ProfileSheetState extends State<ProfileSheet> {
                       ),
                     ),
                     _buildAddButton(context, 'Add Account', () {
-                      context.push('/adduser');
+                      if (isMobile(context)) {
+                        context.push('/adduser');
+                      } else {
+                        _openAddAccountDialog(context);
+                      }
                     }),
                   ]),
                   const SizedBox(height: 8),
@@ -134,7 +139,11 @@ class _ProfileSheetState extends State<ProfileSheet> {
                       (server) => _buildServerRow(context, server),
                     ),
                     _buildAddButton(context, 'Add Server', () {
-                      context.push('/addserver');
+                      if (isMobile(context)) {
+                        context.push('/addserver');
+                      } else {
+                        _openAddServerDialog(context);
+                      }
                     }),
                   ]),
                   // clear cache button
@@ -475,6 +484,34 @@ class _ProfileSheetState extends State<ProfileSheet> {
     );
   }
 
+  void _openAddAccountDialog(BuildContext context) {
+    showFormDialog(
+      context,
+      'Add Account',
+      (dialogCtx) => AddUserForm(
+        onSuccess: () => Navigator.pop(dialogCtx),
+        onCancel: () => Navigator.pop(dialogCtx),
+        onAddServerPressed: () => _openAddServerDialog(context),
+      ),
+    );
+  }
+
+  Future<SubsonicServer?> _openAddServerDialog(BuildContext context) async {
+    SubsonicServer? result;
+    await showFormDialog(
+      context,
+      'Add Server',
+      (dialogCtx) => AddServerForm(
+        onSuccess: (server) {
+          result = server;
+          Navigator.pop(dialogCtx);
+        },
+        onCancel: () => Navigator.pop(dialogCtx),
+      ),
+    );
+    return result;
+  }
+
   void _openEditAccountSheet(BuildContext context, SubsonicAccount account) {
     _openFormSheet(
       context,
@@ -570,6 +607,10 @@ class _ProfileSheetState extends State<ProfileSheet> {
     String title,
     Widget Function(BuildContext sheetCtx) formBuilder,
   ) {
+    if (!isMobile(context)) {
+      showFormDialog(context, title, formBuilder);
+      return;
+    }
     showFSheet(
       context: context,
       side: FLayout.btt,

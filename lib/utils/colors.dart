@@ -14,4 +14,9 @@ abstract final class AppColors {
 
 abstract final class AppLayout {
   static const double sidebarWidth = 260;
+
+  // derived from the window instead of a LayoutBuilder, since pages that sit
+  // offstage behind a pushed route assert when a LayoutBuilder child rebuilds
+  static double desktopContentWidth(BuildContext context) =>
+      MediaQuery.sizeOf(context).width - sidebarWidth;
 }

@@ -7,12 +7,14 @@ import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 void showSongContextSheet(
   BuildContext context,
   Song song, {
   VoidCallback? onRemoveFromPlaylist,
+  bool showGoToAlbum = true,
 }) {
   showFSheet(
     context: context,
@@ -20,6 +22,7 @@ void showSongContextSheet(
     builder: (ctx) => _SongContextSheet(
       song: song,
       onRemoveFromPlaylist: onRemoveFromPlaylist,
+      showGoToAlbum: showGoToAlbum && song.albumId.isNotEmpty,
     ),
     useRootNavigator: true,
   );
@@ -30,8 +33,13 @@ enum _SheetMode { main, playlistPicker }
 class _SongContextSheet extends StatefulWidget {
   final Song song;
   final VoidCallback? onRemoveFromPlaylist;
+  final bool showGoToAlbum;
 
-  const _SongContextSheet({required this.song, this.onRemoveFromPlaylist});
+  const _SongContextSheet({
+    required this.song,
+    required this.showGoToAlbum,
+    this.onRemoveFromPlaylist,
+  });
 
   @override
   State<_SongContextSheet> createState() => _SongContextSheetState();
@@ -250,6 +258,12 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                 );
               },
             ),
+            if (widget.showGoToAlbum)
+              _actionTile(colors, Icons.album_outlined, 'Go to album', () {
+                final router = GoRouter.of(context);
+                Navigator.pop(context);
+                router.push('/library/album/${song.albumId}');
+              }),
             if (widget.onRemoveFromPlaylist != null)
               ListTile(
                 leading: const Icon(

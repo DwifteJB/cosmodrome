@@ -83,8 +83,9 @@ class PlayerProvider extends ChangeNotifier {
       notifyListeners();
     });
     _indexSub = _player.currentIndexStream.listen((index) {
-      if (_switching) return;
+      if (_switching || !_loaded) return;
       if (index == null || index == _currentIndex) return;
+      if (index < 0 || index >= _songs.length) return;
       _currentIndex = index;
       if (_editing == 0) _onCurrentIndexChanged();
       notifyListeners();
@@ -212,7 +213,7 @@ class PlayerProvider extends ChangeNotifier {
     if (!isSongPlayable(song)) return;
     final current = currentSong;
     if (!_loaded || current == null) {
-      final pos = _currentIndex < 0 ? 0 : _currentIndex;
+      final pos = _currentIndex.clamp(0, _songs.length);
       _songs.insert(pos, song);
       _unshuffled?.insert(_unshuffled!.length, song);
       _currentIndex = pos;

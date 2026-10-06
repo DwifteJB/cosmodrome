@@ -591,11 +591,9 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) => constraints.maxWidth < 700
-                ? _compactPlaylistHeader(playlist, coverUrl)
-                : _widePlaylistHeader(playlist, coverUrl),
-          ),
+          AppLayout.desktopContentWidth(context) - 48 < 700
+              ? _compactPlaylistHeader(playlist, coverUrl)
+              : _widePlaylistHeader(playlist, coverUrl),
           const SizedBox(height: 20),
           ...List.generate(visibleTrackCount, (index) {
             final song = _songs[index];

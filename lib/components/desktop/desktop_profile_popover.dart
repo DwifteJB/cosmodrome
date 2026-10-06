@@ -178,7 +178,7 @@ class _DesktopAccountPopoverContentState
   }
 
   void showEditAccountDialog(BuildContext ctx, SubsonicAccount account) {
-    _showFormDialog(
+    showFormDialog(
       ctx,
       'Edit Account',
       (dialogCtx) => AddUserForm(
@@ -190,7 +190,7 @@ class _DesktopAccountPopoverContentState
   }
 
   void showEditServerDialog(BuildContext ctx, SubsonicServer server) {
-    _showFormDialog(
+    showFormDialog(
       ctx,
       'Edit Server',
       (dialogCtx) => AddServerForm(
@@ -634,7 +634,7 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
   }
 
   void showAddAccountDialog(BuildContext ctx) {
-    _showFormDialog(
+    showFormDialog(
       ctx,
       'Add Account',
       (dialogCtx) => AddUserForm(
@@ -647,7 +647,7 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
 
   Future<SubsonicServer?> showAddServerDialog(BuildContext ctx) async {
     SubsonicServer? result;
-    await _showFormDialog(
+    await showFormDialog(
       ctx,
       'Add Server',
       (dialogCtx) => AddServerForm(
@@ -711,7 +711,7 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
 }
 
 /// Shows a titled dialog wrapping one of the add/edit account or server forms.
-Future<void> _showFormDialog(
+Future<void> showFormDialog(
   BuildContext ctx,
   String title,
   Widget Function(BuildContext dialogCtx) formBuilder,

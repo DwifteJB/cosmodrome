@@ -208,4 +208,21 @@ void main() {
     expect(player.currentSong?.id, 'z');
     expect(native().songIds, ['z']);
   });
+
+  test('playNow after resetQueue ignores a late index event', () async {
+    await player.playAlbum([song('a'), song('b'), song('c')]);
+    await settle();
+    final reset = player.resetQueue();
+    native().advance();
+    await reset;
+    expect(player.queue, isEmpty);
+    await player.playNow(song('z'));
+    await settle();
+    expect(ids(player.queue), ['z']);
+    expect(player.currentSong?.id, 'z');
+    expect(player.currentIndex, 0);
+    expect(native().songIds, ['z']);
+    expect(native().currentIndex, 0);
+    expect(native().playing, isTrue);
+  });
 }

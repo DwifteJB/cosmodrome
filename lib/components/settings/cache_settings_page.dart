@@ -19,56 +19,6 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
   bool _clearing = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadSizes();
-  }
-
-  Future<void> _loadSizes() async {
-    final provider = context.read<SubsonicProvider>();
-    final result = <String, int>{};
-    for (final account in provider.accounts) {
-      result[account.id] = await LocalStorageService.accountStorageBytes(
-        account.id,
-      );
-    }
-    if (mounted) {
-      setState(() {
-        _bytesByAccount = result;
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _clear(Iterable<String> accountIds) async {
-    setState(() => _clearing = true);
-    for (final id in accountIds) {
-      await offlineCacheService.clearCacheForAccount(id);
-    }
-    await _loadSizes();
-    setState(() => _clearing = false);
-  }
-
-  Future<void> _clearAll() => _clear(
-    context.read<SubsonicProvider>().accounts.map((account) => account.id),
-  );
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
-
-  Widget _spinner(double size, Color color) => SizedBox(
-    width: size,
-    height: size,
-    child: CircularProgressIndicator(strokeWidth: 2, color: color),
-  );
-
-  @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final provider = context.watch<SubsonicProvider>();
@@ -173,7 +123,7 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
                   )
                 else ...[
                   Text(
-                    'Per Account',
+                    'Account sizes',
                     style: context.theme.typography.sm.copyWith(
                       color: colors.mutedForeground,
                       fontWeight: FontWeight.w600,
@@ -265,4 +215,54 @@ class _CacheSettingsPageState extends State<CacheSettingsPage> {
       ],
     );
   }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSizes();
+  }
+
+  Future<void> _clear(Iterable<String> accountIds) async {
+    setState(() => _clearing = true);
+    for (final id in accountIds) {
+      await offlineCacheService.clearCacheForAccount(id);
+    }
+    await _loadSizes();
+    setState(() => _clearing = false);
+  }
+
+  Future<void> _clearAll() => _clear(
+    context.read<SubsonicProvider>().accounts.map((account) => account.id),
+  );
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  Future<void> _loadSizes() async {
+    final provider = context.read<SubsonicProvider>();
+    final result = <String, int>{};
+    for (final account in provider.accounts) {
+      result[account.id] = await LocalStorageService.accountStorageBytes(
+        account.id,
+      );
+    }
+    if (mounted) {
+      setState(() {
+        _bytesByAccount = result;
+        _loading = false;
+      });
+    }
+  }
+
+  Widget _spinner(double size, Color color) => SizedBox(
+    width: size,
+    height: size,
+    child: CircularProgressIndicator(strokeWidth: 2, color: color),
+  );
 }

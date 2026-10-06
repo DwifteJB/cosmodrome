@@ -136,6 +136,7 @@ class MusicPageMobileTrackTile extends StatelessWidget {
                   context,
                   song,
                   onRemoveFromPlaylist: onRemove,
+                  showGoToAlbum: isPlaylist,
                 )
               : null,
           child: Padding(
@@ -275,6 +276,12 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
             ? (widget.onTap ??
                   () => context.read<PlayerProvider>().playNow(song))
             : null,
+        onSecondaryTapUp: widget.enabled
+            ? (d) => _showContextMenu(d.globalPosition)
+            : null,
+        onLongPressStart: widget.enabled
+            ? (d) => _showContextMenu(d.globalPosition)
+            : null,
         child: MouseRegion(
           cursor: widget.enabled
               ? SystemMouseCursors.click
@@ -388,6 +395,9 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
     return DesktopSongPopover(
       song: widget.song,
       onRemoveFromPlaylist: widget.onRemove,
+      onGoToAlbum: widget.isPlaylist
+          ? goToAlbumAction(context, widget.song)
+          : null,
       onShownChanged: _onMenuShownChanged,
       builder: (context, controller) => TweenAnimationBuilder<double>(
         tween: Tween(begin: 0, end: _isHovered ? 1 : 0),
@@ -404,21 +414,36 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
     );
   }
 
+  void _showContextMenu(Offset position) => showSongContextMenuAt(
+    context,
+    widget.song,
+    position,
+    onRemoveFromPlaylist: widget.onRemove,
+    showGoToAlbum: widget.isPlaylist,
+  );
+
   void _onMenuShownChanged(bool shown) {
     _menuOpen = shown;
     if (!shown) _scheduleMenuUnmount();
   }
 
+  bool get _visible => ModalRoute.isCurrentOf(context) ?? true;
+
   void _scheduleMenuUnmount() {
     _menuUnmountTimer?.cancel();
     _menuUnmountTimer = Timer(const Duration(milliseconds: 250), () {
       if (!mounted || _isHovered || _menuOpen || !_menuMounted) return;
+      if (!_visible) return;
       setState(() => _menuMounted = false);
     });
   }
 
   void _setHovered(bool hovered) {
     if (!widget.enabled) return;
+    if (!_visible) {
+      _isHovered = hovered;
+      return;
+    }
     setState(() {
       _isHovered = hovered;
       if (hovered) _menuMounted = true;
