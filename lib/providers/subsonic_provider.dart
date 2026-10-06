@@ -28,6 +28,7 @@ class SubsonicProvider extends ChangeNotifier {
   String? _activeId;
   String? _errorMessage;
   bool _isOffline = false;
+  int _pingFailures = 0;
   bool _canPollConnectivity = true;
   bool _connectivityCheckInFlight = false;
   Timer? _connectivityPoller;
@@ -167,13 +168,17 @@ class SubsonicProvider extends ChangeNotifier {
       // ping never throws, it reports failures in its result
       final result = await account.subsonic.ping(timeoutSeconds: 3);
       // auth errors mean we can still "connect" with proper creds
-      final offline = !result.success && result.errorCode == null;
+      final failed = !result.success && result.errorCode == null;
 
-      if (offline) {
+      if (failed) {
+        _pingFailures++;
         _recordServerFailure(account.baseUrl, now);
       } else {
+        _pingFailures = 0;
         _recordServerSuccess(account.baseUrl);
       }
+      // one blip shouldn't lock the ui, wait for a second miss
+      final offline = failed && (_isOffline || _pingFailures >= 2);
 
       var changed = false;
       if (_isOffline != offline) {
