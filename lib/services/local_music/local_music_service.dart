@@ -16,20 +16,28 @@ const localIdPrefix = 'local-';
 const localArtPrefix = 'local-art-';
 const localArtScheme = 'local-art';
 const localFilesAlbumId = 'local-files';
+const localAlbumPrefix = 'local-album-';
+const localArtistPrefix = 'local-artist-';
+const localPlaylistPrefix = 'local-playlist-';
 
 // todo: l10n?
 const localFilesAlbumName = 'Local Files';
 
 const _store = 'local';
 const _indexKey = 'library';
-const _indexVersion = 1;
+const _indexVersion = 2;
 const _matchesKey = 'local_album_matches';
 const _playlistsKey = 'local_playlist_entries';
 
 bool isLocalSongId(String id) =>
     id.startsWith(localIdPrefix) &&
     !id.startsWith(localArtPrefix) &&
+    !id.startsWith(localAlbumPrefix) &&
+    !id.startsWith(localArtistPrefix) &&
+    !id.startsWith(localPlaylistPrefix) &&
     id != localFilesAlbumId;
+
+String _hash(String value) => md5.convert(utf8.encode(value)).toString();
 
 bool isLocalArtId(String id) => id.startsWith(localArtPrefix);
 
@@ -47,6 +55,8 @@ class LocalMusicService extends ChangeNotifier {
   final Set<String> _attempted = {};
   bool _matching = false;
 
+  bool _localMode = false;
+
   Future<void>? _loading;
   Future<void>? _scanning;
   Future<void>? _accountLoading;
@@ -58,6 +68,8 @@ class LocalMusicService extends ChangeNotifier {
   String? get musicDirectory => LocalStorageService.localMusicDirectory;
 
   List<Song> get songs => _sorted(_resolvedSongs.values);
+
+  LocalTrack? track(String id) => _tracks[id];
 
   Map<String, Song> get _resolvedSongs => _resolved ??= {
     for (final track in _tracks.values) track.song.id: _resolve(track),
@@ -254,7 +266,7 @@ class LocalMusicService extends ChangeNotifier {
 
   // get id3 tags & parse
   Future<LocalTrack> _readTrack(LocalMusicFile file) async {
-    final hash = md5.convert(utf8.encode(file.name)).toString();
+    final hash = _hash(file.name);
     final id = '$localIdPrefix$hash';
     final tags = await readLocalTags(file.ref) ?? _tagsFromName(file.name);
 
@@ -292,6 +304,8 @@ class LocalMusicService extends ChangeNotifier {
       size: file.size,
       modified: file.modified,
       albumArtist: tags.albumArtist,
+      year: tags.year,
+      genre: tags.genre,
       song: song,
     );
   }
@@ -366,6 +380,13 @@ class LocalMusicService extends ChangeNotifier {
   }
 
   Song _resolve(LocalTrack track) {
+    if (_localMode) {
+      return Song.fromJson({
+        ...track.song.toJson(),
+        'albumId': track.localAlbumId,
+        'artistId': track.localArtistId,
+      });
+    }
     final key = track.albumKey;
     final match = key == null ? null : _matches[key];
     if (match == null) return track.song;
@@ -399,9 +420,12 @@ class LocalMusicService extends ChangeNotifier {
   void _onProviderChanged() {
     final provider = _provider;
     if (provider == null) return;
-    final accountId = provider.activeAccount?.id;
-    if (accountId != _accountId) {
+    final account = provider.activeAccount;
+    final localMode = account?.isLocal ?? false;
+    final accountId = localMode ? null : account?.id;
+    if (accountId != _accountId || localMode != _localMode) {
       _accountId = accountId;
+      _localMode = localMode;
       _matches = {};
       _playlists = {};
       _attempted.clear();
@@ -722,6 +746,8 @@ class LocalTrack {
   final int size;
   final int modified;
   final String? albumArtist;
+  final int? year;
+  final String? genre;
   final Song song;
 
   const LocalTrack({
@@ -731,6 +757,8 @@ class LocalTrack {
     required this.modified,
     required this.song,
     this.albumArtist,
+    this.year,
+    this.genre,
   });
 
   factory LocalTrack.fromJson(Map<String, dynamic> json) => LocalTrack(
@@ -739,8 +767,26 @@ class LocalTrack {
     size: (json['size'] as num).toInt(),
     modified: (json['modified'] as num).toInt(),
     albumArtist: json['albumArtist'] as String?,
+    year: (json['year'] as num?)?.toInt(),
+    genre: json['genre'] as String?,
     song: Song.fromJson(json['song'] as Map<String, dynamic>),
   );
+
+  String get albumName => _text(song.album) ?? 'Unknown Album';
+
+  String get albumArtistName =>
+      _text(albumArtist) ?? _text(song.artist) ?? 'Unknown Artist';
+
+  String get localAlbumId =>
+      '$localAlbumPrefix${_hash('${albumArtistName.toLowerCase()}|${albumName.toLowerCase()}')}';
+
+  String get localArtistId =>
+      '$localArtistPrefix${_hash(albumArtistName.toLowerCase())}';
+
+  static String? _text(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
 
   String? get albumKey {
     final album = song.album?.trim().toLowerCase();
@@ -755,6 +801,8 @@ class LocalTrack {
     size: size,
     modified: modified,
     albumArtist: albumArtist,
+    year: year,
+    genre: genre,
     song: song,
   );
 
@@ -764,6 +812,8 @@ class LocalTrack {
     'size': size,
     'modified': modified,
     'albumArtist': ?albumArtist,
+    'year': ?year,
+    'genre': ?genre,
     'song': song.toJson(),
   };
 }

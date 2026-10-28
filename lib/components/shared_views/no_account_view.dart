@@ -5,9 +5,8 @@ class NoAccountView extends StatelessWidget {
   const NoAccountView({super.key});
   @override
   Widget build(BuildContext context) {
-    // background of a bunch of shimmering album cards in a row
-    // so grid based layout that it looks like a music library, but the cards are just gray boxes with a shimmer effect
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

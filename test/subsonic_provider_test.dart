@@ -11,6 +11,9 @@ Subsonic subsonic(String baseUrl) =>
     Subsonic(baseUrl: baseUrl, username: 'tester', password: 'pw');
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = null;
+
   group('server urls', () {
     test('https is kept', () {
       final uri = Uri.parse(
@@ -110,6 +113,20 @@ void main() {
       // the live server shows up while the silent ones are still pending
       await liveSeen.future.timeout(const Duration(seconds: 2));
       expect(provider.knownServers.first.canConnect, isFalse);
+      expect(provider.activeAccount?.isLocal, isTrue);
     });
+  });
+
+  test('local files account is always there and cannot be removed', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final provider = SubsonicProvider();
+    await provider.tryRestoreSession();
+
+    final local = provider.accounts.single;
+    expect(local.isLocal, isTrue);
+    expect(provider.activeAccount?.id, local.id);
+
+    await provider.removeAccount(local.id);
+    expect(provider.accounts.single.id, local.id);
   });
 }

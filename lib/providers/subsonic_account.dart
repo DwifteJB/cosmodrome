@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/subsonic-user.dart';
+import 'package:cosmodrome/services/local_music/local_subsonic/master_subsonic.dart';
 
 class SubsonicAccount {
   // id is username@baseUrl
@@ -26,15 +27,31 @@ class SubsonicAccount {
     required this.user,
     this.timeoutSeconds = 15,
     SubsonicLoginMethod loginMethod = SubsonicLoginMethod.undetermined,
+    Subsonic? subsonic,
   }) : id = '$username@$baseUrl',
-       subsonic = Subsonic(
-         baseUrl: baseUrl,
-         username: username,
-         password: password,
-         timeoutSeconds: timeoutSeconds,
-       ) {
-    subsonic.loginMethod = loginMethod;
+       subsonic =
+           subsonic ??
+           Subsonic(
+             baseUrl: baseUrl,
+             username: username,
+             password: password,
+             timeoutSeconds: timeoutSeconds,
+           ) {
+    this.subsonic.loginMethod = subsonic?.loginMethod ?? loginMethod;
   }
+
+  factory SubsonicAccount.local() {
+    final subsonic = MasterSubsonic();
+    return SubsonicAccount(
+      baseUrl: localBaseUrl,
+      username: localUsername,
+      password: '',
+      user: subsonic.user,
+      subsonic: subsonic,
+    );
+  }
+
+  bool get isLocal => subsonic.isLocal;
 
   factory SubsonicAccount.fromJson(Map<String, dynamic> json) {
     return SubsonicAccount(

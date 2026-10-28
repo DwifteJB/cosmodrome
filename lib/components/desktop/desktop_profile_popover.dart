@@ -5,6 +5,7 @@ import 'package:cosmodrome/components/forms/add_user_form.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_subsonic/master_subsonic.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/scanning/scan_notifier.dart';
 import 'package:flutter/material.dart';
@@ -222,11 +223,7 @@ class _DesktopAccountPopoverContentState
   ) {
     // get server for account
     final provider = context.read<SubsonicProvider>();
-    final server = provider.knownServers.firstWhere(
-      (s) => s.baseUrl == account.baseUrl,
-      orElse: () =>
-          SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
-    );
+    final server = provider.serverFor(account.baseUrl);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -386,10 +383,7 @@ class _DesktopAccountPopoverContentState
   ) {
     final colors = context.theme.colors;
 
-    final server = provider.knownServers.firstWhere(
-      (s) => s.baseUrl == baseUrl,
-      orElse: () => SubsonicServer(baseUrl: baseUrl, name: baseUrl),
-    );
+    final server = provider.serverFor(baseUrl);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -397,7 +391,7 @@ class _DesktopAccountPopoverContentState
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Text(
-            "${server.name} ($baseUrl)",
+            baseUrl == localBaseUrl ? server.name : "${server.name} ($baseUrl)",
             style: context.theme.typography.xs.copyWith(
               color: colors.mutedForeground,
             ),
@@ -448,8 +442,12 @@ class _DesktopAccountPopoverContentState
                     if (_hoveredItems.contains(key))
                       _buildHoverActions(
                         colors,
-                        onEdit: () => showEditAccountDialog(context, account),
-                        onDelete: () => provider.removeAccount(account.id),
+                        onEdit: account.isLocal
+                            ? null
+                            : () => showEditAccountDialog(context, account),
+                        onDelete: account.isLocal
+                            ? null
+                            : () => provider.removeAccount(account.id),
                       )
                     else if (isActive)
                       Icon(FIcons.check, size: 16, color: colors.primary),
@@ -524,24 +522,27 @@ class _DesktopAccountPopoverContentState
   /// popover first.
   Widget _buildHoverActions(
     FColors colors, {
-    required VoidCallback onEdit,
-    required VoidCallback onDelete,
+    required VoidCallback? onEdit,
+    required VoidCallback? onDelete,
   }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          onTap: () {
-            widget.onClose();
-            onEdit();
-          },
-          child: Icon(FIcons.pencil, size: 16, color: colors.mutedForeground),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: onDelete,
-          child: const Icon(FIcons.trash2, size: 16, color: Colors.red),
-        ),
+        if (onEdit != null) ...[
+          GestureDetector(
+            onTap: () {
+              widget.onClose();
+              onEdit();
+            },
+            child: Icon(FIcons.pencil, size: 16, color: colors.mutedForeground),
+          ),
+          const SizedBox(width: 8),
+        ],
+        if (onDelete != null)
+          GestureDetector(
+            onTap: onDelete,
+            child: const Icon(FIcons.trash2, size: 16, color: Colors.red),
+          ),
       ],
     );
   }

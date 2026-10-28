@@ -6,6 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/user.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
+import 'package:cosmodrome/services/local_music/local_subsonic/master_subsonic.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/widgets.dart';
@@ -131,6 +132,20 @@ class SubsonicProvider extends ChangeNotifier {
     }
   }
 
+  SubsonicServer serverFor(String baseUrl) {
+    if (baseUrl == localBaseUrl) {
+      return SubsonicServer(
+        baseUrl: localBaseUrl,
+        name: localServerName,
+        canConnect: true,
+      );
+    }
+    return knownServers.firstWhere(
+      (s) => s.baseUrl == baseUrl,
+      orElse: () => SubsonicServer(baseUrl: baseUrl, name: baseUrl),
+    );
+  }
+
   Future<bool> addKnownServer(
     String baseUrl, {
     String? name,
@@ -231,6 +246,7 @@ class SubsonicProvider extends ChangeNotifier {
   /// Removes an account by id. If it was the active account, switches to
   /// the next available one (or sets unauthenticated if none remain).
   Future<void> removeAccount(String id) async {
+    if (_accounts.any((a) => a.id == id && a.isLocal)) return;
     _accounts.removeWhere((a) => a.id == id);
     loggerPrint('SubsonicProvider: removed account $id');
 
@@ -411,25 +427,23 @@ class SubsonicProvider extends ChangeNotifier {
 
     if (raw == null) {
       loggerPrint('SubsonicProvider: no saved accounts');
-      return _setState(AuthState.unauthenticated);
-    }
-
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      for (final item in list) {
-        final account = SubsonicAccount.fromJson(item as Map<String, dynamic>);
-        _accounts.add(account);
-        loggerPrint('SubsonicProvider: restored account ${account.id}');
+    } else {
+      try {
+        final list = jsonDecode(raw) as List<dynamic>;
+        for (final item in list.cast<Map<String, dynamic>>()) {
+          if (item['local'] == true) continue;
+          final account = SubsonicAccount.fromJson(item);
+          _accounts.add(account);
+          loggerPrint('SubsonicProvider: restored account ${account.id}');
+        }
+      } catch (e) {
+        loggerPrint('SubsonicProvider: failed to restore accounts - $e');
+        _accounts.clear();
+        await _storage.delete(key: _keyAccounts);
       }
-    } catch (e) {
-      loggerPrint('SubsonicProvider: failed to restore accounts - $e');
-      await _storage.delete(key: _keyAccounts);
-      return _setState(AuthState.unauthenticated);
     }
 
-    if (_accounts.isEmpty) {
-      return _setState(AuthState.unauthenticated);
-    }
+    _accounts.add(SubsonicAccount.local());
 
     // restore active account, default to first if missing or invalid
     _activeId = _accounts.any((a) => a.id == activeId)
@@ -528,7 +542,10 @@ class SubsonicProvider extends ChangeNotifier {
 
   // saves accounts to storage! saving!
   Future<void> _persist() async {
-    final json = jsonEncode(_accounts.map((a) => a.toJson()).toList());
+    final json = jsonEncode([
+      for (final a in _accounts)
+        if (!a.isLocal) a.toJson(),
+    ]);
     await _storage.write(key: _keyAccounts, value: json);
     if (_activeId != null) {
       await _storage.write(key: _keyActiveId, value: _activeId);

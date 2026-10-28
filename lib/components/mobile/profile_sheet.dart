@@ -4,6 +4,7 @@ import 'package:cosmodrome/components/forms/add_server_form.dart';
 import 'package:cosmodrome/components/forms/add_user_form.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_subsonic/master_subsonic.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/scanning/scan_notifier.dart';
@@ -199,11 +200,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
     FColors colors,
   ) {
     final provider = context.read<SubsonicProvider>();
-    final server = provider.knownServers.firstWhere(
-      (s) => s.baseUrl == account.baseUrl,
-      orElse: () =>
-          SubsonicServer(baseUrl: account.baseUrl, name: account.baseUrl),
-    );
+    final server = provider.serverFor(account.baseUrl);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -389,10 +386,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
   ) {
     final colors = context.theme.colors;
 
-    final server = provider.knownServers.firstWhere(
-      (s) => s.baseUrl == baseUrl,
-      orElse: () => SubsonicServer(baseUrl: baseUrl, name: baseUrl),
-    );
+    final server = provider.serverFor(baseUrl);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -400,7 +394,7 @@ class _ProfileSheetState extends State<ProfileSheet> {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
           child: Text(
-            "${server.name} ($baseUrl)",
+            baseUrl == localBaseUrl ? server.name : "${server.name} ($baseUrl)",
             style: context.theme.typography.xs.copyWith(
               color: colors.mutedForeground,
             ),
@@ -413,7 +407,9 @@ class _ProfileSheetState extends State<ProfileSheet> {
 
           return Dismissible(
             key: ValueKey(account.id),
-            direction: DismissDirection.endToStart,
+            direction: account.isLocal
+                ? DismissDirection.none
+                : DismissDirection.endToStart,
             onDismissed: (_) => provider.removeAccount(account.id),
             background: const SizedBox.shrink(),
             secondaryBackground: _deleteBackground,
@@ -454,20 +450,21 @@ class _ProfileSheetState extends State<ProfileSheet> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        GestureDetector(
-                          onTap: () {
-                            _openEditAccountSheet(context, account);
-                          },
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: Icon(
-                              FIcons.pencil,
-                              size: 16,
-                              color: colors.mutedForeground,
+                        if (!account.isLocal)
+                          GestureDetector(
+                            onTap: () {
+                              _openEditAccountSheet(context, account);
+                            },
+                            behavior: HitTestBehavior.opaque,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Icon(
+                                FIcons.pencil,
+                                size: 16,
+                                color: colors.mutedForeground,
+                              ),
                             ),
                           ),
-                        ),
                         if (isActive) ...[
                           const SizedBox(width: 8),
                           Icon(FIcons.check, size: 16, color: colors.primary),

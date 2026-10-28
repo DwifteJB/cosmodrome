@@ -293,7 +293,7 @@ extension SubsonicBrowsingApi on Subsonic {
   }
 
   Future<Song?> getSong(String id) async {
-    if (isLocalSongId(id)) return localMusicService.song(id);
+    if (!isLocal && isLocalSongId(id)) return localMusicService.song(id);
     try {
       final response = await apiRequest('getSong', params: {'id': id});
       final songJson = response['song'] as Map<String, dynamic>?;
@@ -327,11 +327,13 @@ extension SubsonicBrowsingApi on Subsonic {
     List<String> songIds,
   ) async {
     try {
-      final serverIds = await localMusicService.reorderPlaylist(
-        _accountId,
-        playlistId,
-        songIds,
-      );
+      final serverIds = isLocal
+          ? songIds
+          : await localMusicService.reorderPlaylist(
+              _accountId,
+              playlistId,
+              songIds,
+            );
       await multiParamRequest(
         'createPlaylist',
         params: {'playlistId': playlistId, 'songId': serverIds},
@@ -388,18 +390,18 @@ extension SubsonicBrowsingApi on Subsonic {
       );
       final songs = response['searchResult3']?['song'] as List<dynamic>? ?? [];
       return [
-        if (offset == 0) ...localMusicService.search(q),
+        if (offset == 0 && !isLocal) ...localMusicService.search(q),
         ...songs.map((s) => Song.fromJson(s as Map<String, dynamic>)),
       ];
     } catch (e) {
       loggerPrint('Error searching songs: $e');
-      return offset == 0 ? localMusicService.search(q) : [];
+      return offset == 0 && !isLocal ? localMusicService.search(q) : [];
     }
   }
 
   // https://www.subsonic.org/pages/api.jsp#star
   Future<bool> starAlbum(String albumId) async {
-    if (albumId.startsWith(localIdPrefix)) return false;
+    if (!isLocal && albumId.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('star', params: {'albumId': albumId});
 
@@ -417,7 +419,7 @@ extension SubsonicBrowsingApi on Subsonic {
   Future<bool> starArtist(String artistId) => _setArtistStarred(artistId, true);
 
   Future<bool> starSong(String id) async {
-    if (id.startsWith(localIdPrefix)) return false;
+    if (!isLocal && id.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('star', params: {'id': id});
       clearCacheStartingWith("getAlbum");
@@ -430,7 +432,7 @@ extension SubsonicBrowsingApi on Subsonic {
 
   // https://www.subsonic.org/pages/api.jsp#unstar
   Future<bool> unstarAlbum(String albumId) async {
-    if (albumId.startsWith(localIdPrefix)) return false;
+    if (!isLocal && albumId.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('unstar', params: {'albumId': albumId});
 
@@ -448,7 +450,7 @@ extension SubsonicBrowsingApi on Subsonic {
       _setArtistStarred(artistId, false);
 
   Future<bool> unstarSong(String id) async {
-    if (id.startsWith(localIdPrefix)) return false;
+    if (!isLocal && id.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('unstar', params: {'id': id});
       clearCacheStartingWith("getAlbum");
@@ -467,7 +469,7 @@ extension SubsonicBrowsingApi on Subsonic {
     int? songIndexToRemove,
   }) async {
     try {
-      if (songIdToAdd != null && isLocalSongId(songIdToAdd)) {
+      if (!isLocal && songIdToAdd != null && isLocalSongId(songIdToAdd)) {
         final server = await _getServerPlaylist(playlistId);
         await localMusicService.addToPlaylist(
           _accountId,

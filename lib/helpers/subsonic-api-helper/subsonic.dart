@@ -33,6 +33,8 @@ class Subsonic {
 
   SubsonicLoginMethod loginMethod = SubsonicLoginMethod.undetermined;
 
+  bool get isLocal => false;
+
   Subsonic({
     required String baseUrl,
     required String username,

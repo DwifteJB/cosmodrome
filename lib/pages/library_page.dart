@@ -81,7 +81,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       case CurrentMobileView.albums:
         final local = context.watch<LocalMusicService>().localFilesSummary;
         return _buildGrid(
-          items: [local, ..._albums],
+          items: [if (!subsonic.isLocal) local, ..._albums],
           itemBuilder: (ctx, album, _) => LibraryGridItem(
             imageUrl: coverUrl(album.coverArt),
             title: album.name,

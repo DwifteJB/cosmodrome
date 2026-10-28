@@ -14,6 +14,7 @@ linux-and-android:
 	DOCKER_BUILDKIT=1 docker build --target export --output ./output .
 
 macos-local:
+	@test -n "$(IDENTITY)" || (echo "IDENTITY is not set, add it to .env (use: security find-identity -v -p codesigning)" && exit 1)
 	rm -rf ./output
 	flutter pub get
 	flutter build macos --release
@@ -72,7 +73,7 @@ macos-local:
 	mkdir -p ./output
 	ditto -c -k --keepParent --norsrc --noextattr --noqtn "$(APP_PATH)" ./output/app-unnotarized.zip
 
-	@echo "Build complete: $(APP_PATH)"#
+	@echo "Build complete: $(APP_PATH)"
 
 
 macos-notarize:
