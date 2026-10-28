@@ -19,6 +19,7 @@ class IoLocalStorageBackend implements LocalStorageBackend {
 
   static const _accountSubdirs = ['cached-images', 'cache'];
   static const _downloadsFolder = 'Downloaded';
+  static const _cacheFolder = '.cache';
 
   @override
   String? get downloadsDirectory => _downloadsPath;
@@ -99,7 +100,7 @@ class IoLocalStorageBackend implements LocalStorageBackend {
   Future<void> init() async {
     final docs = (await getApplicationDocumentsDirectory()).path;
     final legacyBase = Platform.isLinux
-        ? '${Directory.current.path}/cache'
+        ? '${File(Platform.resolvedExecutable).parent.path}/cache'
         : '$docs/cosmodrome';
 
     if (Platform.isIOS) {
@@ -108,16 +109,16 @@ class IoLocalStorageBackend implements LocalStorageBackend {
       _downloadsPath = '$docs/$_downloadsFolder';
       _musicPath = docs;
     } else if (Platform.isLinux) {
-      _basePath = legacyBase;
+      _basePath = '$legacyBase/$_cacheFolder';
       _downloadsPath = '$legacyBase/$_downloadsFolder';
       _musicPath = '$docs/cosmodrome/Music';
     } else if (Platform.isAndroid) {
       final external = await getExternalStorageDirectory();
-      _basePath = legacyBase;
+      _basePath = '$legacyBase/$_cacheFolder';
       _downloadsPath = '${external?.path ?? legacyBase}/$_downloadsFolder';
       _musicPath = '${external?.path ?? legacyBase}/Music';
     } else {
-      _basePath = legacyBase;
+      _basePath = '$legacyBase/$_cacheFolder';
       _downloadsPath = '$legacyBase/$_downloadsFolder';
       _musicPath = '$legacyBase/Music';
     }
@@ -139,7 +140,8 @@ class IoLocalStorageBackend implements LocalStorageBackend {
     await for (final entity in legacy.list(followLinks: false)) {
       if (entity is! Directory) continue;
       final accountId = entity.uri.pathSegments.where((s) => s.isNotEmpty).last;
-      if (skip.contains(accountId)) continue;
+      if (skip.contains(accountId) || accountId.startsWith('.')) continue;
+      if (!await _isAccountDir(entity)) continue;
 
       final songs = Directory('${entity.path}/songs');
       if (await songs.exists()) {
@@ -166,6 +168,13 @@ class IoLocalStorageBackend implements LocalStorageBackend {
     if (legacyBase != _base && await legacy.list().isEmpty) {
       await legacy.delete();
     }
+  }
+
+  Future<bool> _isAccountDir(Directory dir) async {
+    for (final subdir in [..._accountSubdirs, 'songs']) {
+      if (await Directory('${dir.path}/$subdir').exists()) return true;
+    }
+    return false;
   }
 
   Future<void> _move(File file, String to) async {

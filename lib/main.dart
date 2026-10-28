@@ -36,6 +36,7 @@ import 'package:cosmodrome/services/offline_cache_service.dart'
     show SpotlightItem;
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +138,7 @@ final downloadProvider = DownloadProvider();
 final isDesktop =
     (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) &&
     !const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false);
+final _detailRoutesInShell = isDesktop || kIsWeb;
 final playerProvider = PlayerProvider()..setDownloadProvider(downloadProvider);
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
@@ -169,7 +171,7 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
           ),
         ),
 
-        if (isDesktop) ...[
+        if (_detailRoutesInShell) ...[
           GoRoute(
             path: '/library/album/:id',
             pageBuilder: (context, state) {
@@ -229,7 +231,7 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       },
     ),
 
-    if (!isDesktop) ...[
+    if (!_detailRoutesInShell) ...[
       _mobileDetailRoute(
         '/library/album/:id',
         (state) => AlbumPage(albumId: state.pathParameters['id']!),
@@ -283,7 +285,10 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
 
 Page<void> _shellPage(Widget child, {LocalKey? key}) => NoTransitionPage(
   key: key,
-  child: isDesktop ? DesktopPageScroll(child: child) : child,
+  child: Builder(
+    builder: (context) =>
+        isMobileView(context) ? child : DesktopPageScroll(child: child),
+  ),
 );
 
 // full-screen detail page pushed over the shell on mobile
