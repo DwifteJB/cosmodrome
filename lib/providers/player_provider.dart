@@ -6,6 +6,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/services/play_history_service.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
@@ -170,6 +171,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   bool isSongPlayable(Song song) {
+    if (isLocalSongId(song.id)) return localMusicService.song(song.id) != null;
     if (!(_subsonicProvider?.isOffline ?? false)) return true;
     return _downloadProvider?.isSongDownloaded(song.id) ?? false;
   }
@@ -436,7 +438,9 @@ class PlayerProvider extends ChangeNotifier {
   Future<AudioSource> _buildSource(Song song) async {
     final subsonic = _subsonicProvider!.subsonic;
     final localPath = _downloadProvider?.getLocalPath(song.id);
-    final uri = localPath != null
+    final uri = isLocalSongId(song.id)
+        ? await localMusicService.playableUri(song)
+        : localPath != null
         ? await LocalStorageService.playableUriForSongRef(localPath)
         : null;
     final resolvedUri = uri ?? Uri.parse(subsonic.streamUrl(song.id));
@@ -451,9 +455,11 @@ class PlayerProvider extends ChangeNotifier {
         title: song.title,
         album: song.album,
         artist: song.artist,
-        artUri: song.coverArt != null
-            ? Uri.parse(subsonic.cachedCoverArtUrl(song.coverArt!, size: 300))
-            : null,
+        artUri: switch (song.coverArt) {
+          null => null,
+          final art when isLocalArtId(art) => localMusicService.artFileUri(art),
+          final art => Uri.parse(subsonic.cachedCoverArtUrl(art, size: 300)),
+        },
       ),
     );
   }
@@ -613,7 +619,7 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> _warm(Song song) async {
     final subsonic = _subsonicProvider?.subsonic;
-    if (subsonic == null) return;
+    if (subsonic == null || isLocalSongId(song.id)) return;
     if (_downloadProvider?.getLocalPath(song.id) != null) return;
     await subsonic.warmStream(song.id);
   }

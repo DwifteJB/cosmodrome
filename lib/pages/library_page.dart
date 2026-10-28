@@ -9,6 +9,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/main.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
@@ -78,13 +79,18 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
 
     switch (_currentView) {
       case CurrentMobileView.albums:
+        final local = context.watch<LocalMusicService>().localFilesSummary;
         return _buildGrid(
-          items: _albums,
+          items: [local, ..._albums],
           itemBuilder: (ctx, album, _) => LibraryGridItem(
             imageUrl: coverUrl(album.coverArt),
             title: album.name,
-            subtitle: album.artist,
-            placeholderIcon: Icons.album,
+            subtitle: album.id == localFilesAlbumId
+                ? '${album.songCount} song${album.songCount == 1 ? '' : 's'}'
+                : album.artist,
+            placeholderIcon: album.id == localFilesAlbumId
+                ? Icons.folder_rounded
+                : Icons.album,
             onTap: () => ctx.push('/library/album/${album.id}'),
           ),
         );
@@ -270,11 +276,14 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
                     );
                   }),
                   // "+" to create a playlist (only shown for playlists tab)
-                  if (_currentView == CurrentMobileView.playlists)
+                  if (_currentView == CurrentMobileView.playlists ||
+                      _currentView == CurrentMobileView.albums)
                     Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: GestureDetector(
-                        onTap: _showCreatePlaylistDialog,
+                        onTap: _currentView == CurrentMobileView.albums
+                            ? _importMusic
+                            : _showCreatePlaylistDialog,
                         child: Container(
                           padding: const EdgeInsets.all(7),
                           decoration: BoxDecoration(
@@ -401,6 +410,15 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
         final cached = await offlineCacheService.loadSongs(accountId);
         if (mounted && cached != null) setState(() => _songs = cached);
     }
+  }
+
+  Future<void> _importMusic() async {
+    final imported = await localMusicService.importFiles();
+    if (!mounted || imported == 0) return;
+    showFToast(
+      context: context,
+      title: Text('Imported $imported song${imported == 1 ? '' : 's'}'),
+    );
   }
 
   Future<void> _showCreatePlaylistDialog() async {

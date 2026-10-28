@@ -28,6 +28,7 @@ import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/car/car_service.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart'
     show SpotlightItem;
@@ -93,7 +94,10 @@ void main() async {
   }
 
   await LocalStorageService.init();
+  await localMusicService.init();
   await subsonicProvider.tryRestoreSession();
+  localMusicService.bind(subsonicProvider);
+  unawaited(localMusicService.scan());
 
   // load the new download manifest for when the user changes account
   subsonicProvider.addListener(() {
@@ -309,6 +313,7 @@ class _ApplicationState extends State<Application>
         ChangeNotifierProvider.value(value: subsonicProvider),
         ChangeNotifierProvider.value(value: downloadProvider),
         ChangeNotifierProvider.value(value: playerProvider),
+        ChangeNotifierProvider.value(value: localMusicService),
         ChangeNotifierProxyProvider2<
           SubsonicProvider,
           PlayerProvider,
@@ -369,6 +374,7 @@ class _ApplicationState extends State<Application>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     subsonicProvider.setAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) unawaited(localMusicService.scan());
   }
 
   @override

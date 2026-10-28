@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:cosmodrome/components/desktop/desktop_song_popover.dart';
 import 'package:cosmodrome/components/mobile/song_context_sheet.dart';
+import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
+import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/colors.dart';
+import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/material.dart';
@@ -166,8 +169,18 @@ class MusicPageMobileTrackTile extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: song.coverArt != null
-                          ? Image.network(
-                              song.coverArt!,
+                          ? Image(
+                              image: coverArtProvider(
+                                context
+                                    .read<SubsonicProvider>()
+                                    .subsonic
+                                    .cachedCoverArtUrl(
+                                      song.coverArt!,
+                                      size: 64,
+                                    ),
+                              ),
+                              errorBuilder: (_, _, _) =>
+                                  Container(color: AppColors.mutedButtonColor),
                               width: 32,
                               height: 32,
                               fit: BoxFit.cover,
@@ -317,8 +330,19 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4),
                         child: song.coverArt != null
-                            ? Image.network(
-                                song.coverArt!,
+                            ? Image(
+                                image: coverArtProvider(
+                                  context
+                                      .read<SubsonicProvider>()
+                                      .subsonic
+                                      .cachedCoverArtUrl(
+                                        song.coverArt!,
+                                        size: 64,
+                                      ),
+                                ),
+                                errorBuilder: (_, _, _) => Container(
+                                  color: AppColors.mutedButtonColor,
+                                ),
                                 width: 32,
                                 height: 32,
                                 fit: BoxFit.cover,

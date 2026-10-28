@@ -9,6 +9,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/play_history_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
@@ -675,6 +676,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   }
 
   bool _isSongPlayable(Song song) {
+    if (isLocalSongId(song.id)) return true;
     final subsonic = context.read<SubsonicProvider>();
     if (!subsonic.isOffline) return true;
     return context.read<DownloadProvider>().isSongDownloaded(song.id);

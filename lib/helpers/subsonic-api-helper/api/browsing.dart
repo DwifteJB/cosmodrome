@@ -1,5 +1,6 @@
 import 'package:cosmodrome/helpers/subsonic-api-helper/subsonic.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/logger/logger.dart';
 import 'package:flutter/painting.dart';
@@ -14,7 +15,7 @@ extension SubsonicBrowsingApi on Subsonic {
   String get _accountId => '${auth.username}@$baseUrl';
 
   String cachedCoverArtUrl(String id, {int size = 300}) =>
-      coverArtUrl(id, size: size);
+      isLocalArtId(id) ? '$localArtScheme:$id' : coverArtUrl(id, size: size);
 
   // https://www.subsonic.org/pages/api.jsp#getCoverArt
   String coverArtUrl(String id, {int size = 300}) =>
@@ -41,6 +42,13 @@ extension SubsonicBrowsingApi on Subsonic {
 
   // https://www.subsonic.org/pages/api.jsp#getAlbum
   Future<AlbumDetail?> getAlbum(String id) async {
+    if (id == localFilesAlbumId) return localMusicService.localFilesAlbum();
+    final album = await _getServerAlbum(id);
+    if (album == null) return null;
+    return localMusicService.mergeIntoAlbum(_accountId, album);
+  }
+
+  Future<AlbumDetail?> _getServerAlbum(String id) async {
     try {
       final response = await apiRequest('getAlbum', params: {'id': id});
       final albumJson = response['album'] as Map<String, dynamic>?;
@@ -214,6 +222,12 @@ extension SubsonicBrowsingApi on Subsonic {
 
   // https://www.subsonic.org/pages/api.jsp#getPlaylist
   Future<PlaylistDetail?> getPlaylist(String id) async {
+    final playlist = await _getServerPlaylist(id);
+    if (playlist == null) return null;
+    return localMusicService.mergePlaylist(_accountId, playlist);
+  }
+
+  Future<PlaylistDetail?> _getServerPlaylist(String id) async {
     try {
       final response = await apiRequest('getPlaylist', params: {'id': id});
       final json = response['playlist'] as Map<String, dynamic>?;
@@ -235,9 +249,10 @@ extension SubsonicBrowsingApi on Subsonic {
       if (raw == null) return [];
       // Some servers return a single object instead of an array when there's 1
       final list = raw is List ? raw : [raw];
-      return list
-          .map((p) => Playlist.fromJson(p as Map<String, dynamic>))
-          .toList();
+      return await localMusicService.adjustPlaylists(
+        _accountId,
+        list.map((p) => Playlist.fromJson(p as Map<String, dynamic>)).toList(),
+      );
     } catch (e) {
       loggerPrint('Error fetching playlists: $e');
       return [];
@@ -278,6 +293,7 @@ extension SubsonicBrowsingApi on Subsonic {
   }
 
   Future<Song?> getSong(String id) async {
+    if (isLocalSongId(id)) return localMusicService.song(id);
     try {
       final response = await apiRequest('getSong', params: {'id': id});
       final songJson = response['song'] as Map<String, dynamic>?;
@@ -311,9 +327,14 @@ extension SubsonicBrowsingApi on Subsonic {
     List<String> songIds,
   ) async {
     try {
+      final serverIds = await localMusicService.reorderPlaylist(
+        _accountId,
+        playlistId,
+        songIds,
+      );
       await multiParamRequest(
         'createPlaylist',
-        params: {'playlistId': playlistId, 'songId': songIds},
+        params: {'playlistId': playlistId, 'songId': serverIds},
       );
       clearCacheStartingWith("getPlaylist?id=$playlistId");
       clearCacheStartingWith("getPlaylists");
@@ -366,17 +387,19 @@ extension SubsonicBrowsingApi on Subsonic {
         },
       );
       final songs = response['searchResult3']?['song'] as List<dynamic>? ?? [];
-      return songs
-          .map((s) => Song.fromJson(s as Map<String, dynamic>))
-          .toList();
+      return [
+        if (offset == 0) ...localMusicService.search(q),
+        ...songs.map((s) => Song.fromJson(s as Map<String, dynamic>)),
+      ];
     } catch (e) {
       loggerPrint('Error searching songs: $e');
-      return [];
+      return offset == 0 ? localMusicService.search(q) : [];
     }
   }
 
   // https://www.subsonic.org/pages/api.jsp#star
   Future<bool> starAlbum(String albumId) async {
+    if (albumId.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('star', params: {'albumId': albumId});
 
@@ -394,6 +417,7 @@ extension SubsonicBrowsingApi on Subsonic {
   Future<bool> starArtist(String artistId) => _setArtistStarred(artistId, true);
 
   Future<bool> starSong(String id) async {
+    if (id.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('star', params: {'id': id});
       clearCacheStartingWith("getAlbum");
@@ -406,6 +430,7 @@ extension SubsonicBrowsingApi on Subsonic {
 
   // https://www.subsonic.org/pages/api.jsp#unstar
   Future<bool> unstarAlbum(String albumId) async {
+    if (albumId.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('unstar', params: {'albumId': albumId});
 
@@ -423,6 +448,7 @@ extension SubsonicBrowsingApi on Subsonic {
       _setArtistStarred(artistId, false);
 
   Future<bool> unstarSong(String id) async {
+    if (id.startsWith(localIdPrefix)) return false;
     try {
       await apiRequest('unstar', params: {'id': id});
       clearCacheStartingWith("getAlbum");
@@ -441,6 +467,31 @@ extension SubsonicBrowsingApi on Subsonic {
     int? songIndexToRemove,
   }) async {
     try {
+      if (songIdToAdd != null && isLocalSongId(songIdToAdd)) {
+        final server = await _getServerPlaylist(playlistId);
+        await localMusicService.addToPlaylist(
+          _accountId,
+          playlistId,
+          songIdToAdd,
+          server?.songs.length ?? 0,
+        );
+        songIdToAdd = null;
+        if (name == null && songIndexToRemove == null) return;
+      }
+      if (songIndexToRemove != null &&
+          localMusicService.hasPlaylistEntries(_accountId, playlistId)) {
+        final server = await _getServerPlaylist(playlistId);
+        songIndexToRemove = await localMusicService.removeFromPlaylist(
+          _accountId,
+          playlistId,
+          songIndexToRemove,
+          server?.songs.length ?? 0,
+        );
+        if (songIndexToRemove == null && name == null && songIdToAdd == null) {
+          clearCacheStartingWith("getPlaylists");
+          return;
+        }
+      }
       await apiRequest(
         'updatePlaylist',
         params: {

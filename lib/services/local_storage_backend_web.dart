@@ -173,4 +173,73 @@ class WebLocalStorageBackend implements LocalStorageBackend {
   @override
   Future<void> writeSongBytes(String songRef, List<int> bytes) =>
       _put(_songsStore, songRef, Uint8List.fromList(bytes));
+
+  static const _localPrefix = 'local/music/';
+
+  @override
+  String? get downloadsDirectory => null;
+
+  @override
+  String? get localMusicDirectory => null;
+
+  @override
+  Future<List<LocalMusicFile>> listLocalMusic() async {
+    final db = await _dbFuture;
+    final txn = db.transaction(_songsStore, idbModeReadOnly);
+    final store = txn.objectStore(_songsStore);
+    final files = <LocalMusicFile>[];
+    await for (final cursor
+        in store.openCursor(autoAdvance: true).asBroadcastStream()) {
+      final key = cursor.key.toString();
+      if (!key.startsWith(_localPrefix)) continue;
+      final value = cursor.value;
+      files.add(
+        LocalMusicFile(
+          ref: key,
+          name: key.substring(_localPrefix.length),
+          size: value is List ? value.length : 0,
+          modified: 0,
+        ),
+      );
+    }
+    await txn.completed;
+    return files;
+  }
+
+  @override
+  Future<String?> importLocalMusic(
+    String name, {
+    String? sourcePath,
+    Uint8List? bytes,
+  }) async {
+    if (bytes == null) return null;
+    final dot = name.lastIndexOf('.');
+    final stem = dot > 0 ? name.substring(0, dot) : name;
+    final ext = dot > 0 ? name.substring(dot) : '';
+    var ref = '$_localPrefix$name';
+    var i = 1;
+    while (await _get(_songsStore, ref) != null) {
+      ref = '$_localPrefix$stem ($i)$ext';
+      i++;
+    }
+    await _put(_songsStore, ref, bytes);
+    return ref;
+  }
+
+  @override
+  Future<void> deleteLocalMusic(String ref) => _delete(_songsStore, ref);
+
+  @override
+  Future<void> saveToDevice(String ref, String fileName) async {
+    final uri = await playableUri(ref);
+    if (uri == null) return;
+    final anchor = html.AnchorElement(href: uri.toString())
+      ..download = fileName
+      ..style.display = 'none';
+    html.document.body?.append(anchor);
+    anchor.click();
+    anchor.remove();
+    await Future<void>.delayed(const Duration(seconds: 1));
+    html.Url.revokeObjectUrl(uri.toString());
+  }
 }

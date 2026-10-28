@@ -1,6 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cosmodrome/services/local_storage_backend.dart';
+
+export 'package:cosmodrome/services/local_storage_backend.dart'
+    show LocalMusicFile, isLocalMusicName, localMusicExtensions;
 import 'package:cosmodrome/services/storage_backend_factories/local_storage_backend_factory.dart';
 
 class LocalStorageService {
@@ -70,4 +74,23 @@ class LocalStorageService {
 
   static Future<void> writeSongBytes(String songRef, List<int> bytes) =>
       _backend.writeSongBytes(songRef, bytes);
+
+  static String? get downloadsDirectory => _backend.downloadsDirectory;
+
+  static String? get localMusicDirectory => _backend.localMusicDirectory;
+
+  static Future<List<LocalMusicFile>> listLocalMusic() =>
+      _backend.listLocalMusic();
+
+  static Future<String?> importLocalMusic(
+    String name, {
+    String? sourcePath,
+    Uint8List? bytes,
+  }) => _backend.importLocalMusic(name, sourcePath: sourcePath, bytes: bytes);
+
+  static Future<void> deleteLocalMusic(String ref) =>
+      _backend.deleteLocalMusic(ref);
+
+  static Future<void> saveToDevice(String ref, String fileName) =>
+      _backend.saveToDevice(ref, fileName);
 }

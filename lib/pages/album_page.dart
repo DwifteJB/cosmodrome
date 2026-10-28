@@ -8,6 +8,7 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/disc_order.dart';
@@ -76,16 +77,17 @@ class _AlbumHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              FButton(
-                onPress: onStarToggle,
-                variant: FButtonVariant.ghost,
-                child: Icon(
-                  Icons.star,
-                  color: isStarred
-                      ? Colors.yellow[700]
-                      : context.theme.colors.foreground,
+              if (onStarToggle != null)
+                FButton(
+                  onPress: onStarToggle,
+                  variant: FButtonVariant.ghost,
+                  child: Icon(
+                    Icons.star,
+                    color: isStarred
+                        ? Colors.yellow[700]
+                        : context.theme.colors.foreground,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -131,12 +133,15 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   // mobile topbarbutton
   @override
   List<TopbarButton> get pageButtons => [
-    TopbarButton(
-      onPressed: _starAlbum,
-      icon: Icons.star,
-      color: _starred ? Colors.yellow[700] : Colors.white,
-    ),
+    if (!_isLocalFiles)
+      TopbarButton(
+        onPressed: _starAlbum,
+        icon: Icons.star,
+        color: _starred ? Colors.yellow[700] : Colors.white,
+      ),
   ];
+
+  bool get _isLocalFiles => widget.albumId == localFilesAlbumId;
 
   @override
   Widget build(BuildContext context) {
@@ -244,16 +249,18 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               Row(
                 children: [
                   Expanded(child: _PlayShuffleButtons(songs: album.songs)),
-                  const SizedBox(width: 12),
-                  FButton(
-                    onPress: _starAlbum,
-                    variant: FButtonVariant.secondary,
+                  if (!_isLocalFiles) ...[
+                    const SizedBox(width: 12),
+                    FButton(
+                      onPress: _starAlbum,
+                      variant: FButtonVariant.secondary,
 
-                    child: Icon(
-                      Icons.star,
-                      color: _starred ? Colors.yellow[700] : Colors.white,
+                      child: Icon(
+                        Icons.star,
+                        color: _starred ? Colors.yellow[700] : Colors.white,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -401,6 +408,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   }
 
   bool _isSongPlayable(Song song) {
+    if (isLocalSongId(song.id)) return true;
     final subsonic = context.read<SubsonicProvider>();
     if (!subsonic.isOffline) return true;
     return context.read<DownloadProvider>().isSongDownloaded(song.id);
@@ -625,7 +633,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
               album: album,
               accentColor: _localCoverColor,
               isStarred: _starred,
-              onStarToggle: _starAlbum,
+              onStarToggle: _isLocalFiles ? null : _starAlbum,
               onArtistTap: _openArtist,
             ),
           ),

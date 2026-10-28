@@ -41,6 +41,8 @@ dependencies:
   # carplay support
   flutter_carplay: ^1.7.0+2
   url_launcher: ^6.3.3
+  file_picker: ^13.3.0
+  audio_metadata_reader: ^1.8.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

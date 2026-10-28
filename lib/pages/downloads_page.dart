@@ -1,12 +1,18 @@
 import 'dart:io';
 
+import 'package:cosmodrome/components/settings/local_files_settings_page.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+
+String get viewDownloadsLabel =>
+    kIsWeb ? 'Save Downloaded Files' : 'View Local Downloads';
 
 class _ActiveDownloadTile extends StatelessWidget {
   final SongDownload download;
@@ -325,6 +331,17 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
+              Tooltip(
+                message: viewDownloadsLabel,
+                child: _RoundIconButton(
+                  icon: kIsWeb ? Icons.save_alt_rounded : Icons.folder_open,
+                  padding: 6,
+                  size: 16,
+                  color: Colors.white,
+                  onTap: () => viewDownloadedFiles(context),
+                ),
+              ),
+              const SizedBox(width: 8),
               _RoundIconButton(
                 icon: Icons.close,
                 padding: 6,

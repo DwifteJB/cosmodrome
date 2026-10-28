@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -43,7 +44,7 @@ class DownloadProvider extends ChangeNotifier {
 
   Future<void> downloadSong(Song song, SubsonicProvider sp) async {
     final accountId = sp.activeAccount?.id;
-    if (accountId == null) return;
+    if (accountId == null || isLocalSongId(song.id)) return;
 
     final existing = _downloads[song.id];
     if (existing?.status == DownloadStatus.downloading ||
@@ -147,6 +148,26 @@ class DownloadProvider extends ChangeNotifier {
 
   bool isSongDownloaded(String songId) => getLocalPath(songId) != null;
 
+  String? get downloadsDirectory {
+    final root = LocalStorageService.downloadsDirectory;
+    final accountId = _currentAccountId;
+    if (root == null || accountId == null) return root;
+    return '$root/$accountId';
+  }
+
+  Future<void> saveAllToDevice() async {
+    for (final d in completedDownloads) {
+      final path = d.localPath;
+      if (path == null) continue;
+      final song = d.songMeta;
+      final suffix = path.substring(path.lastIndexOf('.') + 1);
+      final name = song == null
+          ? d.songId
+          : [?song.artist, song.title].join(' - ');
+      await LocalStorageService.saveToDevice(path, '$name.$suffix');
+    }
+  }
+
   Future<void> loadForAccount(String accountId) async {
     if (_currentAccountId == accountId) return;
     _currentAccountId = accountId;
@@ -167,12 +188,21 @@ class DownloadProvider extends ChangeNotifier {
         'downloads_manifest',
       );
       if (raw == null) return;
+      var migrated = false;
       for (final entry in raw.entries) {
         final data = entry.value as Map<String, dynamic>;
-        final localPath = data['localPath'] as String?;
-        if (localPath == null ||
-            !await LocalStorageService.songExists(localPath)) {
-          continue;
+        var localPath = data['localPath'] as String?;
+        if (localPath == null) continue;
+        if (!await LocalStorageService.songExists(localPath)) {
+          final dot = localPath.lastIndexOf('.');
+          final suffix = dot >= 0 ? localPath.substring(dot + 1) : 'mp3';
+          localPath = LocalStorageService.songPath(
+            accountId,
+            entry.key,
+            suffix,
+          );
+          if (!await LocalStorageService.songExists(localPath)) continue;
+          migrated = true;
         }
         final songData = data['song'] as Map<String, dynamic>?;
         _downloads[entry.key] = SongDownload(
@@ -183,6 +213,7 @@ class DownloadProvider extends ChangeNotifier {
           songMeta: songData != null ? Song.fromJson(songData) : null,
         );
       }
+      if (migrated) await _saveManifest(accountId);
     } catch (_) {}
   }
 

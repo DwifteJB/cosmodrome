@@ -1,6 +1,7 @@
 import 'package:cosmodrome/components/mobile/profile_sheet.dart';
 import 'package:cosmodrome/components/settings/cache_settings_page.dart';
 import 'package:cosmodrome/components/settings/info_settings_page.dart';
+import 'package:cosmodrome/components/settings/local_files_settings_page.dart';
 import 'package:cosmodrome/components/settings/settings_shell.dart';
 import 'package:cosmodrome/pages/downloads_page.dart';
 import 'package:flutter/material.dart';
@@ -47,6 +48,16 @@ final settingsItems = <SettingsItem>[
       ctx,
       mainAxisMaxRatio: 0.92,
       child: const MobileSettingsSheetWrapper(child: DownloadsSettingsPage()),
+    ),
+  ),
+  SettingsItem(
+    title: 'Local Files',
+    icon: FIcons.folder,
+    content: const LocalFilesSettingsPage(),
+    onMobileTap: (ctx) => _showSettingsSheet(
+      ctx,
+      mainAxisMaxRatio: 0.7,
+      child: const MobileSettingsSheetWrapper(child: LocalFilesSettingsPage()),
     ),
   ),
   SettingsItem(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -35,6 +36,15 @@ class CoverArtImage extends ImageProvider<String> {
   }
 
   Future<Uint8List> _loadBytes() async {
+    // local art are stored as bytes
+    if (url.startsWith('$localArtScheme:')) {
+      final bytes = await localMusicService.artBytes(
+        url.substring(localArtScheme.length + 1),
+      );
+      if (bytes == null) throw StateError('missing local art $url');
+      return bytes;
+    }
+
     final uri = Uri.tryParse(url);
     final id = uri?.queryParameters['id'];
     if (uri == null || id == null) return _download();
@@ -88,6 +98,7 @@ class CoverArtImage extends ImageProvider<String> {
 }
 
 String _cacheKey(String url) {
+  if (url.startsWith('$localArtScheme:')) return url;
   final uri = Uri.tryParse(url);
   if (uri == null) return url;
   final id = uri.queryParameters['id'] ?? '';
