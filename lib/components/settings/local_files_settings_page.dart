@@ -29,6 +29,29 @@ Future<void> viewDownloadedFiles(BuildContext context) async {
 void _toast(BuildContext context, String message) =>
     showFToast(context: context, title: Text(message));
 
+String localFilesHint(String? directory) {
+  if (kIsWeb) {
+    return 'Click "Import Music" to select files from your device to add to Cosmodrome.';
+  }
+  if (Platform.isIOS) {
+    return 'Drop music into Files -> On My iPhone -> Cosmodrome!';
+  }
+  return 'Music can be placed in $directory for Cosmodrome to find it.';
+}
+
+Future<void> importLocalMusic(BuildContext context) async {
+  final imported = await localMusicService.importFiles();
+  if (!context.mounted || imported == 0) return;
+  _toast(context, 'Imported $imported song${imported == 1 ? '' : 's'}');
+}
+
+Future<void> openLocalMusicFolder(BuildContext context) async {
+  final path = localMusicService.musicDirectory;
+  if (path == null) return;
+  final opened = await openFolder(path);
+  if (!opened && context.mounted) _toast(context, path);
+}
+
 class LocalFilesSettingsPage extends StatelessWidget {
   const LocalFilesSettingsPage({super.key});
 
@@ -74,7 +97,7 @@ class LocalFilesSettingsPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  _hint(local.musicDirectory),
+                  localFilesHint(local.musicDirectory),
                   style: context.theme.typography.sm.copyWith(
                     color: colors.mutedForeground,
                   ),
@@ -127,14 +150,14 @@ class LocalFilesSettingsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 FButton(
-                  onPress: () => _import(context),
+                  onPress: () => importLocalMusic(context),
                   child: const Text('Import Music'),
                 ),
                 if (local.canOpenFolder && canOpenFolders) ...[
                   const SizedBox(height: 8),
                   FButton(
                     variant: FButtonVariant.outline,
-                    onPress: () => _openMusicFolder(context),
+                    onPress: () => openLocalMusicFolder(context),
                     child: const Text('Open Music Folder'),
                   ),
                 ],
@@ -150,28 +173,5 @@ class LocalFilesSettingsPage extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _hint(String? directory) {
-    if (kIsWeb) {
-      return 'Click "Import Music" to select files from your device to add to Cosmodrome.';
-    }
-    if (Platform.isIOS) {
-      return 'Drop music into Files -> On My iPhone -> Cosmodrome!';
-    }
-    return 'Music can be placed in $directory for Cosmodrome to find it.';
-  }
-
-  Future<void> _import(BuildContext context) async {
-    final imported = await localMusicService.importFiles();
-    if (!context.mounted || imported == 0) return;
-    _toast(context, 'Imported $imported song${imported == 1 ? '' : 's'}');
-  }
-
-  Future<void> _openMusicFolder(BuildContext context) async {
-    final path = localMusicService.musicDirectory;
-    if (path == null) return;
-    final opened = await openFolder(path);
-    if (!opened && context.mounted) _toast(context, path);
   }
 }

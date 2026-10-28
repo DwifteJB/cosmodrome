@@ -12,6 +12,7 @@ class AddUserForm extends StatefulWidget {
   final Future<SubsonicServer?> Function()? onAddServerPressed;
   // if initial, then we are editing
   final SubsonicAccount? initialAccount;
+  final SubsonicServer? initialServer;
 
   const AddUserForm({
     super.key,
@@ -19,6 +20,7 @@ class AddUserForm extends StatefulWidget {
     this.onCancel,
     this.onAddServerPressed,
     this.initialAccount,
+    this.initialServer,
   });
 
   @override
@@ -203,6 +205,7 @@ class _AddUserFormState extends State<AddUserForm>
   void initState() {
     super.initState();
     _serverPopoverCtrl = FPopoverController(vsync: this);
+    _selectedServer = widget.initialServer;
     if (_isEditing) {
       _usernameCtrl.text = widget.initialAccount!.username;
       _passwordCtrl.text = widget.initialAccount!.password;

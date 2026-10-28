@@ -20,6 +20,7 @@ import 'package:cosmodrome/pages/playlist_page.dart';
 import 'package:cosmodrome/pages/recent_albums.dart';
 import 'package:cosmodrome/pages/search_page.dart';
 import 'package:cosmodrome/pages/starred_albums.dart';
+import 'package:cosmodrome/pages/welcome_page.dart';
 //
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/lyrics_provider.dart';
@@ -30,6 +31,7 @@ import 'package:cosmodrome/services/car/car_service.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
+import 'package:cosmodrome/services/onboarding_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart'
     show SpotlightItem;
 import 'package:cosmodrome/theme/theme.dart';
@@ -120,7 +122,13 @@ void main() async {
     ),
   );
 
-  router = _buildRouter('/home');
+  final hasServerAccount = subsonicProvider.accounts.any((a) => !a.isLocal);
+  final showWelcome =
+      (!hasServerAccount && !await OnboardingService.isComplete()) ||
+      bool.fromEnvironment('ONBOARD', defaultValue: false);
+  if (hasServerAccount) unawaited(OnboardingService.markComplete());
+
+  router = _buildRouter(showWelcome ? '/welcome' : '/home');
 
   runApp(const Application());
 }
@@ -243,6 +251,15 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
       _mobileDetailRoute('/library/recent', (_) => const RecentAlbumsPage()),
       _mobileDetailRoute('/library/starred', (_) => const StarredAlbumsPage()),
     ],
+
+    GoRoute(
+      path: '/welcome',
+      parentNavigatorKey: _rootNavigatorKey,
+      pageBuilder: (context, state) => NoTransitionPage(
+        key: state.pageKey,
+        child: WelcomePage(showTitlebar: isDesktop),
+      ),
+    ),
 
     GoRoute(
       path: '/addserver',
