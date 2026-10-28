@@ -95,7 +95,6 @@ class IoLocalStorageBackend implements LocalStorageBackend {
     await Directory(_accountDownloads(accountId)).create(recursive: true);
   }
 
-
   @override
   Future<void> init() async {
     final docs = (await getApplicationDocumentsDirectory()).path;

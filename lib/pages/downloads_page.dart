@@ -10,7 +10,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-
 String get viewDownloadsLabel =>
     kIsWeb ? 'Save Downloaded Files' : 'View Local Downloads';
 

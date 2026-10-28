@@ -144,7 +144,6 @@ class LocalFilesSettingsPage extends StatelessWidget {
                   onPress: local.isScanning ? null : local.scan,
                   child: const Text('Rescan'),
                 ),
-  
               ],
             ),
           ),
