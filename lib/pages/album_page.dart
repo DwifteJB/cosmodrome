@@ -179,6 +179,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
 
   @override
   void dispose() {
+    libraryChanged.removeListener(_fetchAlbum);
     accentColorNotifier.value = null;
     coverUrlNotifier.value = null;
     super.dispose();
@@ -187,6 +188,7 @@ class _AlbumPageState extends State<AlbumPage> with LayoutPageMixin {
   @override
   void initState() {
     super.initState();
+    libraryChanged.addListener(_fetchAlbum);
     _fetchAlbum();
   }
 

@@ -67,6 +67,7 @@ class PlayerProvider extends ChangeNotifier {
   StreamSubscription<int?>? _indexSub;
 
   PlayerProvider({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
+    localMusicService.addListener(_onLocalMusicChanged);
     _positionSub = _player.positionStream.listen((pos) {
       _position = pos;
       notifyListeners();
@@ -161,6 +162,7 @@ class PlayerProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    localMusicService.removeListener(_onLocalMusicChanged);
     unawaited(_clearEphemeralUris());
     _positionSub?.cancel();
     _durationSub?.cancel();
@@ -592,6 +594,44 @@ class PlayerProvider extends ChangeNotifier {
     if (_repeatMode == LoopMode.off && _currentIndex == _songs.length - 1) {
       unawaited(_fetchAndAppendRandom());
     }
+  }
+
+  void _onLocalMusicChanged() {
+    final fresh = Map<Song, Song>.identity();
+    Song refresh(Song song) => fresh.putIfAbsent(song, () {
+      if (!isLocalSongId(song.id)) return song;
+      final latest = localMusicService.song(song.id);
+      if (latest == null ||
+          (latest.title == song.title &&
+              latest.artist == song.artist &&
+              latest.album == song.album &&
+              latest.coverArt == song.coverArt)) {
+        return song;
+      }
+      return Song.fromJson({
+        ...song.toJson(),
+        'title': latest.title,
+        'artist': latest.artist,
+        'album': latest.album,
+        'coverArt': latest.coverArt,
+      });
+    });
+
+    final songs = [for (final song in _songs) refresh(song)];
+    if (!fresh.entries.any((e) => !identical(e.key, e.value))) return;
+    _songs = songs;
+    if (_unshuffled case final unshuffled?) {
+      _unshuffled = [for (final song in unshuffled) refresh(song)];
+    }
+
+    final current = currentSong;
+    if (current != null && isLocalSongId(current.id)) {
+      _accentCache.remove(current.id);
+      _cachedCoverArtUrl = coverArtUrlForSong(current);
+      _maybeExtractAccentColor(current);
+    }
+    _queueVersion++;
+    notifyListeners();
   }
 
   void _onCurrentIndexChanged() {

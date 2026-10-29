@@ -13,6 +13,7 @@ import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/notifiers/layout_notifier.dart';
+import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -57,9 +58,21 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
   }
 
   @override
+  void dispose() {
+    libraryChanged.removeListener(_onLibraryChanged);
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    libraryChanged.addListener(_onLibraryChanged);
     _fetchView(CurrentMobileView.albums);
+  }
+
+  void _onLibraryChanged() {
+    _fetched.clear();
+    _fetchView(_currentView, quiet: true);
   }
 
   Widget _buildCurrentView() {
@@ -314,7 +327,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
     );
   }
 
-  Future<void> _fetchView(CurrentMobileView view) async {
+  Future<void> _fetchView(CurrentMobileView view, {bool quiet = false}) async {
     if (_loading.contains(view) || _fetched.contains(view)) return;
 
     final provider = context.read<SubsonicProvider>();
@@ -331,7 +344,7 @@ class _LibraryPageState extends State<LibraryPage> with LayoutPageMixin {
       return;
     }
 
-    setState(() => _loading.add(view));
+    if (!quiet) setState(() => _loading.add(view));
 
     try {
       final s = provider.subsonic;

@@ -97,11 +97,13 @@ class SubsonicProvider extends ChangeNotifier {
       final user = await sub.getUser();
       // the ping above probed which login method this server accepts, keep it
       // so we don't have to probe again every launch
+
       final account = SubsonicAccount(
         baseUrl: baseUrl,
         username: username,
         password: password,
         user: user,
+        serverName: serverFor(baseUrl).name,
         loginMethod: sub.loginMethod,
       );
 

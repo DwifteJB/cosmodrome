@@ -131,6 +131,18 @@ void main() async {
 
   router = _buildRouter(showWelcome ? '/welcome' : '/home');
 
+  var activeId = subsonicProvider.activeAccount?.id;
+  subsonicProvider.addListener(() {
+    final id = subsonicProvider.activeAccount?.id;
+    if (id == activeId) return;
+    activeId = id;
+    final path = router.routerDelegate.currentConfiguration.uri.path;
+    final accountBound =
+        _accountBoundRoutes.any(path.startsWith) &&
+        path != '/library/album/$localFilesAlbumId';
+    if (accountBound) router.go('/home');
+  });
+
   runApp(const Application());
 }
 
@@ -139,6 +151,12 @@ final isDesktop =
     (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) &&
     !const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false);
 final _detailRoutesInShell = isDesktop || kIsWeb;
+const _accountBoundRoutes = [
+  '/library/album/',
+  '/library/playlist/',
+  '/library/artist/',
+  '/artist-detail/',
+];
 final playerProvider = PlayerProvider()..setDownloadProvider(downloadProvider);
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
@@ -285,11 +303,27 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
 
 Page<void> _shellPage(Widget child, {LocalKey? key}) => NoTransitionPage(
   key: key,
-  child: Builder(
-    builder: (context) =>
-        isMobileView(context) ? child : DesktopPageScroll(child: child),
+  child: _AccountScope(
+    child: Builder(
+      builder: (context) =>
+          isMobileView(context) ? child : DesktopPageScroll(child: child),
+    ),
   ),
 );
+
+class _AccountScope extends StatelessWidget {
+  final Widget child;
+
+  const _AccountScope({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final id = context.select<SubsonicProvider, String?>(
+      (p) => p.activeAccount?.id,
+    );
+    return KeyedSubtree(key: ValueKey(id), child: child);
+  }
+}
 
 // full-screen detail page pushed over the shell on mobile
 GoRoute _mobileDetailRoute(
@@ -304,7 +338,7 @@ GoRoute _mobileDetailRoute(
     child: MobileDetailLayout(
       isScrollable: isScrollable,
       ignoreTopSpacing: ignoreTopSpacing,
-      child: builder(state),
+      child: _AccountScope(child: builder(state)),
     ),
   ),
 );

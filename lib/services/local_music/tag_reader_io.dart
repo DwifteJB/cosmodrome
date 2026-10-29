@@ -25,7 +25,7 @@ LocalTags? _read(String path) {
     return LocalTags(
       title: _clean(meta.title),
       artist: _clean(meta.artist),
-      albumArtist: _clean(meta.albumArtist),
+      albumArtist: _clean(meta.albumArtist) ?? _mp3AlbumArtist(path),
       album: _clean(meta.album),
       track: meta.trackNumber,
       disc: meta.discNumber,
@@ -36,6 +36,16 @@ LocalTags? _read(String path) {
       sampleRate: meta.sampleRate,
       picture: pictures.firstOrNull?.bytes,
     );
+  } catch (_) {
+    return null;
+  }
+}
+
+String? _mp3AlbumArtist(String path) {
+  if (!path.toLowerCase().endsWith('.mp3')) return null;
+  try {
+    final meta = readAllMetadata(File(path), getImage: false);
+    return meta is Mp3Metadata ? _clean(meta.bandOrOrchestra) : null;
   } catch (_) {
     return null;
   }

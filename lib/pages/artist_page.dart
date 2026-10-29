@@ -15,6 +15,7 @@ import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/disc_order.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
 import 'package:cosmodrome/utils/layout_page_mixin.dart';
+import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:cosmodrome/utils/tap_area.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -381,8 +382,15 @@ class _ArtistPageState extends State<ArtistPage> with LayoutPageMixin {
   }
 
   @override
+  void dispose() {
+    libraryChanged.removeListener(_load);
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    libraryChanged.addListener(_load);
     unawaited(_load());
   }
 

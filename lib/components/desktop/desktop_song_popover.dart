@@ -1,10 +1,12 @@
 import 'dart:math';
 
+import 'package:cosmodrome/components/local_files/edit_details_page.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/utils/navigation.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:flutter/material.dart';
@@ -230,6 +232,16 @@ class _SongMenuContentState extends State<SongMenuContent> {
               final goToArtist = goToArtistAction(context, widget.song);
               widget.close();
               goToArtist?.call();
+            },
+          ),
+        if (localMusicService.canEditTags(widget.song))
+          FItem(
+            prefix: const Icon(Icons.edit_outlined, size: 16),
+            title: const Text('Edit details'),
+            onPress: () {
+              final root = Navigator.of(context, rootNavigator: true).context;
+              widget.close();
+              showEditDetails(root, widget.song);
             },
           ),
         if (widget.onRemoveFromPlaylist != null)

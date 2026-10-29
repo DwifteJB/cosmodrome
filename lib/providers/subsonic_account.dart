@@ -8,6 +8,7 @@ class SubsonicAccount {
   // id is username@baseUrl
   final String id;
   final String baseUrl;
+  final String serverName;
   final String username;
   Uint8List avatar = Uint8List(
     0,
@@ -25,6 +26,7 @@ class SubsonicAccount {
     required this.username,
     required this.password,
     required this.user,
+    required this.serverName,
     this.timeoutSeconds = 15,
     SubsonicLoginMethod loginMethod = SubsonicLoginMethod.undetermined,
     Subsonic? subsonic,
@@ -40,10 +42,25 @@ class SubsonicAccount {
     this.subsonic.loginMethod = subsonic?.loginMethod ?? loginMethod;
   }
 
+  factory SubsonicAccount.fromJson(Map<String, dynamic> json) {
+    return SubsonicAccount(
+      baseUrl: json['baseUrl'] as String,
+      username: json['username'] as String,
+      password: json['password'] as String,
+      user: SubsonicUser.fromJson(json['user'] as Map<String, dynamic>),
+      serverName: json['serverName'] as String,
+      // accounts saved before this was stored get probed on first request
+      loginMethod:
+          SubsonicLoginMethod.values.asNameMap()[json['loginMethod']] ??
+          SubsonicLoginMethod.undetermined,
+    );
+  }
+
   factory SubsonicAccount.local() {
     final subsonic = MasterSubsonic();
     return SubsonicAccount(
       baseUrl: localBaseUrl,
+      serverName: localServerName,
       username: localUsername,
       password: '',
       user: subsonic.user,
@@ -53,24 +70,12 @@ class SubsonicAccount {
 
   bool get isLocal => subsonic.isLocal;
 
-  factory SubsonicAccount.fromJson(Map<String, dynamic> json) {
-    return SubsonicAccount(
-      baseUrl: json['baseUrl'] as String,
-      username: json['username'] as String,
-      password: json['password'] as String,
-      user: SubsonicUser.fromJson(json['user'] as Map<String, dynamic>),
-      // accounts saved before this was stored get probed on first request
-      loginMethod:
-          SubsonicLoginMethod.values.asNameMap()[json['loginMethod']] ??
-          SubsonicLoginMethod.undetermined,
-    );
-  }
-
   Map<String, dynamic> toJson() => {
     'baseUrl': baseUrl,
     'username': username,
     'password': password,
     'user': user.toJson(),
+    'serverName': serverName,
     'loginMethod': subsonic.loginMethod.name,
   };
 }

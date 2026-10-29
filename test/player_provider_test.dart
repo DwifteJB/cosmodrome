@@ -15,13 +15,6 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'fakes/fake_just_audio.dart';
 import 'fakes/fake_path_provider.dart';
 
-Song song(String id) => Song(id: id, title: 'song $id', albumId: 'album');
-
-List<String> ids(Iterable<Song> songs) => songs.map((s) => s.id).toList();
-
-Future<void> settle([int ms = 60]) =>
-    Future<void>.delayed(Duration(milliseconds: ms));
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -47,6 +40,7 @@ void main() {
         SubsonicAccount(
           baseUrl: '127.0.0.1:9',
           username: 'tester',
+          serverName: 'Test Server',
           password: 'pw',
           user: SubsonicUser(username: 'tester'),
           loginMethod: SubsonicLoginMethod.token,
@@ -226,3 +220,10 @@ void main() {
     expect(native().playing, isTrue);
   });
 }
+
+List<String> ids(Iterable<Song> songs) => songs.map((s) => s.id).toList();
+
+Future<void> settle([int ms = 60]) =>
+    Future<void>.delayed(Duration(milliseconds: ms));
+
+Song song(String id) => Song(id: id, title: 'song $id', albumId: 'album');

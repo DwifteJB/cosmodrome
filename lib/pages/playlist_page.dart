@@ -397,6 +397,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
 
   @override
   void dispose() {
+    libraryChanged.removeListener(_fetchPlaylist);
     accentColorNotifier.value = null;
     coverUrlNotifier.value = null;
     super.dispose();
@@ -405,6 +406,7 @@ class _PlaylistPageState extends State<PlaylistPage> with LayoutPageMixin {
   @override
   void initState() {
     super.initState();
+    libraryChanged.addListener(_fetchPlaylist);
     _fetchPlaylist();
   }
 

@@ -203,6 +203,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     homeLayoutService.removeListener(_onLayoutChanged);
     starredCountChanged.removeListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.removeListener(_onStarOrPlaylistChanged);
+    libraryChanged.removeListener(_onStarOrPlaylistChanged);
     homeRefreshNotifier.removeListener(_onHomeRefreshRequested);
     super.dispose();
   }
@@ -214,6 +215,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     unawaited(homeLayoutService.ensureLoaded());
     starredCountChanged.addListener(_onStarOrPlaylistChanged);
     playlistsCountChanged.addListener(_onStarOrPlaylistChanged);
+    libraryChanged.addListener(_onStarOrPlaylistChanged);
     homeRefreshNotifier.addListener(_onHomeRefreshRequested);
     WidgetsBinding.instance.addObserver(this);
     _refreshTimer = Timer.periodic(

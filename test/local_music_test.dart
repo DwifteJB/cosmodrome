@@ -64,6 +64,7 @@ void main() {
           baseUrl: '127.0.0.1:9',
           username: 'tester',
           password: 'pw',
+          serverName: 'Test Server',
           user: SubsonicUser(username: 'tester'),
           loginMethod: SubsonicLoginMethod.token,
         ),

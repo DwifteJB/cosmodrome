@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 
+import 'package:cosmodrome/services/music_brainz.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart';
 import 'package:cosmodrome/utils/logger/logger.dart';
-import 'package:http/http.dart' as http;
 
 final artistAboutService = ArtistAboutService();
 
@@ -79,12 +78,6 @@ class ArtistAbout {
 }
 
 class ArtistAboutService {
-  static const _headers = {
-    'User-Agent': 'Cosmodrome/1.0 (cosmodrome-app)',
-    'Accept': 'application/json',
-  };
-  static const _timeout = Duration(seconds: 8);
-  static const _musicBrainzGap = Duration(milliseconds: 1100);
   static final _musical = RegExp(
     r'\b(band|musician|singer|rapper|songwriter|composer|producer|dj|duo|trio|group|orchestra|vocalist|guitarist|pianist|drummer|music|musical)\b',
     caseSensitive: false,
@@ -92,8 +85,6 @@ class ArtistAboutService {
 
   final _memory = <String, ArtistAbout>{};
   final _pending = <String, Future<ArtistAbout?>>{};
-  Future<void> _musicBrainzQueue = Future.value();
-  DateTime _lastMusicBrainzCall = DateTime.fromMillisecondsSinceEpoch(0);
 
   Future<ArtistAbout?> load(
     String accountId, {
@@ -174,17 +165,6 @@ class ArtistAboutService {
     return entries.take(4).map((g) => _titleCase(g['name'] as String)).toList();
   }
 
-  Future<Map<String, dynamic>?> _getJson(Uri uri) async {
-    try {
-      final response = await http.get(uri, headers: _headers).timeout(_timeout);
-      if (response.statusCode != 200) return null;
-      final body = jsonDecode(utf8.decode(response.bodyBytes));
-      return body is Map<String, dynamic> ? body : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<ArtistAbout?> _load(
     String key,
     String accountId,
@@ -212,36 +192,13 @@ class ArtistAboutService {
   }
 
   Future<Map<String, dynamic>?> _lookupArtist(String musicBrainzId) =>
-      _musicBrainz('artist/$musicBrainzId', {'inc': 'url-rels+genres'});
-
-  Future<Map<String, dynamic>?> _musicBrainz(
-    String path,
-    Map<String, String> params,
-  ) {
-    final run = _musicBrainzQueue.then((_) async {
-      final wait =
-          _musicBrainzGap - DateTime.now().difference(_lastMusicBrainzCall);
-      if (wait > Duration.zero) await Future<void>.delayed(wait);
-      try {
-        return await _getJson(
-          Uri.https('musicbrainz.org', '/ws/2/$path', {
-            ...params,
-            'fmt': 'json',
-          }),
-        );
-      } finally {
-        _lastMusicBrainzCall = DateTime.now();
-      }
-    });
-    _musicBrainzQueue = run.then((_) {}, onError: (_) {});
-    return run;
-  }
+      musicBrainz.get('artist/$musicBrainzId', {'inc': 'url-rels+genres'});
 
   String? _name(Object? value) => value is Map ? _text(value['name']) : null;
 
   Future<Map<String, dynamic>?> _searchArtist(String name) async {
     final quoted = name.replaceAll(r'\', r'\\').replaceAll('"', r'\"');
-    final result = await _musicBrainz('artist', {
+    final result = await musicBrainz.get('artist', {
       'query': 'artist:"$quoted" OR alias:"$quoted"',
       'limit': '5',
     });
@@ -274,7 +231,7 @@ class ArtistAboutService {
   Future<Map<String, dynamic>?> _wikipediaSummary(String title) async {
     final page = Uri.encodeComponent(title.trim().replaceAll(' ', '_'));
     if (page.isEmpty) return null;
-    final summary = await _getJson(
+    final summary = await getMusicJson(
       Uri.parse('https://en.wikipedia.org/api/rest_v1/page/summary/$page'),
     );
     return summary?['type'] == 'standard' ? summary : null;
@@ -304,7 +261,7 @@ class ArtistAboutService {
     final wikidata = link('wikidata');
     if (wikidata == null || wikidata.pathSegments.isEmpty) return null;
     final entity = wikidata.pathSegments.last;
-    final data = await _getJson(
+    final data = await getMusicJson(
       Uri.https('www.wikidata.org', '/w/api.php', {
         'action': 'wbgetentities',
         'ids': entity,

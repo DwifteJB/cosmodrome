@@ -6,11 +6,14 @@ import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/local_music/local_tags.dart';
 import 'package:cosmodrome/services/local_music/tag_reader.dart';
+import 'package:cosmodrome/services/local_music/tag_writer.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
 import 'package:cosmodrome/utils/logger/logger.dart';
+import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 
 const localIdPrefix = 'local-';
 const localArtPrefix = 'local-art-';
@@ -28,6 +31,7 @@ const _indexKey = 'library';
 const _indexVersion = 2;
 const _matchesKey = 'local_album_matches';
 const _playlistsKey = 'local_playlist_entries';
+const _editableSuffixes = {'mp3', 'm4a', 'mp4', 'flac', 'ape'};
 
 bool isLocalSongId(String id) =>
     id.startsWith(localIdPrefix) &&
@@ -239,16 +243,13 @@ class LocalMusicService extends ChangeNotifier {
       final track = await _readTrack(file);
       next[track.song.id] = track;
       changed = true;
+      final oldArt = existing?.song.coverArt;
+      if (oldArt != track.song.coverArt) await _deleteArt(oldArt);
     }
 
     for (final gone in byName.values) {
       changed = true;
-      final art = gone.song.coverArt;
-      if (art != null && isLocalArtId(art)) {
-        try {
-          await LocalStorageService.deleteCoverImage(_artRef(art));
-        } catch (_) {}
-      }
+      await _deleteArt(gone.song.coverArt);
     }
 
     if (changed) {
@@ -258,10 +259,19 @@ class LocalMusicService extends ChangeNotifier {
       _resolved = null;
       await _saveIndex();
       notifyListeners();
+      notifyLibraryChanged();
       loggerPrint('LocalMusic: ${_tracks.length} local files');
     }
 
     unawaited(_matchAlbums());
+  }
+
+  Future<void> _deleteArt(String? art) async {
+    if (art == null || !isLocalArtId(art)) return;
+    PaintingBinding.instance.imageCache.evict('$localArtScheme:$art');
+    try {
+      await LocalStorageService.deleteCoverImage(_artRef(art));
+    } catch (_) {}
   }
 
   // get id3 tags & parse
@@ -273,7 +283,8 @@ class LocalMusicService extends ChangeNotifier {
     String? coverArt;
     final picture = tags.picture;
     if (picture != null && picture.isNotEmpty) {
-      final artId = '$localArtPrefix$hash';
+      final artId =
+          '$localArtPrefix$hash-${md5.convert(picture).toString().substring(0, 8)}';
       try {
         await LocalStorageService.ensureDirs(_store);
         await LocalStorageService.writeCoverImageBytes(_artRef(artId), picture);
@@ -370,6 +381,26 @@ class LocalMusicService extends ChangeNotifier {
 
     if (imported > 0) await scan();
     return imported;
+  }
+
+  bool canEditTags(Song song) {
+    final track = _tracks[song.id];
+    if (!canWriteLocalTags || track == null) return false;
+    final dot = track.name.lastIndexOf('.');
+    if (dot < 0) return false;
+    return _editableSuffixes.contains(
+      track.name.substring(dot + 1).toLowerCase(),
+    );
+  }
+
+  Future<bool> editTags(Song song, LocalTagEdit edit) async {
+    final track = _tracks[song.id];
+    if (track == null) return false;
+    if (!await writeLocalTags(track.ref, edit)) return false;
+
+    await _scanning;
+    await scan();
+    return true;
   }
 
   Future<void> delete(Song song) async {

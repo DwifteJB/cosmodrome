@@ -1,8 +1,10 @@
+import 'package:cosmodrome/components/local_files/edit_details_page.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/api/browsing.dart';
 import 'package:cosmodrome/helpers/subsonic-api-helper/types/browsing.dart';
 import 'package:cosmodrome/providers/download_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
+import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/navigation.dart';
 import 'package:cosmodrome/utils/notifiers/sidebar_notifier.dart';
@@ -276,6 +278,12 @@ class _SongContextSheetState extends State<_SongContextSheet> {
                   artistId: song.artistId,
                   artistName: song.artist,
                 );
+              }),
+            if (localMusicService.canEditTags(song))
+              _actionTile(colors, Icons.edit_outlined, 'Edit details', () {
+                final root = Navigator.of(context, rootNavigator: true).context;
+                Navigator.pop(context);
+                showEditDetails(root, song);
               }),
             if (widget.onRemoveFromPlaylist != null)
               ListTile(

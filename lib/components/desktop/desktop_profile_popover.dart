@@ -1,8 +1,8 @@
 // ignore_for_file: deprecated_member_use
-import 'package:cosmodrome/components/settings/settings_shell.dart';
 import 'package:cosmodrome/components/forms/add_server_form.dart';
 import 'package:cosmodrome/components/forms/add_user_form.dart';
 import 'package:cosmodrome/components/scrolling_text.dart';
+import 'package:cosmodrome/components/settings/settings_shell.dart';
 import 'package:cosmodrome/providers/subsonic_account.dart';
 import 'package:cosmodrome/providers/subsonic_provider.dart';
 import 'package:cosmodrome/services/local_music/local_subsonic/master_subsonic.dart';
@@ -11,6 +11,40 @@ import 'package:cosmodrome/utils/scanning/scan_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
+
+/// Shows a titled dialog wrapping one of the add/edit account or server forms.
+Future<void> showFormDialog(
+  BuildContext ctx,
+  String title,
+  Widget Function(BuildContext dialogCtx) formBuilder,
+) {
+  return showFDialog(
+    context: ctx,
+    builder: (dialogCtx, _, animation) => FDialog.raw(
+      animation: animation,
+      builder: (innerCtx, style) => SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                style: innerCtx.theme.typography.xl.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: innerCtx.theme.colors.foreground,
+                ),
+              ),
+              const SizedBox(height: 20),
+              formBuilder(dialogCtx),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 class DesktopProfilePopover extends StatefulWidget {
   const DesktopProfilePopover({super.key});
@@ -143,39 +177,18 @@ class _DesktopAccountPopoverContentState
     );
   }
 
-  Widget _buildCollapsible(bool expanded, List<Widget> children) {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-      child: expanded
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: children,
-            )
-          : const SizedBox.shrink(),
-    );
+  @override
+  void dispose() {
+    isScanningNotifier.removeListener(_onScanChanged);
+    super.dispose();
   }
 
-  Widget _buildSettingsRow(BuildContext context, FColors colors) {
-    return GestureDetector(
-      onTap: widget.onSettingsPressed,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            Icon(FIcons.settings, size: 16, color: colors.mutedForeground),
-            const SizedBox(width: 10),
-            Text(
-              'Settings',
-              style: context.theme.typography.sm.copyWith(
-                color: colors.foreground,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _isScanning = isScanningNotifier.value;
+    _wasScanning = _isScanning;
+    isScanningNotifier.addListener(_onScanChanged);
   }
 
   void showEditAccountDialog(BuildContext ctx, SubsonicAccount account) {
@@ -200,20 +213,6 @@ class _DesktopAccountPopoverContentState
         onCancel: () => Navigator.pop(dialogCtx),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    isScanningNotifier.removeListener(_onScanChanged);
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _isScanning = isScanningNotifier.value;
-    _wasScanning = _isScanning;
-    isScanningNotifier.addListener(_onScanChanged);
   }
 
   Widget _buildActiveProfileCard(
@@ -255,7 +254,7 @@ class _DesktopAccountPopoverContentState
                   maxWidth: 200,
                 ),
                 ScrollingText(
-                  text: server.name,
+                  text: server.name.isNotEmpty ? server.name : account.baseUrl,
                   maxWidth: 200,
                   style: context.theme.typography.xs.copyWith(
                     color: colors.mutedForeground,
@@ -290,6 +289,48 @@ class _DesktopAccountPopoverContentState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCollapsible(bool expanded, List<Widget> children) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: expanded
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  /// Edit + delete icons shown while a row is hovered; editing closes the
+  /// popover first.
+  Widget _buildHoverActions(
+    FColors colors, {
+    required VoidCallback? onEdit,
+    required VoidCallback? onDelete,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (onEdit != null) ...[
+          GestureDetector(
+            onTap: () {
+              widget.onClose();
+              onEdit();
+            },
+            child: Icon(FIcons.pencil, size: 16, color: colors.mutedForeground),
+          ),
+          const SizedBox(width: 8),
+        ],
+        if (onDelete != null)
+          GestureDetector(
+            onTap: onDelete,
+            child: const Icon(FIcons.trash2, size: 16, color: Colors.red),
+          ),
+      ],
     );
   }
 
@@ -518,32 +559,25 @@ class _DesktopAccountPopoverContentState
     );
   }
 
-  /// Edit + delete icons shown while a row is hovered; editing closes the
-  /// popover first.
-  Widget _buildHoverActions(
-    FColors colors, {
-    required VoidCallback? onEdit,
-    required VoidCallback? onDelete,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (onEdit != null) ...[
-          GestureDetector(
-            onTap: () {
-              widget.onClose();
-              onEdit();
-            },
-            child: Icon(FIcons.pencil, size: 16, color: colors.mutedForeground),
-          ),
-          const SizedBox(width: 8),
-        ],
-        if (onDelete != null)
-          GestureDetector(
-            onTap: onDelete,
-            child: const Icon(FIcons.trash2, size: 16, color: Colors.red),
-          ),
-      ],
+  Widget _buildSettingsRow(BuildContext context, FColors colors) {
+    return GestureDetector(
+      onTap: widget.onSettingsPressed,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Icon(FIcons.settings, size: 16, color: colors.mutedForeground),
+            const SizedBox(width: 10),
+            Text(
+              'Settings',
+              style: context.theme.typography.sm.copyWith(
+                color: colors.foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -694,7 +728,10 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
                   ),
                 ),
                 Text(
-                  activeAccount?.baseUrl ?? 'No account selected',
+                  (activeAccount?.serverName.isNotEmpty == true
+                          ? activeAccount!.serverName
+                          : activeAccount?.baseUrl) ??
+                      'No server',
                   style: context.theme.typography.xs.copyWith(
                     color: colors.mutedForeground,
                   ),
@@ -709,38 +746,4 @@ class _DesktopProfilePopoverState extends State<DesktopProfilePopover>
       ),
     );
   }
-}
-
-/// Shows a titled dialog wrapping one of the add/edit account or server forms.
-Future<void> showFormDialog(
-  BuildContext ctx,
-  String title,
-  Widget Function(BuildContext dialogCtx) formBuilder,
-) {
-  return showFDialog(
-    context: ctx,
-    builder: (dialogCtx, _, animation) => FDialog.raw(
-      animation: animation,
-      builder: (innerCtx, style) => SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                title,
-                style: innerCtx.theme.typography.xl.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: innerCtx.theme.colors.foreground,
-                ),
-              ),
-              const SizedBox(height: 20),
-              formBuilder(dialogCtx),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }

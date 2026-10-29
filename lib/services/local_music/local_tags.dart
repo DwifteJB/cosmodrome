@@ -30,3 +30,29 @@ class LocalTags {
     this.picture,
   });
 }
+
+class LocalTagEdit {
+  final String? title;
+  final String? artist;
+  final String? albumArtist;
+  final String? album;
+  final int? track;
+  final int? disc;
+  final int? year;
+  final String? genre;
+  final Uint8List? picture;
+  final bool pictureChanged;
+
+  const LocalTagEdit({
+    this.title,
+    this.artist,
+    this.albumArtist,
+    this.album,
+    this.track,
+    this.disc,
+    this.year,
+    this.genre,
+    this.picture,
+    this.pictureChanged = false,
+  });
+}
