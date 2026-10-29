@@ -10,6 +10,7 @@ import 'package:cosmodrome/providers/player_provider.dart';
 import 'package:cosmodrome/utils/cover_art/cover_art_provider.dart';
 import 'package:cosmodrome/utils/format_duration.dart';
 import 'package:cosmodrome/utils/navigation.dart';
+import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:go_router/go_router.dart';
@@ -219,7 +220,7 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar>
     final hasLyrics = context.select<LyricsProvider, bool>((p) => p.hasLyrics);
     final player = context.read<PlayerProvider>();
     final hasSong = song != null;
-    final accent = accentColor ?? colors.primary;
+    final accent = readableAccent(accentColor ?? colors.primary);
 
     return MouseRegion(
       onEnter: (_) => _collapseTimer?.cancel(),
@@ -249,7 +250,9 @@ class _DesktopPlayerBarState extends State<DesktopPlayerBar>
                 height: _kBarHeight,
                 child: TweenAnimationBuilder<Color?>(
                   tween: ColorTween(
-                    begin: prevAccentColor ?? accent,
+                    begin: prevAccentColor == null
+                        ? accent
+                        : readableAccent(prevAccentColor),
                     end: accent,
                   ),
                   duration: _kAccentDuration,

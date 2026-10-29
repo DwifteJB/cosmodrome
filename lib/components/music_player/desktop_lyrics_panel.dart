@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:cosmodrome/components/music_player/lyrics_view.dart';
 import 'package:cosmodrome/providers/lyrics_provider.dart';
 import 'package:cosmodrome/providers/player_provider.dart';
+import 'package:cosmodrome/utils/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
@@ -18,7 +19,9 @@ class DesktopLyricsPanel extends StatelessWidget {
     final hasSong = context.select<PlayerProvider, bool>(
       (p) => p.hasCurrentSong,
     );
-    final accent = context.select<PlayerProvider, Color?>((p) => p.accentColor);
+    final accent = context.select<PlayerProvider, Color?>(
+      (p) => p.accentColor == null ? null : readableAccent(p.accentColor!),
+    );
     final colors = context.theme.colors;
     final typography = context.theme.typography;
 

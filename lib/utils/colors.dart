@@ -12,6 +12,9 @@ abstract final class AppColors {
   static const mutedButtonColor = Color.fromARGB(255, 31, 31, 31);
 }
 
+Color readableAccent(Color color) =>
+    color.computeLuminance() < 0.08 ? Colors.white : color;
+
 abstract final class AppLayout {
   static const double sidebarWidth = 260;
 

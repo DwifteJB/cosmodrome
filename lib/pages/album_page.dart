@@ -95,7 +95,7 @@ class _AlbumHeader extends StatelessWidget {
             name: album.artist,
             onTap: onArtistTap,
             style: context.theme.typography.xl.copyWith(
-              color: accentColor,
+              color: readableAccent(accentColor),
               height: 0,
               fontWeight: FontWeight.w400,
             ),

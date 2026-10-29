@@ -19,16 +19,23 @@
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" fixedFrame="YES" image="vector2" translatesAutoresizingMaskIntoConstraints="NO" id="ECv-7G-ZmK">
-                                <rect key="frame" x="223" y="413" width="112" height="26"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                            </imageView>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" fixedFrame="YES" image="vector" translatesAutoresizingMaskIntoConstraints="NO" id="eDN-uP-hjF">
-                                <rect key="frame" x="64" y="413" width="112" height="26"/>
-                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
-                            </imageView>
+                            <stackView opaque="NO" userInteractionEnabled="NO" contentMode="scaleToFill" spacing="10" translatesAutoresizingMaskIntoConstraints="NO" id="Stk-aY-3ob">
+                                <rect key="frame" x="79.666666666666686" y="413" width="234" height="26"/>
+                                <subviews>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="center" image="vector" translatesAutoresizingMaskIntoConstraints="NO" id="eDN-uP-hjF">
+                                        <rect key="frame" x="0.0" y="0.0" width="112" height="26"/>
+                                    </imageView>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="center" image="vector2" translatesAutoresizingMaskIntoConstraints="NO" id="ECv-7G-ZmK">
+                                        <rect key="frame" x="122" y="0.0" width="112" height="26"/>
+                                    </imageView>
+                                </subviews>
+                            </stackView>
                         </subviews>
                         <color key="backgroundColor" red="0.066650383169999994" green="0.066650383169999994" blue="0.066650383169999994" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                        <constraints>
+                            <constraint firstItem="Stk-aY-3ob" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="Lc1-aY-3ob"/>
+                            <constraint firstItem="Stk-aY-3ob" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="Lc2-aY-3ob"/>
+                        </constraints>
                     </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>

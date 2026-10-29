@@ -199,7 +199,9 @@ class MusicPageMobileTrackTile extends StatelessWidget {
                         style: theme.typography.sm.copyWith(
                           color: !enabled
                               ? colors.mutedForeground
-                              : (isPlaying ? accentColor : colors.foreground),
+                              : (isPlaying
+                                    ? readableAccent(accentColor)
+                                    : colors.foreground),
                           fontWeight: FontWeight.w400,
                           letterSpacing: -0.05,
                         ),
@@ -362,7 +364,10 @@ class _MusicPageDesktopTrackTileState extends State<MusicPageDesktopTrackTile> {
                             color: !widget.enabled
                                 ? disabledText
                                 : (isPlaying
-                                      ? widget.accentColor
+                                      ? readableAccent(
+                                          widget.accentColor ??
+                                              colors.foreground,
+                                        )
                                       : colors.foreground),
                             fontWeight: FontWeight.w400,
                             letterSpacing: -0.05,

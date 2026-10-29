@@ -31,9 +31,9 @@ import 'package:cosmodrome/services/car/car_service.dart';
 import 'package:cosmodrome/services/discord_rpc.dart';
 import 'package:cosmodrome/services/local_music/local_music_service.dart';
 import 'package:cosmodrome/services/local_storage_service.dart';
-import 'package:cosmodrome/services/onboarding_service.dart';
 import 'package:cosmodrome/services/offline_cache_service.dart'
     show SpotlightItem;
+import 'package:cosmodrome/services/onboarding_service.dart';
 import 'package:cosmodrome/theme/theme.dart';
 import 'package:cosmodrome/utils/colors.dart';
 import 'package:cosmodrome/utils/isMobileView.dart';
@@ -126,7 +126,11 @@ void main() async {
   final hasServerAccount = subsonicProvider.accounts.any((a) => !a.isLocal);
   final showWelcome =
       (!hasServerAccount && !await OnboardingService.isComplete()) ||
-      bool.fromEnvironment('ONBOARD', defaultValue: false);
+      const bool.fromEnvironment('ONBOARD', defaultValue: false) == true;
+
+  print(
+    'showWelcome: $showWelcome, hasServerAccount: $hasServerAccount, onboardENv: ${const bool.fromEnvironment('ONBOARD', defaultValue: false)}',
+  );
   if (hasServerAccount) unawaited(OnboardingService.markComplete());
 
   router = _buildRouter(showWelcome ? '/welcome' : '/home');
@@ -146,20 +150,20 @@ void main() async {
   runApp(const Application());
 }
 
-final downloadProvider = DownloadProvider();
-final isDesktop =
-    (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) &&
-    !const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false);
-final _detailRoutesInShell = isDesktop || kIsWeb;
 const _accountBoundRoutes = [
   '/library/album/',
   '/library/playlist/',
   '/library/artist/',
   '/artist-detail/',
 ];
+final downloadProvider = DownloadProvider();
+final isDesktop =
+    (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) &&
+    !const bool.fromEnvironment("FORCED_MOBILE", defaultValue: false);
 final playerProvider = PlayerProvider()..setDownloadProvider(downloadProvider);
 late final GoRouter router;
 final subsonicProvider = SubsonicProvider();
+final _detailRoutesInShell = isDesktop || kIsWeb;
 
 // go router
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -301,30 +305,6 @@ GoRouter _buildRouter(String initialLocation) => GoRouter(
   ],
 );
 
-Page<void> _shellPage(Widget child, {LocalKey? key}) => NoTransitionPage(
-  key: key,
-  child: _AccountScope(
-    child: Builder(
-      builder: (context) =>
-          isMobileView(context) ? child : DesktopPageScroll(child: child),
-    ),
-  ),
-);
-
-class _AccountScope extends StatelessWidget {
-  final Widget child;
-
-  const _AccountScope({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final id = context.select<SubsonicProvider, String?>(
-      (p) => p.activeAccount?.id,
-    );
-    return KeyedSubtree(key: ValueKey(id), child: child);
-  }
-}
-
 // full-screen detail page pushed over the shell on mobile
 GoRoute _mobileDetailRoute(
   String path,
@@ -343,11 +323,35 @@ GoRoute _mobileDetailRoute(
   ),
 );
 
+Page<void> _shellPage(Widget child, {LocalKey? key}) => NoTransitionPage(
+  key: key,
+  child: _AccountScope(
+    child: Builder(
+      builder: (context) =>
+          isMobileView(context) ? child : DesktopPageScroll(child: child),
+    ),
+  ),
+);
+
 class Application extends StatefulWidget {
   const Application({super.key});
 
   @override
   State<Application> createState() => _ApplicationState();
+}
+
+class _AccountScope extends StatelessWidget {
+  final Widget child;
+
+  const _AccountScope({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final id = context.select<SubsonicProvider, String?>(
+      (p) => p.activeAccount?.id,
+    );
+    return KeyedSubtree(key: ValueKey(id), child: child);
+  }
 }
 
 class _ApplicationState extends State<Application>
