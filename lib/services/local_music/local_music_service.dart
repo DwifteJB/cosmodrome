@@ -31,6 +31,8 @@ const _indexKey = 'library';
 const _indexVersion = 2;
 const _matchesKey = 'local_album_matches';
 const _playlistsKey = 'local_playlist_entries';
+const _editsKey = 'tag_edits';
+const _noArt = 'none';
 const _editableSuffixes = {'mp3', 'm4a', 'mp4', 'flac', 'ape'};
 
 bool isLocalSongId(String id) =>
@@ -50,6 +52,7 @@ final localMusicService = LocalMusicService();
 // app needs to know when this changes
 class LocalMusicService extends ChangeNotifier {
   final Map<String, LocalTrack> _tracks = {};
+  final Map<String, Map<String, dynamic>> _edits = {};
   Map<String, Song>? _resolved;
 
   SubsonicProvider? _provider;
@@ -247,10 +250,13 @@ class LocalMusicService extends ChangeNotifier {
       if (oldArt != track.song.coverArt) await _deleteArt(oldArt);
     }
 
+    var editsChanged = false;
     for (final gone in byName.values) {
       changed = true;
       await _deleteArt(gone.song.coverArt);
+      if (_edits.remove(gone.name) != null) editsChanged = true;
     }
+    if (editsChanged) await _saveEdits();
 
     if (changed) {
       _tracks
@@ -278,11 +284,16 @@ class LocalMusicService extends ChangeNotifier {
   Future<LocalTrack> _readTrack(LocalMusicFile file) async {
     final hash = _hash(file.name);
     final id = '$localIdPrefix$hash';
-    final tags = await readLocalTags(file.ref) ?? _tagsFromName(file.name);
+    final read = await readLocalTags(file.ref) ?? _tagsFromName(file.name);
+    final edit = _edits[file.name];
+    final tags = edit == null ? read : LocalTagEdit.fromJson(edit).apply(read);
+    final editedArt = edit?['art'] as String?;
 
     String? coverArt;
     final picture = tags.picture;
-    if (picture != null && picture.isNotEmpty) {
+    if (editedArt != null) {
+      coverArt = editedArt == _noArt ? null : editedArt;
+    } else if (picture != null && picture.isNotEmpty) {
       final artId =
           '$localArtPrefix$hash-${md5.convert(picture).toString().substring(0, 8)}';
       try {
@@ -383,24 +394,68 @@ class LocalMusicService extends ChangeNotifier {
     return imported;
   }
 
-  bool canEditTags(Song song) {
-    final track = _tracks[song.id];
-    if (!canWriteLocalTags || track == null) return false;
+  bool canEditTags(Song song) => _tracks.containsKey(song.id);
+
+  bool _canWriteFile(LocalTrack track) {
     final dot = track.name.lastIndexOf('.');
-    if (dot < 0) return false;
-    return _editableSuffixes.contains(
-      track.name.substring(dot + 1).toLowerCase(),
-    );
+    return canWriteLocalTags &&
+        dot >= 0 &&
+        _editableSuffixes.contains(track.name.substring(dot + 1).toLowerCase());
   }
 
   Future<bool> editTags(Song song, LocalTagEdit edit) async {
+    await _scanning;
     final track = _tracks[song.id];
     if (track == null) return false;
-    if (!await writeLocalTags(track.ref, edit)) return false;
 
-    await _scanning;
-    await scan();
+    if (_canWriteFile(track) && await writeLocalTags(track.ref, edit)) {
+      if (_edits.remove(track.name) != null) await _saveEdits();
+      await scan();
+      return true;
+    }
+
+    var art = _edits[track.name]?['art'] as String?;
+    if (edit.pictureChanged) {
+      final picture = edit.picture;
+      if (picture == null || picture.isEmpty) {
+        art = _noArt;
+      } else {
+        art =
+            '$localArtPrefix${_hash(track.name)}-${md5.convert(picture).toString().substring(0, 8)}';
+        try {
+          await LocalStorageService.ensureDirs(_store);
+          await LocalStorageService.writeCoverImageBytes(_artRef(art), picture);
+        } catch (e) {
+          loggerPrint('LocalMusic: failed to save artwork: $e');
+          return false;
+        }
+      }
+    }
+
+    _edits[track.name] = {...edit.toJson(), 'art': ?art};
+    if (!await _saveEdits()) return false;
+    await _reread(track);
     return true;
+  }
+
+  Future<void> _reread(LocalTrack track) async {
+    final updated = await _readTrack(
+      LocalMusicFile(
+        ref: track.ref,
+        name: track.name,
+        size: track.size,
+        modified: track.modified,
+      ),
+    );
+    if (updated.song.coverArt != track.song.coverArt) {
+      await _deleteArt(track.song.coverArt);
+    }
+    _tracks[updated.song.id] = updated;
+    _resolved = null;
+    await _saveIndex();
+    notifyListeners();
+    notifyLibraryChanged();
+    unawaited(_matchAlbums());
   }
 
   Future<void> delete(Song song) async {
@@ -725,6 +780,14 @@ class LocalMusicService extends ChangeNotifier {
 
   Future<void> _loadIndex() async {
     try {
+      final edits = await LocalStorageService.readJsonMeta(_store, _editsKey);
+      edits?.forEach((name, edit) {
+        if (edit is Map<String, dynamic>) _edits[name] = edit;
+      });
+    } catch (e) {
+      loggerPrint('LocalMusic: failed to load edits: $e');
+    }
+    try {
       final raw = await LocalStorageService.readJsonMeta(_store, _indexKey);
       if (raw == null || raw['version'] != _indexVersion) return;
       for (final item in raw['tracks'] as List<dynamic>) {
@@ -746,6 +809,17 @@ class LocalMusicService extends ChangeNotifier {
       });
     } catch (e) {
       loggerPrint('LocalMusic: failed to save index: $e');
+    }
+  }
+
+  Future<bool> _saveEdits() async {
+    try {
+      await LocalStorageService.ensureDirs(_store);
+      await LocalStorageService.writeJsonMeta(_store, _editsKey, _edits);
+      return true;
+    } catch (e) {
+      loggerPrint('LocalMusic: failed to save edits: $e');
+      return false;
     }
   }
 
