@@ -22,13 +22,11 @@ This project is under the [GPL-2.0 License](https://github.com/DwifteJB/cosmodro
 
 ## Downloads
 
+The iOS app can be purchased [here.](https://apps.apple.com/gb/app/cosmodrome/id6762309461) (1$ / £1)
+
 You can get android, linux, ios & windows builds in the [Actions Page](https://github.com/DwifteJB/cosmodrome/actions). 
 
 The MacOS builds are regularly added to the [Releases Page](https://github.com/DwifteJB/cosmodrome/releases).
-
-The iOS testflight can be accessed [here.](https://testflight.apple.com/join/uuX9qUxQ)
-
-If you are on iOS 16 or below, you can download the IPA as it is made for iOS 15 and above.
 
 ## Features
 
@@ -83,14 +81,6 @@ Current support for known servers (subsonic-like servers) are as following:
 * [Octo-fiesta](https://github.com/V1ck3s/octo-fiesta)
 * [Aplsonic](https://github.com/DwifteJB/aplsonic) (Apple Music -> OpenSubsonic API)
 
-
-## Whats the plans for when this releases?
-
-When/If this releases, the iOS & Android app will be listed on the appstore for £1/$1 The subscription cost of the iOS developer account is quite a lot, so this will be my way of trying to get the costs back for the development & my overall time.
-
-The app will be free & open source, free to compile and run as long as you can install an APK or an IPA file.
-
-The desktop apps I am not too sure about, they will most likely also just be free with no paywall.
 
 ## Contributions
 To contribute, create a fork and create a pull request whenever ready for it to be reviewed!
